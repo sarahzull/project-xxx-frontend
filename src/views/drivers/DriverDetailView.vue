@@ -146,7 +146,7 @@ const monthlyChartData = computed(() => {
     datasets: [{
       label: 'Trips',
       data: sorted.map(([, v]) => v),
-      backgroundColor: theme.isDark ? 'rgba(59,130,246,0.85)' : 'rgba(37,99,235,0.85)',
+      backgroundColor: theme.isDark ? 'rgba(59,130,246,0.85)' : 'rgba(29,78,216,0.85)',
       hoverBackgroundColor: theme.isDark ? '#60A5FA' : '#1D4ED8',
       borderRadius: 5,
       borderSkipped: false,
@@ -155,7 +155,7 @@ const monthlyChartData = computed(() => {
 })
 
 // ── Computed: oil company doughnut ────────────────────────────────────────────
-const palette = ['#2563EB','#7C3AED','#059669','#D97706','#EF4444','#0891B2','#BE185D','#65A30D']
+const palette = ['#1D4ED8','#7C3AED','#16A34A','#D97706','#EF4444','#0891B2','#BE185D','#65A30D']
 
 const oilChartData = computed(() => {
   const counts = {}
@@ -367,7 +367,7 @@ onMounted(async () => {
           >
             <template #actions>
               <div class="dd-legend">
-                <span class="dd-legend-dot" style="background:#2563EB"></span>
+                <span class="dd-legend-dot" style="background:#1D4ED8"></span>
                 <span class="dd-legend-text">Trips</span>
               </div>
             </template>
@@ -390,8 +390,8 @@ onMounted(async () => {
           <p class="dd-section-label" style="margin-bottom:0">Trip History</p>
           <p class="dd-history-count">
             {{ sortedTrips.length }} trip{{ sortedTrips.length !== 1 ? 's' : '' }}
-            <span v-if="tripSearch" class="dd-filtered-chip">matching search</span>
-            <span v-if="tripSortKey" class="dd-filtered-chip" style="background:var(--c-bg);color:var(--c-text-2);border:1px solid var(--c-border)">
+            <span v-if="tripSearch" class="chip chip--filter">matching search</span>
+            <span v-if="tripSortKey" class="chip chip--sort">
               {{ tripSortDir === 'asc' ? '↑' : '↓' }} {{ tripSortKey.replace('_', ' ') }}
             </span>
           </p>
@@ -500,7 +500,7 @@ onMounted(async () => {
   border: 1.5px solid transparent;
 }
 .dd-rank-a { background: #16A34A; color: #fff; border-color: #16A34A; }  /* green  */
-.dd-rank-b { background: #2563EB; color: #fff; border-color: #2563EB; }  /* blue   */
+.dd-rank-b { background: #1D4ED8; color: #fff; border-color: #1D4ED8; }  /* blue   */
 .dd-rank-c { background: #F97316; color: #fff; border-color: #F97316; }  /* orange */
 
 /* Tanker chip */
@@ -580,14 +580,9 @@ onMounted(async () => {
   font-size: 0.8125rem; color: var(--c-text-2); font-weight: 500;
   margin-top: 2px; display: flex; align-items: center; gap: 6px;
 }
-.dd-filtered-chip {
-  font-size: 0.6875rem; font-weight: 600; color: var(--c-accent);
-  background: var(--c-accent-tint);
-  padding: 1px 7px; border-radius: var(--r-full);
-}
 /* Rank text colours in profile meta grid */
 .rank-a { color: #16A34A; font-weight: 700; }  /* green  */
-.rank-b { color: #2563EB; font-weight: 700; }  /* blue   */
+.rank-b { color: #1D4ED8; font-weight: 700; }  /* blue   */
 .rank-c { color: #F97316; font-weight: 700; }  /* orange */
 
 .dd-history-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }

@@ -18,9 +18,9 @@ const map = {
 const dotColor = {
   active:    '#16A34A',
   blocked:   '#DC2626',
-  draft:     '#D97706',
-  pending:   '#D97706',
-  confirmed: '#2563EB',
+  draft:     '#64748B',   /* slate-500 — neutral, not yet submitted */
+  pending:   '#D97706',   /* amber-600 — needs attention */
+  confirmed: '#1D4ED8',   /* blue-700 — logistics primary */
   exported:  '#16A34A',
   info:      '#7C3AED',
 }

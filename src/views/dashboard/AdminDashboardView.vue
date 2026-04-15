@@ -109,7 +109,7 @@ const heroOptions = computed(() => ({
     bar: { borderRadius: 5, columnWidth: '55%', borderRadiusApplication: 'end' },
   },
   dataLabels: { enabled: false },
-  colors: ['#2563EB'],
+  colors: ['#1D4ED8'],
   xaxis: {
     categories: monthlyTrips.value.map(m => m.label),
     labels: { style: { colors: labelColor.value, fontSize: '11px' } },
@@ -147,7 +147,7 @@ const statusOptions = computed(() => ({
   },
   theme: { mode: apexTheme.value },
   labels: ['Active', 'Blocked', 'Inactive'],
-  colors: ['#059669', '#EF4444', '#94A3B8'],
+  colors: ['#16A34A', '#EF4444', '#94A3B8'],
   plotOptions: {
     pie: {
       donut: {
@@ -179,7 +179,7 @@ const statusOptions = computed(() => ({
 }))
 
 // ── Oil Company bar chart ─────────────────────────────────────────────────────
-const palette = ['#2563EB','#7C3AED','#059669','#D97706','#EF4444','#0891B2','#BE185D','#65A30D']
+const palette = ['#1D4ED8','#7C3AED','#16A34A','#D97706','#EF4444','#0891B2','#BE185D','#65A30D']
 
 const oilEntries = computed(() => {
   const obj = tripStats.value?.by_oil_company || {}
@@ -224,7 +224,7 @@ const oilOptions = computed(() => ({
 }))
 
 // ── Rankings bar chart ────────────────────────────────────────────────────────
-const rankMap = { A: '#059669', B: '#D97706', C: '#EF4444' }
+const rankMap = { A: '#16A34A', B: '#D97706', C: '#EF4444' }
 
 const rankEntries = computed(() => {
   const obj = driverStats.value?.drivers_by_ranking || {}
@@ -399,7 +399,7 @@ onMounted(async () => {
       >
         <template #actions>
           <div class="adash-legend">
-            <span class="adash-legend-dot" style="background:#2563EB"></span>
+            <span class="adash-legend-dot" style="background:#1D4ED8"></span>
             <span class="adash-legend-text">Trips</span>
           </div>
         </template>
@@ -588,7 +588,7 @@ onMounted(async () => {
 /* ── Banner ─────────────────────────────────────────────────────────────────── */
 .adash-banner {
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
-  background: linear-gradient(135deg, #1E40AF 0%, #2563EB 50%, #3B82F6 100%);
+  background: linear-gradient(135deg, #1E40AF 0%, #1D4ED8 50%, #3B82F6 100%);
   border-radius: 16px; padding: 1.5rem 1.75rem; color: #fff;
   margin-bottom: 0.5rem;
 }
@@ -614,7 +614,7 @@ onMounted(async () => {
 }
 .adash-spinner {
   width: 20px; height: 20px; border: 2px solid var(--c-border);
-  border-top-color: #2563EB; border-radius: 50%; animation: spin 0.7s linear infinite;
+  border-top-color: #1D4ED8; border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -704,7 +704,7 @@ onMounted(async () => {
   background: none; border: none; cursor: pointer; padding: 0;
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
 }
-.adash-driver-link-name { font-size: 0.875rem; font-weight: 600; color: #2563EB; }
+.adash-driver-link-name { font-size: 0.875rem; font-weight: 600; color: #1D4ED8; }
 .adash-driver-link-id   { font-size: 0.75rem; color: var(--c-text-2); font-family: monospace; }
 .adash-driver-link:hover .adash-driver-link-name { text-decoration: underline; }
 
@@ -713,7 +713,7 @@ onMounted(async () => {
   display: inline-block; padding: 0.15rem 0.55rem;
   border-radius: 6px; font-size: 0.75rem; font-weight: 700;
 }
-.adash-rank-a { background: rgba(5,150,105,0.12); color: #059669; }
+.adash-rank-a { background: rgba(22,163,74,0.12); color: #16A34A; }
 .adash-rank-b { background: rgba(217,119,6,0.12);  color: #D97706; }
 .adash-rank-c { background: rgba(239,68,68,0.12);  color: #EF4444; }
 
@@ -741,7 +741,7 @@ onMounted(async () => {
 .adash-expiry-empty {
   display: flex; align-items: center; gap: 0.75rem; padding: 1.5rem;
   background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 14px;
-  color: #059669; font-size: 0.875rem; font-weight: 500;
+  color: #16A34A; font-size: 0.875rem; font-weight: 500;
 }
 .adash-expiry-empty svg { width: 22px; height: 22px; flex-shrink: 0; }
 

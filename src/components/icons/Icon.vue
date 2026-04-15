@@ -9,7 +9,7 @@
 
   Usage:
     <Icon name="driver" />
-    <Icon name="truck" :size="24" color="#2563EB" />
+    <Icon name="truck" :size="24" color="#1D4ED8" />
     <Icon name="check-circle" :size="16" />
 -->
 <script setup>

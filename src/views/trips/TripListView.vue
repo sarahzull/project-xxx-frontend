@@ -217,8 +217,8 @@ function clearFilters() {
           <p class="tv-card-title">Trip Records</p>
           <p class="tv-card-sub">
             <span>{{ loading ? '…' : filteredTrips.length }} trip{{ filteredTrips.length !== 1 ? 's' : '' }}</span>
-            <span v-if="hasFilter" class="tv-chip tv-chip--blue">filtered</span>
-            <span class="tv-chip tv-chip--sort">
+            <span v-if="hasFilter" class="chip chip--filter">filtered</span>
+            <span class="chip chip--sort">
               {{ columns.find(c => c.key === sortKey)?.label || sortKey }}
               {{ sortDir === 'asc' ? '↑' : '↓' }}
             </span>
@@ -321,7 +321,7 @@ function clearFilters() {
         <Transition name="tv-fade">
           <button v-if="hasFilter" class="tv-clear-btn" @click="clearFilters">
             <CloseIcon :size="10" :stroke-width="2.5" />
-            Clear
+            Reset
           </button>
         </Transition>
 
@@ -391,8 +391,8 @@ function clearFilters() {
 .tv-banner-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .tv-banner-icon {
   width: 42px; height: 42px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: var(--c-accent-tint); border: 1.5px solid rgba(37,99,235,0.15);
-  display: flex; align-items: center; justify-content: center; color: var(--c-accent);
+  background: var(--c-accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
 }
 .tv-banner-icon svg { width: 20px; height: 20px; }
 .tv-banner-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text-1); letter-spacing: -0.02em; margin-bottom: 1px; }
@@ -428,9 +428,6 @@ function clearFilters() {
 .tv-card-search { flex-shrink: 0; width: 220px; }
 @media (max-width: 767px) { .tv-card-hd { padding: 12px 14px; } .tv-card-search { display: none; } }
 
-.tv-chip { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: var(--r-full); font-size: 0.6875rem; font-weight: 600; }
-.tv-chip--blue { background: var(--c-accent-tint); color: var(--c-accent); }
-.tv-chip--sort { background: var(--c-bg); color: var(--c-text-3); border: 1px solid var(--c-border-light); }
 
 /* ── Filter bar ──────────────────────────────────────────────── */
 .tv-filter-bar {
@@ -473,8 +470,8 @@ function clearFilters() {
   color: var(--c-text-2); font-size: 0.8125rem; font-weight: 500;
   cursor: pointer; transition: all var(--dur); white-space: nowrap;
 }
-.tv-drop-trigger:hover { border-color: var(--c-purple); color: var(--c-purple); }
-.tv-drop-trigger--on   { border-color: var(--c-purple); background: var(--c-purple-tint); color: var(--c-purple); font-weight: 600; }
+.tv-drop-trigger:hover { border-color: var(--c-accent); color: var(--c-accent); }
+.tv-drop-trigger--on   { border-color: var(--c-accent); background: var(--c-accent-tint); color: var(--c-accent); font-weight: 600; }
 .tv-drop-icon  { width: 14px; height: 14px; flex-shrink: 0; }
 .tv-drop-caret { width: 10px; height: 6px; flex-shrink: 0; transition: transform var(--dur); }
 .tv-drop-caret--open { transform: rotate(180deg); }
@@ -506,8 +503,8 @@ function clearFilters() {
   cursor: pointer; transition: background var(--dur); text-align: left;
 }
 .tv-drop-opt:hover   { background: var(--c-bg); }
-.tv-drop-opt--on     { background: var(--c-purple-tint); color: var(--c-purple); font-weight: 600; }
-.tv-drop-opt-check   { width: 16px; height: 16px; flex-shrink: 0; color: var(--c-purple); }
+.tv-drop-opt--on     { background: var(--c-accent-tint); color: var(--c-accent); font-weight: 600; }
+.tv-drop-opt-check   { width: 16px; height: 16px; flex-shrink: 0; color: var(--c-accent); }
 .tv-drop-opt-check svg { width: 100%; height: 100%; display: block; }
 
 .tv-drop-empty { padding: 12px; text-align: center; font-size: 0.8125rem; color: var(--c-text-3); margin: 0; }

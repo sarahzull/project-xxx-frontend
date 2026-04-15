@@ -271,8 +271,8 @@ onMounted(async () => {
 .rv-banner-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .rv-banner-icon {
   width: 42px; height: 42px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: var(--c-purple-tint); border: 1.5px solid rgba(124,58,237,0.15);
-  display: flex; align-items: center; justify-content: center; color: var(--c-purple);
+  background: var(--c-purple); color: #fff;
+  display: flex; align-items: center; justify-content: center;
 }
 .rv-banner-icon svg { width: 20px; height: 20px; }
 .rv-banner-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text-1); letter-spacing: -0.02em; margin-bottom: 1px; }

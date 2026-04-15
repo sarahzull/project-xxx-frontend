@@ -132,7 +132,7 @@ onMounted(fetchBatches)
           <p class="bv-card-title">Payroll Batches</p>
           <p class="bv-card-sub">
             <span>{{ loading ? '…' : filteredBatches.length }} batch{{ filteredBatches.length !== 1 ? 'es' : '' }}</span>
-            <span v-if="statusFilter" class="bv-chip bv-chip--blue">filtered</span>
+            <span v-if="statusFilter" class="chip chip--filter">filtered</span>
           </p>
         </div>
         <button class="bv-new-btn" @click="openCreate">
@@ -145,7 +145,7 @@ onMounted(fetchBatches)
       <div class="bv-filter-bar">
         <span class="bv-filter-lbl">
           <FilterIcon :size="12" aria-hidden="true" />
-          Status
+          Filter
         </span>
         <div class="bv-seg" role="group" aria-label="Filter by status">
           <button :class="['bv-seg-btn', statusFilter === '' && 'bv-seg-btn--on']"            @click="statusFilter = ''">All</button>
@@ -284,8 +284,8 @@ onMounted(fetchBatches)
 .bv-banner-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .bv-banner-icon {
   width: 42px; height: 42px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: var(--c-green-tint); border: 1.5px solid rgba(5,150,105,0.15);
-  display: flex; align-items: center; justify-content: center; color: var(--c-green);
+  background: var(--c-green); color: #fff;
+  display: flex; align-items: center; justify-content: center;
 }
 .bv-banner-icon svg { width: 20px; height: 20px; }
 .bv-banner-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text-1); letter-spacing: -0.02em; margin-bottom: 1px; }
@@ -316,8 +316,6 @@ onMounted(fetchBatches)
 @media (max-width: 767px) { .bv-card-hd { padding: 12px 14px; } }
 .bv-card-title { font-size: 0.9375rem; font-weight: 600; color: var(--c-text-1); letter-spacing: -0.01em; }
 .bv-card-sub { font-size: 0.75rem; color: var(--c-text-3); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
-.bv-chip { display: inline-flex; padding: 1px 7px; border-radius: var(--r-full); font-size: 0.6875rem; font-weight: 600; }
-.bv-chip--blue { background: var(--c-accent-tint); color: var(--c-accent); }
 
 .bv-new-btn {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
@@ -348,7 +346,7 @@ onMounted(fetchBatches)
   color: var(--c-text-3); background: transparent; border: none; cursor: pointer; transition: all var(--dur); white-space: nowrap;
 }
 .bv-seg-btn:hover:not(.bv-seg-btn--on) { background: var(--c-surface); color: var(--c-text-1); }
-.bv-seg-btn--on { background: var(--c-surface); color: var(--c-green); font-weight: 600; box-shadow: var(--sh-xs); }
+.bv-seg-btn--on { background: var(--c-surface); color: var(--c-accent); font-weight: 600; box-shadow: var(--sh-xs); }
 
 .bv-reset-btn {
   display: inline-flex; align-items: center; gap: 4px;
@@ -417,7 +415,7 @@ onMounted(fetchBatches)
 }
 .bv-modal-icon {
   width: 38px; height: 38px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: var(--c-green-tint); border: 1.5px solid rgba(5,150,105,0.15);
+  background: var(--c-green-tint); border: 1.5px solid rgba(22,163,74,0.15);
   display: flex; align-items: center; justify-content: center; color: var(--c-green);
 }
 .bv-modal-icon svg { width: 18px; height: 18px; }
@@ -437,7 +435,7 @@ onMounted(fetchBatches)
   border-radius: 8px; background: var(--c-bg); color: var(--c-text-1);
   font-size: 0.875rem; transition: border-color var(--dur); box-sizing: border-box;
 }
-.bv-input:focus, .bv-textarea:focus { outline: none; border-color: var(--c-green); box-shadow: 0 0 0 3px rgba(5,150,105,0.12); }
+.bv-input:focus, .bv-textarea:focus { outline: none; border-color: var(--c-green); box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
 .bv-textarea { resize: vertical; font-family: inherit; }
 .bv-form-err { font-size: 0.8125rem; color: var(--c-red); background: var(--c-red-tint); padding: 8px 12px; border-radius: 8px; }
 

@@ -5,7 +5,7 @@
    ============================================================ */
 :root {
   /* Core palette */
-  --c-bg:          #EFF2F7;
+  --c-bg:          #F8FAFC;    /* slate-50 — clean, neutral base */
   --c-surface:     #FFFFFF;
   --c-border:      #E2E8F0;
   --c-border-light:#F1F5F9;
@@ -15,41 +15,45 @@
   --c-text-2: #475569;
   --c-text-3: #94A3B8;
 
-  /* Accent – blue */
-  --c-accent:       #2563EB;
-  --c-accent-h:     #1D4ED8;
-  --c-accent-tint:  #EFF6FF;
-  --c-accent-ring:  rgba(37, 99, 235, 0.15);
+  /* Accent – logistics blue (authoritative, trustworthy) */
+  --c-accent:       #1D4ED8;   /* blue-700 */
+  --c-accent-h:     #1E40AF;   /* blue-800 — hover */
+  --c-accent-tint:  #EFF6FF;   /* blue-50 */
+  --c-accent-ring:  rgba(29, 78, 216, 0.15);
 
   /* Semantic colours */
-  --c-green:        #059669;
-  --c-green-tint:   #ECFDF5;
-  --c-green-bg:     #A7F3D0;    /* emerald-200 — more vivid */
+  --c-green:        #16A34A;   /* green-600 — active, confirmed, success */
+  --c-green-tint:   #F0FDF4;   /* green-50 */
+  --c-green-bg:     #BBF7D0;   /* green-200 */
 
   --c-red:          #DC2626;
   --c-red-tint:     #FEF2F2;
-  --c-red-bg:       #FECACA;    /* red-200 — more vivid */
+  --c-red-bg:       #FECACA;   /* red-200 */
 
-  --c-amber:        #D97706;
+  --c-amber:        #D97706;   /* amber-600 — pending, needs attention */
   --c-amber-tint:   #FFFBEB;
-  --c-amber-bg:     #FDE68A;    /* amber-200 — more golden */
+  --c-amber-bg:     #FDE68A;   /* amber-200 */
 
-  --c-orange:       #EA580C;    /* orange-600 — for Rank C */
-  --c-orange-tint:  #FFF7ED;    /* orange-50  */
-  --c-orange-bg:    #FED7AA;    /* orange-200 */
+  --c-orange:       #EA580C;   /* orange-600 — deviation, overdue */
+  --c-orange-tint:  #FFF7ED;   /* orange-50  */
+  --c-orange-bg:    #FED7AA;   /* orange-200 */
 
   --c-purple:       #7C3AED;
   --c-purple-tint:  #F5F3FF;
   --c-purple-bg:    #EDE9FE;
 
+  --c-slate:        #64748B;   /* slate-500 — draft, neutral/unknown status */
+  --c-slate-tint:   #F8FAFC;   /* slate-50 */
+  --c-slate-bg:     #E2E8F0;   /* slate-200 */
+
   /* Sidebar */
   --sb-bg:          #FFFFFF;
   --sb-hover:       #F1F5F9;
   --sb-active-bg:   #EFF6FF;
-  --sb-active-line: #2563EB;
+  --sb-active-line: #1D4ED8;
   --sb-text:        #64748B;
   --sb-text-h:      #0F172A;
-  --sb-text-active: #2563EB;
+  --sb-text-active: #1D4ED8;
   --sb-width:       244px;
 
   /* Spacing & geometry */
@@ -522,12 +526,12 @@ img     { display: block; max-width: 100%; }
   background: var(--c-accent);
   color: #fff;
   border-color: var(--c-accent);
-  box-shadow: 0 1px 2px rgba(37,99,235,0.25);
+  box-shadow: 0 1px 2px rgba(29,78,216,0.25);
 }
 .btn-primary:not(:disabled):hover {
   background: var(--c-accent-h);
   border-color: var(--c-accent-h);
-  box-shadow: 0 3px 8px rgba(37,99,235,0.3);
+  box-shadow: 0 3px 8px rgba(29,78,216,0.3);
 }
 .btn-secondary {
   background: var(--c-surface);
@@ -598,7 +602,7 @@ img     { display: block; max-width: 100%; }
 
 /* variants */
 .action-btn:not(:disabled):hover            { background: var(--c-bg);   color: var(--c-text-1); border-color: var(--c-border); }
-.action-btn--view:not(:disabled):hover      { background: #EFF6FF;       color: #2563EB;         border-color: #BFDBFE; }
+.action-btn--view:not(:disabled):hover      { background: #EFF6FF;       color: #1D4ED8;         border-color: #BFDBFE; }
 .action-btn--edit:not(:disabled):hover      { background: #FFFBEB;       color: #D97706;         border-color: #FDE68A; }
 .action-btn--save:not(:disabled):hover      { background: #F0FDF4;       color: #16A34A;         border-color: #BBF7D0; }
 .action-btn--delete:not(:disabled):hover    { background: #FFF1F2;       color: #DC2626;         border-color: #FECACA; }
@@ -854,6 +858,33 @@ img     { display: block; max-width: 100%; }
 }
 
 /* ============================================================
+   CHIP — inline label pill (filter active, sort indicator)
+   Shared globally so every page renders identically.
+   ============================================================ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+/* Active filter — blue tint */
+.chip--filter {
+  background: var(--c-accent-tint);
+  color: var(--c-accent);
+}
+/* Sort / neutral indicator — subtle gray */
+.chip--sort {
+  background: var(--c-bg);
+  color: var(--c-text-3);
+  border: 1px solid var(--c-border-light);
+}
+
+/* ============================================================
    STATUS BADGE — outlined pill
    Border + text share the same semantic color.
    Background is always the surface token so it adapts to
@@ -885,19 +916,19 @@ img     { display: block; max-width: 100%; }
 }
 
 /* ── Semantic variants (light) ────────────────────────────── */
-.badge-active    { border-color: #16A34A; color: #16A34A; background: rgba(22, 163, 74,  0.08); }
+.badge-active    { border-color: #16A34A; color: #16A34A; background: rgba(22,  163, 74,  0.08); }
 .badge-blocked   { border-color: #DC2626; color: #DC2626; background: rgba(220, 38,  38,  0.08); }
-.badge-draft     { border-color: #D97706; color: #D97706; background: rgba(217, 119, 6,   0.08); }
-.badge-pending   { border-color: #D97706; color: #D97706; background: rgba(217, 119, 6,   0.08); }
-.badge-confirmed { border-color: #2563EB; color: #2563EB; background: rgba(37,  99,  235, 0.08); }
-.badge-exported  { border-color: #16A34A; color: #16A34A; background: rgba(22, 163, 74,  0.08); }
+.badge-draft     { border-color: #64748B; color: #64748B; background: rgba(100, 116, 139, 0.08); } /* slate — neutral, not yet submitted */
+.badge-pending   { border-color: #D97706; color: #D97706; background: rgba(217, 119, 6,   0.08); } /* amber — needs attention */
+.badge-confirmed { border-color: #1D4ED8; color: #1D4ED8; background: rgba(29,  78,  216, 0.08); }
+.badge-exported  { border-color: #16A34A; color: #16A34A; background: rgba(22,  163, 74,  0.08); }
 .badge-info      { border-color: #7C3AED; color: #7C3AED; background: rgba(124, 58,  237, 0.08); }
 .badge-default   { border-color: var(--c-border); color: var(--c-text-2); background: var(--c-bg); }
 
 /* ── Dark mode — lighter tone so they pop on dark surface ─── */
 [data-theme="dark"] .badge-active    { border-color: #22C55E; color: #22C55E; background: rgba(34,  197, 94,  0.12); }
 [data-theme="dark"] .badge-blocked   { border-color: #EF4444; color: #EF4444; background: rgba(239, 68,  68,  0.12); }
-[data-theme="dark"] .badge-draft,
+[data-theme="dark"] .badge-draft     { border-color: #94A3B8; color: #94A3B8; background: rgba(148, 163, 184, 0.12); } /* slate — neutral in dark */
 [data-theme="dark"] .badge-pending   { border-color: #F59E0B; color: #F59E0B; background: rgba(245, 158, 11,  0.12); }
 [data-theme="dark"] .badge-confirmed { border-color: #60A5FA; color: #60A5FA; background: rgba(96,  165, 250, 0.12); }
 [data-theme="dark"] .badge-exported  { border-color: #22C55E; color: #22C55E; background: rgba(34,  197, 94,  0.12); }
@@ -1295,9 +1326,9 @@ img     { display: block; max-width: 100%; }
 [data-theme="dark"] {
   --sb-bg:          #1A1D27;
   --sb-hover:       #212330;
-  --sb-active-bg:   rgba(59,130,246,0.12);
-  --sb-active-line: #3B82F6;
+  --sb-active-bg:   rgba(59, 130, 246, 0.12);
+  --sb-active-line: #3B82F6;   /* blue-500 — readable on dark */
   --sb-text:        #4B5563;
   --sb-text-h:      #94A3B8;
-  --sb-text-active: #60A5FA;
+  --sb-text-active: #60A5FA;   /* blue-400 — bright enough on dark */
 }

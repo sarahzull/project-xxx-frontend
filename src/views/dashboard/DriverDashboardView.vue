@@ -49,7 +49,7 @@ const licenseStatus = computed(() => {
   if (d <= 30)  return { label: 'Critical',  key: 'critical', color: '#EF4444' }
   if (d <= 60)  return { label: 'Expiring',  key: 'warning',  color: '#F59E0B' }
   if (d <= 90)  return { label: 'Notice',    key: 'notice',   color: '#3B82F6' }
-  return { label: 'Valid', key: 'valid', color: '#059669' }
+  return { label: 'Valid', key: 'valid', color: '#16A34A' }
 })
 
 const greeting = computed(() => {
@@ -89,7 +89,7 @@ const areaOptions = computed(() => ({
       stops: [0, 100],
     },
   },
-  colors: ['#059669', '#2563EB'],
+  colors: ['#16A34A', '#1D4ED8'],
   xaxis: {
     categories: monthly.value.map(m => m.label),
     labels: { style: { colors: labelColor.value, fontSize: '11px' }, rotate: -30 },
@@ -368,7 +368,7 @@ onMounted(async () => {
 /* ── Banner ─────────────────────────────────────────────────────────────────── */
 .ddash-banner {
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
-  background: linear-gradient(135deg, #065F46 0%, #059669 55%, #34D399 100%);
+  background: linear-gradient(135deg, #065F46 0%, #16A34A 55%, #34D399 100%);
   border-radius: 16px; padding: 1.5rem 1.75rem; color: #fff; margin-bottom: 0.5rem;
 }
 .ddash-banner-left   { display: flex; align-items: center; gap: 1rem; }
@@ -394,7 +394,7 @@ onMounted(async () => {
 }
 .ddash-spinner {
   width: 20px; height: 20px; border: 2px solid var(--c-border);
-  border-top-color: #059669; border-radius: 50%; animation: spin 0.7s linear infinite;
+  border-top-color: #16A34A; border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .ddash-error {
@@ -422,14 +422,14 @@ onMounted(async () => {
 }
 .ddash-stat-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); transform: translateY(-1px); }
 .ddash-stat-icon {
-  width: 44px; height: 44px; border-radius: 11px;
+  width: 44px; height: 44px; border-radius: 20px;
   display: grid; place-items: center; flex-shrink: 0;
 }
 .ddash-stat-icon svg { width: 22px; height: 22px; }
-.ddash-stat--green .ddash-stat-icon { background: rgba(5,150,105,0.12); color: #059669; }
-.ddash-stat--blue  .ddash-stat-icon { background: rgba(37,99,235,0.12);  color: #2563EB; }
+.ddash-stat--green .ddash-stat-icon { background: rgba(22,163,74,0.12); color: #16A34A; }
+.ddash-stat--blue  .ddash-stat-icon { background: rgba(29,78,216,0.12);  color: #1D4ED8; }
 .ddash-stat--purple .ddash-stat-icon{ background: rgba(124,58,237,0.12); color: #7C3AED; }
-.ddash-license-card .ddash-stat-icon{ background: rgba(5,150,105,0.08);  color: #059669; }
+.ddash-license-card .ddash-stat-icon{ background: rgba(22,163,74,0.08);  color: #16A34A; }
 [data-status="critical"] .ddash-stat-icon { background: rgba(239,68,68,0.1);  color: #EF4444; }
 [data-status="warning"]  .ddash-stat-icon { background: rgba(245,158,11,0.1); color: #F59E0B; }
 [data-status="notice"]   .ddash-stat-icon { background: rgba(59,130,246,0.1); color: #3B82F6; }
@@ -448,7 +448,7 @@ onMounted(async () => {
   font-size: 0.875rem; font-weight: 600; color: var(--c-text);
   margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--c-border);
 }
-.ddash-profile-hd svg { width: 18px; height: 18px; color: #059669; }
+.ddash-profile-hd svg { width: 18px; height: 18px; color: #16A34A; }
 .ddash-profile-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem 1.5rem;
 }
@@ -461,13 +461,13 @@ onMounted(async () => {
   display: inline-block; padding: 0.15rem 0.5rem; border-radius: 6px;
   font-size: 0.75rem; font-weight: 600; text-transform: capitalize;
 }
-.ddash-status--active  { background: rgba(5,150,105,0.1);  color: #059669; }
+.ddash-status--active  { background: rgba(22,163,74,0.1);  color: #16A34A; }
 .ddash-status--blocked { background: rgba(239,68,68,0.1);  color: #EF4444; }
 .ddash-rank {
   display: inline-block; padding: 0.15rem 0.55rem;
   border-radius: 6px; font-size: 0.75rem; font-weight: 700;
 }
-.ddash-rank-a { background: rgba(5,150,105,0.12);  color: #059669; }
+.ddash-rank-a { background: rgba(22,163,74,0.12);  color: #16A34A; }
 .ddash-rank-b { background: rgba(217,119,6,0.12);  color: #D97706; }
 .ddash-rank-c { background: rgba(239,68,68,0.12);  color: #EF4444; }
 
@@ -515,9 +515,9 @@ onMounted(async () => {
   display: inline-block; padding: 0.15rem 0.55rem; border-radius: 6px;
   font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
 }
-.ddash-type--petrol { background: rgba(37,99,235,0.1);   color: #2563EB; }
+.ddash-type--petrol { background: rgba(29,78,216,0.1);   color: #1D4ED8; }
 .ddash-type--diesel { background: rgba(217,119,6,0.1);   color: #D97706; }
-.ddash-type--lpg    { background: rgba(5,150,105,0.1);   color: #059669; }
+.ddash-type--lpg    { background: rgba(22,163,74,0.1);   color: #16A34A; }
 .ddash-type--cng    { background: rgba(124,58,237,0.1);  color: #7C3AED; }
 
 /* Notes tag */

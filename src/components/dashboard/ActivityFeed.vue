@@ -142,7 +142,7 @@ function timeAgo(iso) {
 }
 .af-hd-ico {
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
-  background: rgba(37,99,235,0.1); color: #2563EB; display: grid; place-items: center;
+  background: rgba(29,78,216,0.1); color: #1D4ED8; display: grid; place-items: center;
 }
 .af-hd-title { font-size: 0.875rem; font-weight: 700; color: var(--c-text); margin: 0 0 2px; }
 .af-hd-sub   { font-size: 0.76rem;  color: var(--c-text-2); margin: 0; }
@@ -191,8 +191,8 @@ function timeAgo(iso) {
   width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; margin-top: 3px;
 }
-.af-dot--green   { background: rgba(5,150,105,0.14);  color: #059669; }
-.af-dot--blue    { background: rgba(37,99,235,0.12);  color: #2563EB; }
+.af-dot--green   { background: rgba(22,163,74,0.14);  color: #16A34A; }
+.af-dot--blue    { background: rgba(29,78,216,0.12);  color: #1D4ED8; }
 .af-dot--red     { background: rgba(239,68,68,0.12);  color: #EF4444; }
 .af-dot--neutral { background: var(--c-border);       color: var(--c-text-2); }
 
@@ -209,7 +209,7 @@ function timeAgo(iso) {
 .af-action      { font-size: 0.82rem; font-weight: 600; color: var(--c-text); }
 .af-driver-link {
   all: unset; cursor: pointer;
-  font-size: 0.82rem; color: #2563EB; font-weight: 500;
+  font-size: 0.82rem; color: #1D4ED8; font-weight: 500;
 }
 .af-driver-link:hover { text-decoration: underline; }
 .af-driver-plain { font-size: 0.82rem; color: var(--c-text-2); }

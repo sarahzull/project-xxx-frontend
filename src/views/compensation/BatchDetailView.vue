@@ -303,8 +303,8 @@ onMounted(fetchData)
 .bd-header-left { display: flex; align-items: flex-start; gap: 14px; }
 .bd-batch-icon {
   width: 44px; height: 44px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: var(--c-green-tint); border: 1.5px solid rgba(5,150,105,0.15);
-  display: flex; align-items: center; justify-content: center; color: var(--c-green); margin-top: 2px;
+  background: var(--c-green); color: #fff;
+  display: flex; align-items: center; justify-content: center; margin-top: 2px;
 }
 .bd-batch-icon svg { width: 22px; height: 22px; }
 .bd-batch-num { font-size: 1.375rem; font-weight: 800; color: var(--c-text-1); letter-spacing: -0.02em; line-height: 1.2; }
@@ -398,7 +398,7 @@ onMounted(fetchData)
 .bd-rec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 0.8125rem; color: var(--c-text-2); }
 .bd-rk { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-text-3); display: block; margin-bottom: 1px; }
 .bd-rec-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--c-border-light); flex-wrap: wrap; }
-.bd-edit-btn { font-size: 0.8125rem; font-weight: 500; color: var(--c-accent); background: var(--c-accent-tint); border: 1px solid rgba(37,99,235,0.2); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.bd-edit-btn { font-size: 0.8125rem; font-weight: 500; color: var(--c-accent); background: var(--c-accent-tint); border: 1px solid rgba(29,78,216,0.2); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .bd-save-btn { font-size: 0.8125rem; font-weight: 600; color: #fff; background: var(--c-green); border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .bd-cancel-btn { font-size: 0.8125rem; font-weight: 500; color: var(--c-text-2); background: transparent; border: 1px solid var(--c-border); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 </style>

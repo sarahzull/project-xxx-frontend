@@ -176,8 +176,8 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
           <p class="dv-card-title">Driver Directory</p>
           <p class="dv-card-sub">
             <span>{{ loading ? '…' : sortedDrivers.length }} driver{{ sortedDrivers.length !== 1 ? 's' : '' }}</span>
-            <span v-if="hasFilter" class="dv-chip dv-chip-blue">filtered</span>
-            <span v-if="sortKey" class="dv-chip dv-chip-gray">
+            <span v-if="hasFilter" class="chip chip--filter">filtered</span>
+            <span v-if="sortKey" class="chip chip--sort">
               {{ sortLabel }} {{ sortDir === 'asc' ? '↑' : '↓' }}
             </span>
           </p>
@@ -230,7 +230,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
         <Transition name="clear-fade">
           <button v-if="hasFilter" class="dv-clear-btn" @click="clearFilters">
             <CloseIcon :size="10" :stroke-width="2.5" />
-            Clear
+            Reset
           </button>
         </Transition>
 
@@ -322,9 +322,9 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 .dv-banner-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .dv-banner-icon {
   width: 42px; height: 42px; border-radius: var(--r-lg);
-  background: var(--c-accent-tint); border: 1.5px solid rgba(37,99,235,0.15);
+  background: var(--c-accent); color: #fff;
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; color: var(--c-accent);
+  flex-shrink: 0;
 }
 .dv-banner-icon svg { width: 20px; height: 20px; }
 .dv-banner-title {
@@ -403,14 +403,6 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
   .dv-card-search { display: none; }
 }
 
-/* Chips in header */
-.dv-chip {
-  display: inline-flex; align-items: center;
-  padding: 1px 7px; border-radius: var(--r-full);
-  font-size: 0.6875rem; font-weight: 600;
-}
-.dv-chip-blue { background: var(--c-accent-tint); color: var(--c-accent); }
-.dv-chip-gray { background: var(--c-bg); color: var(--c-text-2); border: 1px solid var(--c-border); }
 
 /* ── Filter bar ───────────────────────────────────────────────── */
 .dv-filter-bar {
@@ -530,7 +522,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 }
 /* Default (inactive) letter colours */
 .dv-rank-btn--a .dv-rank-letter { background: #16A34A; color: #fff; }  /* green  */
-.dv-rank-btn--b .dv-rank-letter { background: #2563EB; color: #fff; }  /* blue   */
+.dv-rank-btn--b .dv-rank-letter { background: #1D4ED8; color: #fff; }  /* blue   */
 .dv-rank-btn--c .dv-rank-letter { background: #F97316; color: #fff; }  /* orange */
 
 .dv-rank-label {
@@ -560,13 +552,13 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 .dv-rank-btn--active.dv-rank-btn--a .dv-rank-label  { color: #16A34A; }
 
 .dv-rank-btn--active.dv-rank-btn--b {
-  border-color: #2563EB;
+  border-color: #1D4ED8;
   background: #EFF6FF;
-  color: #2563EB;
+  color: #1D4ED8;
 }
-.dv-rank-btn--active.dv-rank-btn--b .dv-rank-letter { background: #2563EB; color: #fff; }
-.dv-rank-btn--active.dv-rank-btn--b .dv-rank-badge  { background: #DBEAFE; color: #2563EB; border-color: transparent; }
-.dv-rank-btn--active.dv-rank-btn--b .dv-rank-label  { color: #2563EB; }
+.dv-rank-btn--active.dv-rank-btn--b .dv-rank-letter { background: #1D4ED8; color: #fff; }
+.dv-rank-btn--active.dv-rank-btn--b .dv-rank-badge  { background: #DBEAFE; color: #1D4ED8; border-color: transparent; }
+.dv-rank-btn--active.dv-rank-btn--b .dv-rank-label  { color: #1D4ED8; }
 
 .dv-rank-btn--active.dv-rank-btn--c {
   border-color: #F97316;
@@ -605,7 +597,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
   border-radius: var(--r-sm); font-size: 0.8125rem; font-weight: 700;
 }
 .dv-chip-a { background: #16A34A; color: #fff; }  /* green  */
-.dv-chip-b { background: #2563EB; color: #fff; }  /* blue   */
+.dv-chip-b { background: #1D4ED8; color: #fff; }  /* blue   */
 .dv-chip-c { background: #F97316; color: #fff; }  /* orange */
 
 .dv-expiry-warn { color: var(--c-amber); font-weight: 600; }

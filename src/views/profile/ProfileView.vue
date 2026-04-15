@@ -453,8 +453,8 @@ function userInitials(name) {
 .pv-banner-left { display: flex; align-items: center; gap: 12px; }
 .pv-banner-icon {
   width: 42px; height: 42px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: #EDE9FE; border: 1.5px solid rgba(124,58,237,0.15);
-  display: flex; align-items: center; justify-content: center; color: #7C3AED;
+  background: #7C3AED; color: #fff;
+  display: flex; align-items: center; justify-content: center;
 }
 .pv-banner-icon svg { width: 20px; height: 20px; }
 .pv-banner-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text-1); letter-spacing: -0.02em; margin-bottom: 1px; }

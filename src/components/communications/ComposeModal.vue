@@ -604,7 +604,7 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 .cm-drop-item:hover { background: var(--c-bg); }
 .cm-drop-avatar {
   width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(37,99,235,0.12); color: #2563EB;
+  background: rgba(29,78,216,0.12); color: #1D4ED8;
   display: grid; place-items: center; font-size: 0.75rem; font-weight: 700;
 }
 .cm-drop-info   { display: flex; flex-direction: column; gap: 1px; }
@@ -662,10 +662,10 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 .cm-letter {
   background: var(--c-surface); border-radius: 12px;
   box-shadow: var(--sh-md); overflow: hidden;
-  border-top: 4px solid #059669; /* default reward */
+  border-top: 4px solid #16A34A; /* default reward */
 }
 .cm-letter--warning { border-top-color: #D97706; }
-.cm-letter--reward  { border-top-color: #059669; }
+.cm-letter--reward  { border-top-color: #16A34A; }
 
 .cm-letter-head {
   display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -673,7 +673,7 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 }
 .cm-letter-brand { display: flex; align-items: center; gap: 7px; }
 .cm-letter-brand-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: #2563EB; flex-shrink: 0;
+  width: 8px; height: 8px; border-radius: 50%; background: #1D4ED8; flex-shrink: 0;
 }
 .cm-letter-brand-name { font-size: 0.78rem; font-weight: 700; color: var(--c-text-1); letter-spacing: .02em; }
 
@@ -682,7 +682,7 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
   padding: 0.2rem 0.6rem; border-radius: 20px;
   font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
 }
-.cm-letter-type-badge--reward  { background: rgba(5,150,105,0.1); color: #059669; }
+.cm-letter-type-badge--reward  { background: rgba(22,163,74,0.1); color: #16A34A; }
 .cm-letter-type-badge--warning { background: rgba(245,158,11,0.1); color: #D97706; }
 
 .cm-letter-divider { height: 1px; background: var(--c-border); margin: 0 1.1rem; }

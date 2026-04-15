@@ -165,7 +165,7 @@ function getRisk(key) {
 /* Avatar */
 .rd-avatar {
   width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(37,99,235,0.1); color: #2563EB;
+  background: rgba(29,78,216,0.1); color: #1D4ED8;
   font-size: 0.8rem; font-weight: 700;
   display: grid; place-items: center;
 }

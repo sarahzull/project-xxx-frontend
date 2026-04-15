@@ -128,5 +128,5 @@ function daysLabel(n) {
   font-size: 0.7rem; font-weight: 600; white-space: nowrap;
 }
 .bc-pill--today { background: rgba(168,85,247,0.12); color: #A855F7; }
-.bc-pill--soon  { background: rgba(37,99,235,0.1);   color: #2563EB; }
+.bc-pill--soon  { background: rgba(29,78,216,0.1);   color: #1D4ED8; }
 </style>

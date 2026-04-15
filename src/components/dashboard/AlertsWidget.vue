@@ -146,16 +146,16 @@ const totalAlerts = computed(() =>
 /* ── All clear ────────────────────────────────────────────────────────────── */
 .aw-clear {
   display: flex; align-items: center; gap: 0.875rem;
-  background: rgba(5,150,105,0.06); border: 1px solid rgba(5,150,105,0.2);
+  background: rgba(22,163,74,0.06); border: 1px solid rgba(22,163,74,0.2);
   border-radius: 12px; padding: 1rem 1.5rem;
 }
 .aw-clear-ico {
   width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
-  background: rgba(5,150,105,0.12); color: #059669;
+  background: rgba(22,163,74,0.12); color: #16A34A;
   display: grid; place-items: center;
 }
 .aw-clear-body { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 0.4rem; }
-.aw-clear-title { font-size: 0.875rem; font-weight: 700; color: #059669; }
+.aw-clear-title { font-size: 0.875rem; font-weight: 700; color: #16A34A; }
 .aw-clear-sep   { font-size: 0.875rem; color: var(--c-text-2); }
 .aw-clear-sub   { font-size: 0.84rem;  color: var(--c-text-2); }
 

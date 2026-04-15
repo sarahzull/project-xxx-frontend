@@ -248,7 +248,7 @@ onMounted(fetchEarnings)
 .earn-hdr-left { display: flex; align-items: center; gap: 0.875rem; }
 .earn-hdr-icon {
   width: 44px; height: 44px; border-radius: 12px;
-  background: rgba(5,150,105,0.1); color: #059669;
+  background: #16A34A; color: #fff;
   display: grid; place-items: center; flex-shrink: 0;
 }
 .earn-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text); margin: 0 0 2px; }
@@ -273,7 +273,7 @@ onMounted(fetchEarnings)
 }
 .earn-spinner {
   width: 18px; height: 18px; border: 2px solid var(--c-border);
-  border-top-color: #059669; border-radius: 50%; animation: spin 0.7s linear infinite;
+  border-top-color: #16A34A; border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .earn-error {
@@ -294,8 +294,8 @@ onMounted(fetchEarnings)
   width: 44px; height: 44px; border-radius: 11px;
   display: grid; place-items: center; flex-shrink: 0;
 }
-.earn-stat--green .earn-stat-icon { background: rgba(5,150,105,0.12);  color: #059669; }
-.earn-stat--blue  .earn-stat-icon { background: rgba(37,99,235,0.12);   color: #2563EB; }
+.earn-stat--green .earn-stat-icon { background: rgba(22,163,74,0.12);  color: #16A34A; }
+.earn-stat--blue  .earn-stat-icon { background: rgba(29,78,216,0.12);   color: #1D4ED8; }
 .earn-stat--purple .earn-stat-icon{ background: rgba(124,58,237,0.12);  color: #7C3AED; }
 .earn-stat-val { font-size: 1.25rem; font-weight: 700; color: var(--c-text); margin-bottom: 3px; }
 .earn-stat-lbl { font-size: 0.76rem; color: var(--c-text-2); font-weight: 500; }
@@ -324,7 +324,7 @@ onMounted(fetchEarnings)
 .earn-day-date svg { color: var(--c-text-2); }
 .earn-day-sub { font-size: 0.76rem; color: var(--c-text-2); }
 .earn-day-total {
-  font-size: 0.9rem; font-weight: 700; color: #059669;
+  font-size: 0.9rem; font-weight: 700; color: #16A34A;
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -345,16 +345,16 @@ onMounted(fetchEarnings)
 .earn-tbl tbody tr:last-child td { border-bottom: none; }
 .earn-tbl tbody tr:hover { background: var(--c-hover); }
 .earn-tbl td.num { text-align: right; }
-.earn-total-cell { font-weight: 700; color: #059669; }
+.earn-total-cell { font-weight: 700; color: #16A34A; }
 
 /* Type badges */
 .earn-type {
   display: inline-block; padding: 0.15rem 0.5rem; border-radius: 6px;
   font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
 }
-.earn-type--petrol { background: rgba(37,99,235,0.1);  color: #2563EB; }
+.earn-type--petrol { background: rgba(29,78,216,0.1);  color: #1D4ED8; }
 .earn-type--diesel { background: rgba(217,119,6,0.1);  color: #D97706; }
-.earn-type--lpg    { background: rgba(5,150,105,0.1);  color: #059669; }
+.earn-type--lpg    { background: rgba(22,163,74,0.1);  color: #16A34A; }
 .earn-type--cng    { background: rgba(124,58,237,0.1); color: #7C3AED; }
 
 .earn-notes {
@@ -362,7 +362,7 @@ onMounted(fetchEarnings)
   background: rgba(100,116,139,0.1); color: var(--c-text-2);
   font-size: 0.74rem; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.earn-notes-rate { color: #059669; font-weight: 600; }
+.earn-notes-rate { color: #16A34A; font-weight: 600; }
 
 /* Mobile cards */
 .earn-cards { display: none; }
@@ -374,7 +374,7 @@ onMounted(fetchEarnings)
   display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; flex-wrap: wrap;
 }
 .earn-card-company { font-size: 0.84rem; color: var(--c-text); flex: 1; }
-.earn-card-total   { font-size: 0.9rem; font-weight: 700; color: #059669; }
+.earn-card-total   { font-size: 0.9rem; font-weight: 700; color: #16A34A; }
 .earn-card-meta {
   display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.8rem; color: var(--c-text);
 }

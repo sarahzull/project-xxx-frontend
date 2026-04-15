@@ -257,7 +257,7 @@ const badgeLabel = computed(() => {
   width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
   display: grid; place-items: center; margin-top: 1px;
 }
-.nb-item-icon--reward  { background: rgba(5,150,105,0.1); color: #059669; }
+.nb-item-icon--reward  { background: rgba(22,163,74,0.1); color: #16A34A; }
 .nb-item-icon--warning { background: rgba(245,158,11,0.1); color: #D97706; }
 
 .nb-item-body   { flex: 1; min-width: 0; }

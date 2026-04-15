@@ -252,7 +252,7 @@ async function openDetail(p) {
 .ps-hdr { display: flex; align-items: center; gap: 0.875rem; }
 .ps-hdr-icon {
   width: 44px; height: 44px; border-radius: 12px;
-  background: rgba(37,99,235,0.1); color: #2563EB;
+  background: #1D4ED8; color: #fff;
   display: grid; place-items: center; flex-shrink: 0;
 }
 .ps-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text); margin: 0 0 2px; }
@@ -265,7 +265,7 @@ async function openDetail(p) {
 }
 .ps-spinner {
   width: 18px; height: 18px; border: 2px solid var(--c-border);
-  border-top-color: #2563EB; border-radius: 50%; animation: spin 0.7s linear infinite;
+  border-top-color: #1D4ED8; border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .ps-error {
@@ -284,7 +284,7 @@ async function openDetail(p) {
 .ps-banner-item { display: flex; flex-direction: column; gap: 2px; }
 .ps-banner-lbl  { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--c-text-2); }
 .ps-banner-val  { font-size: 1.1rem; font-weight: 700; color: var(--c-text); }
-.ps-banner-val.green { color: #059669; }
+.ps-banner-val.green { color: #16A34A; }
 
 /* Empty */
 .ps-empty {
@@ -305,7 +305,7 @@ async function openDetail(p) {
 }
 .ps-card:hover {
   box-shadow: 0 4px 18px rgba(0,0,0,0.09);
-  border-color: rgba(37,99,235,0.35);
+  border-color: rgba(29,78,216,0.35);
   transform: translateY(-1px);
 }
 
@@ -317,7 +317,7 @@ async function openDetail(p) {
   display: flex; align-items: center; gap: 0.4rem;
   font-size: 0.95rem; font-weight: 700; color: var(--c-text);
 }
-.ps-card-period-icon { color: #2563EB; }
+.ps-card-period-icon { color: #1D4ED8; }
 
 /* Status badges */
 .ps-badge {
@@ -326,8 +326,8 @@ async function openDetail(p) {
   font-size: 0.72rem; font-weight: 700; text-transform: capitalize;
 }
 .ps-badge--draft     { background: rgba(100,116,139,0.12); color: var(--c-text-2); }
-.ps-badge--confirmed { background: rgba(37,99,235,0.1);    color: #2563EB; }
-.ps-badge--exported  { background: rgba(5,150,105,0.1);    color: #059669; }
+.ps-badge--confirmed { background: rgba(29,78,216,0.1);    color: #1D4ED8; }
+.ps-badge--exported  { background: rgba(22,163,74,0.1);    color: #16A34A; }
 
 /* Card stats */
 .ps-card-stats {
@@ -342,7 +342,7 @@ async function openDetail(p) {
 .ps-cs-val { font-weight: 600; color: var(--c-text); font-family: monospace; }
 .ps-cs-lbl { font-size: 0.74rem; }
 .ps-cs--right { margin-left: auto; }
-.ps-cs-total { font-size: 1rem; font-weight: 700; color: #059669; font-family: monospace; }
+.ps-cs-total { font-size: 1rem; font-weight: 700; color: #16A34A; font-family: monospace; }
 
 /* Breakdown */
 .ps-card-breakdown {
@@ -352,7 +352,7 @@ async function openDetail(p) {
 .ps-bk { display: flex; align-items: center; gap: 0.4rem; }
 .ps-bk-lbl { font-size: 0.72rem; color: var(--c-text-2); }
 .ps-bk-val { font-size: 0.78rem; font-weight: 600; color: var(--c-text); }
-.ps-bk-val.green { color: #059669; }
+.ps-bk-val.green { color: #16A34A; }
 
 /* Card footer */
 .ps-card-foot {
@@ -364,7 +364,7 @@ async function openDetail(p) {
 /* ── Detail modal ─────────────────────────────────────────────────────────────── */
 .ms-icon {
   width: 34px; height: 34px; border-radius: 9px;
-  background: rgba(37,99,235,0.1); color: #2563EB;
+  background: #1D4ED8; color: #fff;
   display: grid; place-items: center; flex-shrink: 0;
 }
 .ps-detail { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
@@ -395,10 +395,10 @@ async function openDetail(p) {
 .ps-dr:last-child { border-bottom: none; }
 .ps-dr--total { background: var(--c-surface); }
 .ps-dr--total .ps-dr-lbl { font-weight: 700; color: var(--c-text); }
-.ps-dr--total .ps-dr-val { font-size: 1rem; font-weight: 700; color: #059669; }
+.ps-dr--total .ps-dr-val { font-size: 1rem; font-weight: 700; color: #16A34A; }
 .ps-dr-lbl { font-size: 0.84rem; color: var(--c-text-2); }
 .ps-dr-val { font-size: 0.875rem; font-weight: 600; color: var(--c-text); }
-.ps-dr-val.green { color: #059669; }
+.ps-dr-val.green { color: #16A34A; }
 
 .ps-detail-notes {
   background: var(--c-bg); border-radius: 10px; padding: 0.75rem 1rem;
@@ -409,7 +409,7 @@ async function openDetail(p) {
 
 /* Helpers */
 .mono  { font-family: 'JetBrains Mono', monospace; }
-.green { color: #059669; }
+.green { color: #16A34A; }
 
 @media (max-width: 640px) {
   .ps-card-breakdown { flex-direction: column; gap: 0.3rem; }

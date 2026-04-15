@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import {
   UserManagementIcon, AddIcon, EditIcon, TrashIcon, UserIcon, FilterIcon, CloseIcon,
 } from '../../components/icons/index.js'
+import ActionBtn from '../../components/common/ActionBtn.vue'
 import usersApi from '../../api/users'
 import rolesApi from '../../api/roles'
 import { useAuthStore } from '../../stores/auth'
@@ -338,27 +339,17 @@ async function confirmDeleteUser() {
         </template>
         <template #cell-actions="{ row }">
           <div class="uv-row-actions">
-            <!-- Edit -->
-            <div class="uv-tooltip-wrap">
-              <button class="uv-act-icon uv-act--edit" aria-label="Edit user" @click="openEdit(row)">
-                <EditIcon :size="15" />
-              </button>
-              <span class="uv-tooltip">Edit user</span>
-            </div>
-            <!-- Delete -->
-            <div class="uv-tooltip-wrap">
-              <button
-                class="uv-act-icon uv-act--del"
-                :disabled="row.id === auth.user?.id"
-                aria-label="Delete user"
-                @click="deleteUser(row)"
-              >
-                <TrashIcon :size="15" />
-              </button>
-              <span class="uv-tooltip">
-                {{ row.id === auth.user?.id ? 'Cannot delete own account' : 'Delete user' }}
-              </span>
-            </div>
+            <ActionBtn tooltip="Edit user" variant="edit" @click="openEdit(row)">
+              <EditIcon :size="15" />
+            </ActionBtn>
+            <ActionBtn
+              :tooltip="row.id === auth.user?.id ? 'Cannot delete own account' : 'Delete user'"
+              variant="delete"
+              :disabled="row.id === auth.user?.id"
+              @click="deleteUser(row)"
+            >
+              <TrashIcon :size="15" />
+            </ActionBtn>
           </div>
         </template>
       </DataTable>
@@ -575,8 +566,8 @@ async function confirmDeleteUser() {
 .uv-banner-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .uv-banner-icon {
   width: 42px; height: 42px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: var(--c-accent-tint); border: 1.5px solid rgba(37,99,235,0.15);
-  display: flex; align-items: center; justify-content: center; color: var(--c-accent);
+  background: var(--c-accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
 }
 .uv-banner-icon svg { width: 20px; height: 20px; }
 .uv-banner-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text-1); letter-spacing: -0.02em; margin-bottom: 1px; }
@@ -593,7 +584,7 @@ async function confirmDeleteUser() {
 .uv-bstat-lbl { font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-text-3); margin-top: 3px; }
 .uv-bstat--green   .uv-bstat-val { color: var(--c-green); }
 .uv-bstat--blue    .uv-bstat-val { color: var(--c-accent); }
-.uv-bstat--emerald .uv-bstat-val { color: #059669; }
+.uv-bstat--emerald .uv-bstat-val { color: #16A34A; }
 
 /* ── Table card ──────────────────────────────────────────────── */
 .uv-table-card {
@@ -664,31 +655,6 @@ async function confirmDeleteUser() {
 
 .uv-row-actions { display: flex; align-items: center; gap: 4px; }
 
-/* Icon action button */
-.uv-act-icon {
-  width: 30px; height: 30px; border-radius: 7px; border: 1.5px solid var(--c-border);
-  background: transparent; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: all 0.15s; color: var(--c-text-3); flex-shrink: 0;
-}
-.uv-act-icon svg { width: 14px; height: 14px; }
-.uv-act--edit:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent-tint); }
-.uv-act--del:hover  { border-color: var(--c-red);    color: var(--c-red);    background: var(--c-red-tint); }
-.uv-act--del:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
-
-/* Tooltip */
-.uv-tooltip-wrap { position: relative; display: inline-flex; }
-.uv-tooltip {
-  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-  background: #1E293B; color: #F1F5F9; font-size: 0.7rem; font-weight: 500;
-  padding: 4px 8px; border-radius: 6px; white-space: nowrap; pointer-events: none;
-  opacity: 0; transition: opacity 0.15s; z-index: 50;
-}
-.uv-tooltip::after {
-  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-  border: 4px solid transparent; border-top-color: #1E293B;
-}
-.uv-tooltip-wrap:hover .uv-tooltip { opacity: 1; }
-
 /* ── Modal ───────────────────────────────────────────────────── */
 .uv-overlay {
   position: fixed; inset: 0; z-index: 200;
@@ -708,8 +674,8 @@ async function confirmDeleteUser() {
 }
 .uv-modal-icon {
   width: 38px; height: 38px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: var(--c-accent-tint); border: 1.5px solid rgba(37,99,235,0.15);
-  display: flex; align-items: center; justify-content: center; color: var(--c-accent);
+  background: var(--c-accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
 }
 .uv-modal-icon svg { width: 18px; height: 18px; }
 .uv-modal-title { font-size: 1rem; font-weight: 700; color: var(--c-text-1); }

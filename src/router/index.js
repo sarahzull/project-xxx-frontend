@@ -30,8 +30,10 @@ const routes = [
       { path: 'earnings',  name: 'earnings',  component: () => import('../views/earnings/EarningsView.vue'),   meta: { roles: ['driver'] } },
       { path: 'payslips',  name: 'payslips',  component: () => import('../views/payslips/PayslipsView.vue'),   meta: { roles: ['driver'] } },
 
-      // All authenticated users (admin sees sent letters, driver sees received)
-      { path: 'letters',   name: 'letters',   component: () => import('../views/letters/LettersView.vue') },
+      // All authenticated users — Driver Communications module
+      { path: 'communications', name: 'communications', component: () => import('../views/communications/CommunicationsView.vue') },
+      // Legacy redirect: /letters → /communications
+      { path: 'letters', redirect: { name: 'communications' } },
     ],
   },
 ]

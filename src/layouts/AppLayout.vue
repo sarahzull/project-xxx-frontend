@@ -1,18 +1,26 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useNotificationsStore } from '../stores/notifications'
 import ThemeToggle from '../components/common/ThemeToggle.vue'
 import {
   DashboardIcon, DriversIcon, TruckIcon, PayIcon, ReportsIcon,
   RatesIcon, UserManagementIcon, MoreIcon, MenuIcon, ChevronRightIcon, LogoutIcon,
-  EarningsIcon, PayslipIcon, LetterIcon,
+  EarningsIcon, PayslipIcon, CommunicationsIcon,
 } from '../components/icons/index.js'
+import NotificationBell from '../components/common/NotificationBell.vue'
 
-const auth = useAuthStore()
-const router = useRouter()
-const route = useRoute()
-const sidebarOpen = ref(false)
+const auth          = useAuthStore()
+const notifications = useNotificationsStore()
+const router        = useRouter()
+const route         = useRoute()
+const sidebarOpen   = ref(false)
+
+// Initialise notifications as soon as the app shell mounts
+onMounted(() => {
+  if (!notifications.initialized) notifications.fetchNotifications()
+})
 
 const isAdmin = computed(() => auth.hasRole('admin'))
 
@@ -28,7 +36,7 @@ const allNavigation = [
   { name: 'Earnings',     path: '/earnings',     icon: EarningsIcon,       roles: ['driver'] },
   { name: 'Payslips',     path: '/payslips',     icon: PayslipIcon,        roles: ['driver'] },
   // All roles
-  { name: 'Letters',      path: '/letters',      icon: LetterIcon,         roles: null },
+  { name: 'Communications', path: '/communications', icon: CommunicationsIcon, roles: null },
 ]
 
 const navigation = computed(() =>
@@ -46,7 +54,7 @@ const allBottomNav = [
   { name: 'Trips',    path: '/trips',        icon: TruckIcon,     roles: ['driver'] },
   { name: 'Earnings', path: '/earnings',     icon: EarningsIcon,  roles: ['driver'] },
   { name: 'Payslips', path: '/payslips',     icon: PayslipIcon,   roles: ['driver'] },
-  { name: 'Letters',  path: '/letters',      icon: LetterIcon,    roles: ['driver'] },
+  { name: 'Comms',    path: '/communications', icon: CommunicationsIcon, roles: ['driver'] },
   // More only needed for admin (Reports, Rates, Users, Letters overflow)
   { name: 'More',     path: null,            icon: MoreIcon,      roles: ['admin'] },
 ]
@@ -129,6 +137,8 @@ function userInitials(name) {
         <span class="header-brand">Project XXX</span>
         <div class="header-spacer" />
         <div class="header-right">
+          <!-- Notification bell -->
+          <NotificationBell />
           <!-- Profile avatar -->
           <router-link to="/profile" class="header-avatar" :title="auth.userName">
             <img v-if="auth.user?.photo" :src="auth.user.photo" class="header-avatar-img" alt="Profile" />

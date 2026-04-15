@@ -71,11 +71,21 @@ import {
   ShieldAlert,
   Wifi,
   WifiOff,
-  // Earnings / payslips / letters
+  // Earnings / payslips / letters / communications
   Receipt,
   Mail,
   MailOpen,
   Send,
+  // Notifications
+  Bell,
+  BellRing,
+  // Navigation
+  Megaphone,
+  // Editor toolbar
+  Bold,
+  Italic,
+  List,
+  RefreshCw,
 } from 'lucide-vue-next'
 
 // ── Icon defaults ────────────────────────────────────────────────────────────
@@ -189,11 +199,25 @@ export const EarningsIcon     = makeIcon(TrendingUp,     'EarningsIcon')
 /** Payslip / receipt */
 export const PayslipIcon      = makeIcon(Receipt,        'PayslipIcon')
 /** Letter / unread mail */
-export const LetterIcon       = makeIcon(Mail,           'LetterIcon')
+export const LetterIcon           = makeIcon(Mail,           'LetterIcon')
 /** Letter / read mail */
-export const LetterOpenIcon   = makeIcon(MailOpen,       'LetterOpenIcon')
+export const LetterOpenIcon       = makeIcon(MailOpen,       'LetterOpenIcon')
 /** Send letter */
-export const SendIcon         = makeIcon(Send,           'SendIcon')
+export const SendIcon             = makeIcon(Send,           'SendIcon')
+/** Notification bell (idle) */
+export const BellIcon             = makeIcon(Bell,           'BellIcon')
+/** Notification bell (active/ringing) */
+export const BellRingIcon         = makeIcon(BellRing,       'BellRingIcon')
+/** Driver Communications / announcements nav icon */
+export const CommunicationsIcon   = makeIcon(Megaphone,      'CommunicationsIcon')
+/** Rich text bold */
+export const BoldIcon             = makeIcon(Bold,           'BoldIcon')
+/** Rich text italic */
+export const ItalicIcon           = makeIcon(Italic,         'ItalicIcon')
+/** Rich text bullet list */
+export const ListIcon             = makeIcon(List,           'ListIcon')
+/** Resend / retry action */
+export const ResendIcon           = makeIcon(RefreshCw,      'ResendIcon')
 
 // ── Icon name registry (used by <Icon name="..."> dynamic wrapper) ───────────
 export const ICON_REGISTRY = {
@@ -254,4 +278,11 @@ export const ICON_REGISTRY = {
   letter:          LetterIcon,
   'letter-open':   LetterOpenIcon,
   send:            SendIcon,
+  bell:            BellIcon,
+  'bell-ring':     BellRingIcon,
+  communications:  CommunicationsIcon,
+  bold:            BoldIcon,
+  italic:          ItalicIcon,
+  list:            ListIcon,
+  resend:          ResendIcon,
 }

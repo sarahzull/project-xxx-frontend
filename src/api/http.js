@@ -2,7 +2,9 @@ import axios from 'axios'
 import router from '../router'
 
 const http = axios.create({
-  baseURL: '/api',
+  // In dev:  VITE_API_URL is unset → Vite proxy forwards /api → localhost:8000
+  // In prod: VITE_API_URL = https://your-backend.up.railway.app/api
+  baseURL: import.meta.env.VITE_API_URL ?? '/api',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

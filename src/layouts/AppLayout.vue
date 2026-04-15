@@ -36,13 +36,19 @@ const navigation = computed(() =>
 )
 
 const allBottomNav = [
+  // Shared
   { name: 'Home',     path: '/',             icon: DashboardIcon, roles: null },
+  // Admin bottom 4
   { name: 'Drivers',  path: '/drivers',      icon: DriversIcon,   roles: ['admin'] },
-  { name: 'Trips',    path: '/trips',        icon: TruckIcon,     roles: null },
+  { name: 'Trips',    path: '/trips',        icon: TruckIcon,     roles: ['admin'] },
   { name: 'Pay',      path: '/compensation', icon: PayIcon,       roles: ['admin'] },
+  // Driver bottom 4
+  { name: 'Trips',    path: '/trips',        icon: TruckIcon,     roles: ['driver'] },
   { name: 'Earnings', path: '/earnings',     icon: EarningsIcon,  roles: ['driver'] },
   { name: 'Payslips', path: '/payslips',     icon: PayslipIcon,   roles: ['driver'] },
-  { name: 'More',     path: null,            icon: MoreIcon,      roles: null },
+  { name: 'Letters',  path: '/letters',      icon: LetterIcon,    roles: ['driver'] },
+  // More only needed for admin (Reports, Rates, Users, Letters overflow)
+  { name: 'More',     path: null,            icon: MoreIcon,      roles: ['admin'] },
 ]
 
 const bottomNav = computed(() =>
@@ -151,6 +157,7 @@ function userInitials(name) {
     <nav class="bottom-nav">
       <!-- More menu popup -->
       <div v-if="showMoreMenu" class="bn-more-menu">
+        <div class="bn-more-handle" />
         <router-link
           v-for="item in navigation.filter(n => !bottomNav.some(b => b.path === n.path))"
           :key="item.path"
@@ -158,9 +165,14 @@ function userInitials(name) {
           :class="['bn-more-link', isActive(item.path) && 'active']"
           @click="showMoreMenu = false"
         >
+          <component :is="item.icon" :size="18" class="bn-more-link-icon" />
           {{ item.name }}
         </router-link>
-        <button class="bn-more-logout" @click="handleLogout">Logout</button>
+        <div class="bn-more-divider" />
+        <button class="bn-more-logout" @click="handleLogout">
+          <LogoutIcon :size="18" class="bn-more-link-icon" />
+          Logout
+        </button>
       </div>
 
       <template v-for="item in bottomNav" :key="item.name">

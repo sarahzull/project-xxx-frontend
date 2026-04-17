@@ -5,6 +5,7 @@ import { SearchIcon, CloseIcon } from '../icons/index.js'
 const props = defineProps({
   modelValue:  { type: String, default: '' },
   placeholder: { type: String, default: 'Search…' },
+  label:       { type: String, default: 'Search' },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -24,10 +25,14 @@ function clear() {
 
 <template>
   <div class="search-wrap">
-    <SearchIcon class="search-icon" :size="16" />
+    <label :for="`search-${$.uid}`" class="sr-only">{{ label }}</label>
+    <SearchIcon class="search-icon" :size="16" aria-hidden="true" />
     <input
+      :id="`search-${$.uid}`"
       v-model="query"
       type="text"
+      inputmode="search"
+      enterkeyhint="search"
       :placeholder="placeholder"
       class="search-input"
     />

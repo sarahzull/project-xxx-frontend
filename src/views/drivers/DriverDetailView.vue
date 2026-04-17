@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { ChevronLeftIcon, TruckIcon, AlertIcon, CloseIcon } from '../../components/icons/index.js'
+import { ref, computed, onMounted, watch } from 'vue'
+import { ChevronLeftIcon, TruckIcon, AlertIcon, CloseIcon, CalendarIcon } from '../../components/icons/index.js'
 import { useRouter } from 'vue-router'
 import { Bar, Doughnut } from 'vue-chartjs'
 import {
@@ -12,6 +12,7 @@ import driversApi from '../../api/drivers'
 import { useThemeStore } from '../../stores/theme'
 import DataTable from '../../components/common/DataTable.vue'
 import SearchInput from '../../components/common/SearchInput.vue'
+import AppPagination from '../../components/common/AppPagination.vue'
 import StatusBadge from '../../components/common/StatusBadge.vue'
 import StatCard from '../../components/common/StatCard.vue'
 import ChartCard from '../../components/common/ChartCard.vue'
@@ -28,8 +29,12 @@ const trips     = ref([])
 const kmSummary = ref(null)
 const loading   = ref(true)
 const tripSearch = ref('')
+const tripDateFrom = ref('')
+const tripDateTo = ref('')
 const tripSortKey = ref('')
 const tripSortDir = ref('asc')
+const tripPage = ref(1)
+const TRIPS_PER_PAGE = 10
 
 // ── Columns ───────────────────────────────────────────────────────────────────
 const tripColumns = [
@@ -77,9 +82,18 @@ const licenseUrgency = computed(() => {
 
 // ── Computed: trip filtering + sorting ───────────────────────────────────────
 const filteredTrips = computed(() => {
-  if (!tripSearch.value) return trips.value
+  let list = trips.value
+
+  if (tripDateFrom.value)
+    list = list.filter(t => t.date && t.date >= tripDateFrom.value)
+
+  if (tripDateTo.value)
+    list = list.filter(t => t.date && t.date <= tripDateTo.value)
+
+  if (!tripSearch.value) return list
+
   const q = tripSearch.value.toLowerCase()
-  return trips.value.filter(t =>
+  return list.filter(t =>
     (t.delivery_note      || '').toLowerCase().includes(q) ||
     (t.ship_to_party_name || '').toLowerCase().includes(q) ||
     (t.location           || '').toLowerCase().includes(q) ||
@@ -109,6 +123,20 @@ const sortedTrips = computed(() => {
   })
 })
 
+const hasTripFilter = computed(() => Boolean(tripSearch.value || tripDateFrom.value || tripDateTo.value))
+const pagedTrips = computed(() => {
+  const start = (tripPage.value - 1) * TRIPS_PER_PAGE
+  return sortedTrips.value.slice(start, start + TRIPS_PER_PAGE)
+})
+const tripLastPage = computed(() => Math.max(1, Math.ceil(sortedTrips.value.length / TRIPS_PER_PAGE)))
+const tripPageFrom = computed(() => sortedTrips.value.length === 0 ? 0 : (tripPage.value - 1) * TRIPS_PER_PAGE + 1)
+const tripPageTo = computed(() => Math.min(tripPage.value * TRIPS_PER_PAGE, sortedTrips.value.length))
+
+watch([tripSearch, tripDateFrom, tripDateTo], () => { tripPage.value = 1 })
+watch(tripLastPage, (last) => {
+  if (tripPage.value > last) tripPage.value = last
+})
+
 function toggleTripSort(key) {
   if (tripSortKey.value === key) {
     tripSortDir.value = tripSortDir.value === 'asc' ? 'desc' : 'asc'
@@ -116,6 +144,13 @@ function toggleTripSort(key) {
     tripSortKey.value = key
     tripSortDir.value = 'asc'
   }
+}
+
+function clearTripFilters() {
+  tripSearch.value = ''
+  tripDateFrom.value = ''
+  tripDateTo.value = ''
+  tripPage.value = 1
 }
 
 // ── Computed: chart colour tokens ─────────────────────────────────────────────
@@ -390,31 +425,53 @@ onMounted(async () => {
         <div class="dd-history-hd-left">
           <p class="dd-section-label" style="margin-bottom:0">Trip History</p>
           <p class="dd-history-count">
-            {{ sortedTrips.length }} trip{{ sortedTrips.length !== 1 ? 's' : '' }}
+            <span class="dd-history-total">
+              {{ sortedTrips.length }} trip{{ sortedTrips.length !== 1 ? 's' : '' }}
+            </span>
             <span v-if="tripSearch" class="chip chip--filter">matching search</span>
+            <span v-if="tripDateFrom || tripDateTo" class="chip chip--filter">date filtered</span>
             <span v-if="tripSortKey" class="chip chip--sort">
               {{ tripSortDir === 'asc' ? '↑' : '↓' }} {{ tripSortKey.replace('_', ' ') }}
             </span>
           </p>
         </div>
         <div class="dd-history-right">
-          <Transition name="dd-fade">
-            <button v-if="tripSearch" class="dd-clear-btn" @click="tripSearch = ''">
-              <CloseIcon :size="10" :stroke-width="2.5" />
-              Reset
-            </button>
-          </Transition>
-          <div class="dd-history-search">
-            <SearchInput v-model="tripSearch" placeholder="Search trips…" />
+          <div class="dd-history-filter-rail">
+            <div class="dd-history-dates" role="group" aria-label="Trip history date range">
+              <div class="dd-date-shell">
+                <span class="dd-date-shell-icon">
+                  <CalendarIcon :size="15" />
+                </span>
+                <div class="dd-date-segment">
+                  <label class="dd-date-label" for="trip-date-from">From</label>
+                  <input id="trip-date-from" v-model="tripDateFrom" type="date" class="dd-date-input" :max="tripDateTo || undefined" />
+                </div>
+                <span class="dd-date-divider" aria-hidden="true" />
+                <div class="dd-date-segment">
+                  <label class="dd-date-label" for="trip-date-to">To</label>
+                  <input id="trip-date-to" v-model="tripDateTo" type="date" class="dd-date-input" :min="tripDateFrom || undefined" />
+                </div>
+              </div>
+            </div>
+            <div class="dd-history-search dd-history-search--aligned">
+              <SearchInput v-model="tripSearch" placeholder="Search trips…" />
+            </div>
+            <Transition name="dd-fade">
+              <button v-if="hasTripFilter" class="dd-clear-btn" @click="clearTripFilters">
+                <CloseIcon :size="10" :stroke-width="2.5" />
+                Reset
+              </button>
+            </Transition>
           </div>
         </div>
       </div>
 
       <DataTable
         :columns="tripColumns"
-        :rows="sortedTrips"
+        :rows="pagedTrips"
         :sort-key="tripSortKey"
         :sort-dir="tripSortDir"
+        :has-filter="hasTripFilter"
         empty-message="No trips found."
         @sort="toggleTripSort"
       >
@@ -427,6 +484,16 @@ onMounted(async () => {
           <span v-else class="tc-3">—</span>
         </template>
       </DataTable>
+
+      <AppPagination
+        v-if="tripLastPage > 1"
+        :current-page="tripPage"
+        :last-page="tripLastPage"
+        :total="sortedTrips.length"
+        :from="tripPageFrom"
+        :to="tripPageTo"
+        @change="p => { tripPage = p }"
+      />
 
     </template>
   </div>
@@ -576,15 +643,139 @@ onMounted(async () => {
 .dd-history-count {
   font-size: 0.8125rem; color: var(--c-text-2); font-weight: 500;
   margin-top: 2px; display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
+}
+.dd-history-total {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--r-full);
+  background: var(--c-accent-tint);
+  color: var(--c-accent);
+  font-weight: 700;
+  line-height: 1.2;
 }
 /* Rank text colours in profile meta grid */
 .rank-a { color: #16A34A; font-weight: 700; }  /* green  */
 .rank-b { color: #1D4ED8; font-weight: 700; }  /* blue   */
 .rank-c { color: #D97706; font-weight: 700; }  /* amber  */
 
-.dd-history-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.dd-history-search { flex-shrink: 0; width: 200px; min-width: 0; }
-@media (max-width: 480px) { .dd-history-right { width: 100%; } .dd-history-search { width: 100%; } }
+.dd-history-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.dd-history-filter-rail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.dd-history-dates { display: flex; align-items: stretch; }
+.dd-date-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: 44px;
+  padding: 0 6px 0 10px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, var(--c-surface) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 8px 18px rgba(15,23,42,0.04);
+  transition: border-color var(--dur), box-shadow var(--dur);
+}
+.dd-date-shell:focus-within {
+  border-color: var(--c-accent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 3px var(--c-accent-tint), 0 10px 20px rgba(29,78,216,0.08);
+}
+.dd-date-shell-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-accent);
+  padding-right: 8px;
+  flex-shrink: 0;
+}
+.dd-date-segment {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 138px;
+  padding: 7px 10px;
+}
+.dd-date-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+  line-height: 1;
+}
+.dd-date-divider {
+  width: 1px;
+  align-self: center;
+  height: 26px;
+  background: linear-gradient(180deg, transparent 0%, var(--c-border) 20%, var(--c-border) 80%, transparent 100%);
+  flex-shrink: 0;
+}
+.dd-date-input {
+  min-width: 0;
+  width: 100%;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--c-text-1);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  appearance: none;
+}
+.dd-date-input:focus {
+  outline: none;
+}
+.dd-date-input::-webkit-calendar-picker-indicator {
+  opacity: 0.72;
+  cursor: pointer;
+}
+.dd-history-search { flex-shrink: 0; width: 220px; min-width: 0; }
+.dd-history-search--aligned :deep(.search-input) {
+  min-height: 44px;
+  border-radius: 16px;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+}
+.dd-history-search--aligned :deep(.search-wrap svg.search-icon) { left: 14px; }
+.dd-history-search--aligned :deep(.search-clear) { right: 12px; }
+@media (max-width: 640px) {
+  .dd-history-right { width: 100%; justify-content: flex-start; }
+  .dd-history-filter-rail { width: 100%; justify-content: stretch; }
+  .dd-history-dates { width: 100%; }
+  .dd-date-shell { width: 100%; }
+  .dd-date-segment { flex: 1; min-width: 0; }
+  .dd-history-search { width: 100%; }
+}
+@media (max-width: 480px) {
+  .dd-history-right { width: 100%; }
+  .dd-history-filter-rail { gap: 8px; }
+  .dd-date-shell {
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .dd-date-shell-icon {
+    width: 100%;
+    justify-content: flex-start;
+    padding-right: 0;
+  }
+  .dd-date-divider {
+    width: 100%;
+    height: 1px;
+  }
+  .dd-date-segment {
+    width: 100%;
+    padding: 0;
+  }
+  .dd-history-search { width: 100%; }
+}
 
 .dd-clear-btn {
   display: inline-flex; align-items: center; gap: 4px;

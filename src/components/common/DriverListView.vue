@@ -273,7 +273,6 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
         :rows="pagedDrivers"
         :loading="loading"
         :flat="true"
-        :has-filter="hasFilter"
         :sort-key="sortKey"
         :sort-dir="sortDir"
         empty-message="No drivers found."
@@ -323,7 +322,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 @media (min-width: 640px) { .mb-section { margin-bottom: 24px; } }
 
 /* ── Rank legend ──────────────────────────────────────────────── */
-.dv-rank-legend {
+note_key {
   display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.5rem;
   padding: 0.5rem 1.1rem;
   font-size: 0.7rem; color: var(--c-text-3);

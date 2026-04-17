@@ -20,7 +20,8 @@ defineProps({
   columns:      { type: Array,   required: true },
   rows:         { type: Array,   required: true },
   loading:      { type: Boolean, default: false },
-  emptyMessage: { type: String,  default: 'No data available.' },
+  emptyMessage:  { type: String,  default: 'No results found.' },
+  hasFilter:     { type: Boolean, default: false },
   flat:         { type: Boolean, default: false },
   sortKey:      { type: String,  default: '' },
   sortDir:      { type: String,  default: 'asc' },
@@ -57,10 +58,15 @@ const emit = defineEmits(['sort'])
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td :colspan="columns.length" class="tbl-empty">Loading…</td>
+              <td :colspan="columns.length" class="tbl-empty">
+                <span class="tbl-spinner" aria-label="Loading" role="status" />
+              </td>
             </tr>
             <tr v-else-if="rows.length === 0">
-              <td :colspan="columns.length" class="tbl-empty">{{ emptyMessage }}</td>
+              <td :colspan="columns.length" class="tbl-empty">
+                {{ emptyMessage }}
+                <span v-if="hasFilter" class="tbl-empty-hint"> Try adjusting your filters.</span>
+              </td>
             </tr>
             <tr v-for="(row, idx) in rows" :key="idx">
               <td v-for="col in columns" :key="col.key">
@@ -76,8 +82,12 @@ const emit = defineEmits(['sort'])
 
     <!-- Mobile cards -->
     <div :class="['tbl-cards', 'd-md-dn', flat ? 'tbl-cards--flat' : '']">
-      <div v-if="loading" class="tbl-m-empty">Loading…</div>
-      <div v-else-if="rows.length === 0" class="tbl-m-empty">{{ emptyMessage }}</div>
+      <div v-if="loading" class="tbl-m-empty">
+        <span class="tbl-spinner" aria-label="Loading" role="status" />
+      </div>
+      <div v-else-if="rows.length === 0" class="tbl-m-empty">
+        {{ emptyMessage }}<span v-if="hasFilter" class="tbl-empty-hint"> Try adjusting your filters.</span>
+      </div>
       <div v-for="(row, idx) in rows" :key="idx" :class="['tbl-card', flat ? 'tbl-card--flat' : '']">
 
         <!-- Top row: primary info + actions -->
@@ -120,6 +130,20 @@ const emit = defineEmits(['sort'])
 </template>
 
 <style scoped>
+/* Loading spinner */
+.tbl-spinner {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--c-border);
+  border-top-color: var(--c-accent);
+  border-radius: 50%;
+  animation: tbl-spin 0.7s linear infinite;
+}
+@keyframes tbl-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Flat mode — strip card chrome so it blends into a parent card */
 .tbl-wrap-flat {
   background: transparent;

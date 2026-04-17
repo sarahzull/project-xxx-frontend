@@ -10,7 +10,7 @@
   Layout: standard banner + data table, responsive at all breakpoints
 -->
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   CommunicationsIcon, CheckCircleIcon, AlertIcon, AddIcon,
@@ -23,6 +23,7 @@ import ModalSheet        from '../../components/common/ModalSheet.vue'
 import ComposeModal      from '../../components/communications/ComposeModal.vue'
 import ActionBtn         from '../../components/common/ActionBtn.vue'
 import SearchInput       from '../../components/common/SearchInput.vue'
+import AppPagination     from '../../components/common/AppPagination.vue'
 
 const auth  = useAuthStore()
 const toast = useToast()
@@ -38,6 +39,10 @@ const error   = ref('')
 // Filters
 const typeFilter   = ref('')    // '' | 'reward' | 'warning'
 const searchQuery  = ref('')
+
+// ── Pagination (admin only) ───────────────────────────────────────────────────
+const page = ref(1)
+const meta = ref({})
 
 // Detail modal
 const showDetail   = ref(false)
@@ -81,7 +86,9 @@ function formatContent(content) {
 }
 
 // ── Computed ──────────────────────────────────────────────────────────────────
+// Admin: filtering is server-side. Driver: client-side (small dataset, no pagination).
 const filtered = computed(() => {
+  if (isAdmin.value) return items.value
   let list = items.value
   if (typeFilter.value)  list = list.filter(i => i.type === typeFilter.value)
   if (searchQuery.value) {
@@ -104,16 +111,34 @@ async function fetchItems() {
   loading.value = true
   error.value   = ''
   try {
-    const res = isAdmin.value
-      ? await communicationsApi.list()
-      : await communicationsApi.myList()
-    items.value = res.data.data || []
+    if (isAdmin.value) {
+      const { data } = await communicationsApi.list({
+        type:   typeFilter.value  || undefined,
+        search: searchQuery.value || undefined,
+        page:   page.value,
+      })
+      items.value = data.data || []
+      meta.value  = data.meta || {}
+    } else {
+      const res = await communicationsApi.myList()
+      items.value = res.data.data || []
+    }
   } catch (e) {
     error.value = e.response?.data?.message || 'Failed to load communications.'
   } finally {
     loading.value = false
   }
 }
+
+// Admin: reset to page 1 and refetch when filters change
+watch(typeFilter, () => { if (isAdmin.value) { page.value = 1; fetchItems() } })
+
+let searchTimer = null
+watch(searchQuery, () => {
+  if (!isAdmin.value) return
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; fetchItems() }, 300)
+})
 
 onMounted(async () => {
   await fetchItems()
@@ -204,7 +229,7 @@ function onSent() { fetchItems() }
           <div class="cv-card-hd-left">
             <p class="cv-card-title">Communications Log</p>
             <p class="cv-card-sub">
-              {{ filtered.length }} record{{ filtered.length !== 1 ? 's' : '' }}
+              {{ isAdmin ? (meta.total ?? filtered.length) : filtered.length }} record{{ (isAdmin ? (meta.total ?? filtered.length) : filtered.length) !== 1 ? 's' : '' }}
               <span v-if="typeFilter || searchQuery" class="chip chip--filter">filtered</span>
             </p>
           </div>
@@ -257,7 +282,7 @@ function onSent() { fetchItems() }
         </div>
 
         <!-- ── Data table ──────────────────────────────────────────────────── -->
-        <div v-else class="cv-table-wrap">
+        <div v-else class="cv-table-wrap" style="overflow-x: auto;">
           <table class="cv-table">
             <thead>
               <tr>
@@ -273,7 +298,7 @@ function onSent() { fetchItems() }
               <tr
                 v-for="item in filtered"
                 :key="item.id"
-                :class="['cv-tr', !isAdmin && !isViewed(item.id) && 'cv-tr--unread']"
+                :class="['cv-tr', !isAdmin && isViewed(item.id) && 'cv-tr--read']"
                 @click="openDetail(item)"
               >
                 <!-- Type -->
@@ -303,7 +328,7 @@ function onSent() { fetchItems() }
                 <!-- Subject + preview -->
                 <td class="cv-td cv-td--subject">
                   <div class="cv-subject-cell">
-                    <span :class="['cv-subject', !isAdmin && !isViewed(item.id) && 'cv-subject--unread']">
+                    <span :class="['cv-subject', !isAdmin && !isViewed(item.id) && 'cv-subject--new']">
                       {{ item.subject || '(No subject)' }}
                       <span v-if="!isAdmin && !isViewed(item.id)" class="cv-unread-dot" />
                     </span>
@@ -349,6 +374,17 @@ function onSent() { fetchItems() }
             </tbody>
           </table>
         </div>
+
+        <!-- Pagination (admin only) -->
+        <AppPagination
+          v-if="isAdmin && meta.last_page > 1"
+          :current-page="meta.current_page ?? 1"
+          :last-page="meta.last_page ?? 1"
+          :total="meta.total ?? 0"
+          :from="meta.from ?? 0"
+          :to="meta.to ?? 0"
+          @change="p => { page = p; fetchItems() }"
+        />
 
       </div>
 
@@ -601,8 +637,11 @@ function onSent() { fetchItems() }
 }
 .cv-tr:last-child { border-bottom: none; }
 .cv-tr:hover { background: var(--c-bg); }
-.cv-tr--unread { background: var(--c-accent-tint); opacity: 0.6; }
-.cv-tr--unread:hover { background: var(--c-accent-tint); opacity: 1; }
+.cv-tr--read {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c-accent-tint) 70%, transparent) 0%, color-mix(in srgb, var(--c-bg) 78%, transparent) 100%);
+  opacity: 0.78;
+}
+.cv-tr--read:hover { opacity: 1; }
 
 .cv-td {
   padding: 0.875rem 1rem;
@@ -622,14 +661,14 @@ function onSent() { fetchItems() }
   font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   white-space: nowrap;
 }
-.cv-type-badge--reward  { border-color: #16A34A; color: #16A34A; background: rgba(22,163,74,0.08); }
-.cv-type-badge--warning { border-color: #D97706; color: #D97706; background: rgba(217,119,6,0.08); }
+.cv-type-badge--reward  { border-color: var(--c-green); color: var(--c-green); background: var(--c-green-tint); }
+.cv-type-badge--warning { border-color: var(--c-amber); color: var(--c-amber); background: var(--c-amber-tint); }
 
 /* Driver cell */
 .cv-driver-cell { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
 .cv-driver-avatar {
   width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-  background: #1D4ED8; color: #fff;
+  background: var(--c-accent); color: #fff;
   display: grid; place-items: center; font-size: 0.68rem; font-weight: 700;
 }
 .cv-driver-info { display: flex; flex-direction: column; min-width: 0; }
@@ -653,7 +692,7 @@ function onSent() { fetchItems() }
   display: flex; align-items: center; gap: 0.4rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px;
 }
-.cv-subject--unread { font-weight: 700; }
+.cv-subject--new { font-weight: 700; }
 .cv-unread-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--c-accent); flex-shrink: 0;
@@ -716,8 +755,8 @@ function onSent() { fetchItems() }
   width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
   display: grid; place-items: center;
 }
-.cv-modal-icon--reward  { background: #16A34A; color: #fff; }
-.cv-modal-icon--warning { background: #D97706; color: #fff; }
+.cv-modal-icon--reward  { background: var(--c-green); color: #fff; }
+.cv-modal-icon--warning { background: var(--c-amber); color: #fff; }
 
 .cv-detail { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
 
@@ -728,7 +767,7 @@ function onSent() { fetchItems() }
 }
 .cv-detail-driver-avatar {
   width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
-  background: #1D4ED8; color: #fff;
+  background: var(--c-accent); color: #fff;
   display: grid; place-items: center; font-size: 0.82rem; font-weight: 700;
 }
 .cv-detail-driver-name { font-size: 0.9rem; font-weight: 600; color: var(--c-text-1); display: block; }
@@ -741,8 +780,8 @@ function onSent() { fetchItems() }
   padding: 0.22rem 0.7rem; border-radius: 20px;
   font-size: 0.75rem; font-weight: 700;
 }
-.cv-detail-type--reward  { background: rgba(22,163,74,0.1);  color: #16A34A; }
-.cv-detail-type--warning { background: rgba(245,158,11,0.1); color: #D97706; }
+.cv-detail-type--reward  { background: var(--c-green-tint); color: var(--c-green); }
+.cv-detail-type--warning { background: var(--c-amber-tint); color: var(--c-amber); }
 .cv-detail-date {
   display: flex; align-items: center; gap: 0.3rem;
   font-size: 0.78rem; color: var(--c-text-2);

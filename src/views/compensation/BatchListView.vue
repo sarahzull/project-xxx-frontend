@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import compensationApi from '../../api/compensation'
 import { useToast } from '../../composables/useToast'
 import StatusBadge  from '../../components/common/StatusBadge.vue'
 import SearchInput  from '../../components/common/SearchInput.vue'
 import ActionBtn    from '../../components/common/ActionBtn.vue'
+import AppPagination from '../../components/common/AppPagination.vue'
 import { PayIcon, AddIcon, FilterIcon, DriversIcon, ViewIcon, CalendarIcon, CloseIcon } from '../../components/icons/index.js'
 
 const router  = useRouter()
@@ -13,6 +14,11 @@ const toast   = useToast()
 const batches = ref([])
 const loading = ref(true)
 const statusFilter = ref('')
+
+// ── Pagination state ──────────────────────────────────────────────────────────
+const page  = ref(1)
+const meta  = ref({})
+const stats = ref({})
 
 // Create modal
 const showCreate = ref(false)
@@ -24,16 +30,11 @@ const createForm = ref({
   notes: '',
 })
 
-// ── Computed stats ────────────────────────────────────────────────────────────
-const totalBatches    = computed(() => batches.value.length)
-const draftCount      = computed(() => batches.value.filter(b => b.status === 'draft').length)
-const confirmedCount  = computed(() => batches.value.filter(b => b.status === 'confirmed').length)
-const exportedCount   = computed(() => batches.value.filter(b => b.status === 'exported').length)
-
-const filteredBatches = computed(() => {
-  if (!statusFilter.value) return batches.value
-  return batches.value.filter(b => b.status === statusFilter.value)
-})
+// ── Computed stats (sourced from backend aggregate counts) ────────────────────
+const totalBatches   = computed(() => stats.value.total     ?? 0)
+const draftCount     = computed(() => stats.value.draft     ?? 0)
+const confirmedCount = computed(() => stats.value.confirmed ?? 0)
+const exportedCount  = computed(() => stats.value.exported  ?? 0)
 
 const columns = [
   { key: 'batch_number',  label: 'Batch #' },
@@ -48,17 +49,24 @@ const columns = [
 async function fetchBatches() {
   loading.value = true
   try {
-    const { data } = await compensationApi.listBatches()
+    const { data } = await compensationApi.listBatches({
+      status: statusFilter.value || undefined,
+      page:   page.value,
+    })
     batches.value = (data.data || []).map(b => ({
       ...b,
       period:       `${String(b.period_month).padStart(2, '0')}/${b.period_year}`,
       confirmed_at: b.confirmed_at ? new Date(b.confirmed_at).toLocaleDateString('en-GB') : '—',
       exported_at:  b.exported_at  ? new Date(b.exported_at).toLocaleDateString('en-GB')  : '—',
     }))
+    meta.value  = data.meta  || {}
+    stats.value = data.stats || {}
   } finally {
     loading.value = false
   }
 }
+
+watch(statusFilter, () => { page.value = 1; fetchBatches() })
 
 async function createBatch() {
   createErr.value = ''
@@ -131,7 +139,7 @@ onMounted(fetchBatches)
         <div>
           <p class="bv-card-title">Payroll Batches</p>
           <p class="bv-card-sub">
-            <span>{{ loading ? '…' : filteredBatches.length }} batch{{ filteredBatches.length !== 1 ? 'es' : '' }}</span>
+            <span>{{ loading ? '…' : (meta.total ?? batches.length) }} batch{{ (meta.total ?? batches.length) !== 1 ? 'es' : '' }}</span>
             <span v-if="statusFilter" class="chip chip--filter">filtered</span>
           </p>
         </div>
@@ -171,8 +179,8 @@ onMounted(fetchBatches)
           </thead>
           <tbody>
             <tr v-if="loading"><td :colspan="columns.length" class="bv-empty">Loading…</td></tr>
-            <tr v-else-if="filteredBatches.length === 0"><td :colspan="columns.length" class="bv-empty">No payroll batches yet.</td></tr>
-            <tr v-for="row in filteredBatches" :key="row.id" class="bv-row" @click="viewBatch(row)">
+            <tr v-else-if="batches.length === 0"><td :colspan="columns.length" class="bv-empty">No payroll batches yet.</td></tr>
+            <tr v-for="row in batches" :key="row.id" class="bv-row" @click="viewBatch(row)">
               <td><span class="bv-batch-num">{{ row.batch_number }}</span></td>
               <td><span class="bv-period">{{ row.period }}</span></td>
               <td><StatusBadge :status="row.status" /></td>
@@ -194,12 +202,23 @@ onMounted(fetchBatches)
         </table>
       </div>
 
+      <!-- Pagination (desktop) -->
+      <AppPagination
+        v-if="meta.last_page > 1"
+        :current-page="meta.current_page ?? 1"
+        :last-page="meta.last_page ?? 1"
+        :total="meta.total ?? 0"
+        :from="meta.from ?? 0"
+        :to="meta.to ?? 0"
+        @change="p => { page = p; fetchBatches() }"
+      />
+
       <!-- Mobile cards -->
       <div class="bv-cards">
         <div v-if="loading" class="bv-empty">Loading…</div>
-        <div v-else-if="filteredBatches.length === 0" class="bv-empty">No payroll batches yet.</div>
+        <div v-else-if="batches.length === 0" class="bv-empty">No payroll batches yet.</div>
         <div
-          v-for="row in filteredBatches" :key="row.id"
+          v-for="row in batches" :key="row.id"
           class="bv-card" @click="viewBatch(row)"
         >
           <div class="bv-card-top">
@@ -232,6 +251,7 @@ onMounted(fetchBatches)
             <button class="bv-modal-close" @click="showCreate = false">✕</button>
           </div>
           <form class="bv-modal-body" @submit.prevent="createBatch">
+            <p class="bv-field-hint">Select the payroll period this batch covers. One batch per month.</p>
             <div class="bv-fields-row">
               <div class="bv-field">
                 <label class="bv-label">Month</label>
@@ -437,6 +457,7 @@ onMounted(fetchBatches)
 }
 .bv-input:focus, .bv-textarea:focus { outline: none; border-color: var(--c-green); box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
 .bv-textarea { resize: vertical; font-family: inherit; }
+.bv-field-hint { font-size: 0.75rem; color: var(--c-text-3); }
 .bv-form-err { font-size: 0.8125rem; color: var(--c-red); background: var(--c-red-tint); padding: 8px 12px; border-radius: 8px; }
 
 .bv-btn-primary {

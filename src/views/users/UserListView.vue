@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
-  UserManagementIcon, AddIcon, EditIcon, TrashIcon, UserIcon, FilterIcon, CloseIcon,
+  UserManagementIcon, AddIcon, EditIcon, TrashIcon, UserIcon, FilterIcon, CloseIcon, AlertIcon,
 } from '../../components/icons/index.js'
 import ActionBtn from '../../components/common/ActionBtn.vue'
 import usersApi from '../../api/users'
@@ -11,6 +11,7 @@ import DataTable from '../../components/common/DataTable.vue'
 import StatusBadge from '../../components/common/StatusBadge.vue'
 import SearchInput from '../../components/common/SearchInput.vue'
 import ConfirmDeleteModal from '../../components/common/ConfirmDeleteModal.vue'
+import AppPagination from '../../components/common/AppPagination.vue'
 import { useToast } from '../../composables/useToast'
 
 const auth    = useAuthStore()
@@ -22,40 +23,37 @@ const search       = ref('')
 const filterStatus = ref('')   // '' | 'active' | 'blocked'
 const filterRole   = ref('')   // '' | 'admin'  | 'driver'
 
+// ── Pagination state ──────────────────────────────────────────────────────────
+const page  = ref(1)
+const meta  = ref({})
+const stats = ref({})
+
 const hasFilter = computed(() => search.value || filterStatus.value || filterRole.value)
 
 function resetFilters() {
   search.value       = ''
   filterStatus.value = ''
   filterRole.value   = ''
+  page.value         = 1
   fetchUsers()
 }
 
-// ── Filtered rows ─────────────────────────────────────────────────────────────
-const filteredUsers = computed(() => {
-  return users.value.filter(u => {
-    if (filterStatus.value === 'active'  && !u.is_active) return false
-    if (filterStatus.value === 'blocked' &&  u.is_active) return false
-    if (filterRole.value && !u.roles?.some(r => r.slug === filterRole.value)) return false
-    return true
-  })
-})
-
-// ── Computed stats ────────────────────────────────────────────────────────────
-const totalUsers  = computed(() => users.value.length)
-const activeUsers = computed(() => users.value.filter(u => u.is_active).length)
-const adminCount  = computed(() => users.value.filter(u => u.roles?.some(r => r.slug === 'admin')).length)
-const driverCount = computed(() => users.value.filter(u => u.roles?.some(r => r.slug === 'driver')).length)
+// ── Computed stats (sourced from backend aggregate counts) ────────────────────
+const totalUsers  = computed(() => stats.value.total   ?? 0)
+const activeUsers = computed(() => stats.value.active  ?? 0)
+const adminCount  = computed(() => stats.value.admins  ?? 0)
+const driverCount = computed(() => stats.value.drivers ?? 0)
 
 // ── Modal state ───────────────────────────────────────────────────────────────
 const showModal   = ref(false)
 const editingUser = ref(null)
 const saving      = ref(false)
 const formError   = ref('')
-const showDeleteModal = ref(false)
-const deletingUser    = ref(null)
-const deleting        = ref(false)
-const deleteError     = ref('')
+const showDeleteModal  = ref(false)
+const deletingUser     = ref(null)
+const deleting         = ref(false)
+const deleteError      = ref('')
+const showBlockConfirm = ref(false)
 const form        = ref({
   name: '', email: '', password: '', dob: '', phone: '',
   role_id: '', driver_id: '', photo: '', license_no: '', license_date: '', date_joined: '',
@@ -124,15 +122,32 @@ const columns = [
 async function fetchUsers() {
   loading.value = true
   try {
-    const { data } = await usersApi.list({ search: search.value })
+    const { data } = await usersApi.list({
+      search: search.value || undefined,
+      status: filterStatus.value || undefined,
+      role:   filterRole.value   || undefined,
+      page:   page.value,
+    })
     users.value = (data.data || []).map(u => ({
       ...u,
       created_at: u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : '—',
     }))
+    meta.value  = data.meta  || {}
+    stats.value = data.stats || {}
   } finally {
     loading.value = false
   }
 }
+
+// Reset to page 1 and refetch when filters change
+watch([filterStatus, filterRole], () => { page.value = 1; fetchUsers() })
+
+// Debounced search watch
+let searchTimer = null
+watch(search, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; fetchUsers() }, 300)
+})
 
 async function fetchRoles() {
   try {
@@ -189,6 +204,13 @@ function openEdit(user) {
 
 async function saveUser() {
   formError.value = ''
+  // Guard: require explicit confirmation when blocking a currently active account
+  if (editingUser.value?.is_active === true && form.value.is_active === false && !showBlockConfirm.value) {
+    showBlockConfirm.value = true
+    return
+  }
+  showBlockConfirm.value = false
+
   saving.value = true
   const isEditing = Boolean(editingUser.value)
   try {
@@ -340,17 +362,15 @@ async function confirmDeleteUser() {
           <p class="uv-card-title">User Accounts</p>
           <p class="uv-card-sub">
             <span v-if="loading">…</span>
-            <span v-else-if="filteredUsers.length === users.length">
-              {{ users.length }} user{{ users.length !== 1 ? 's' : '' }}
-            </span>
             <span v-else>
-              {{ filteredUsers.length }} of {{ users.length }} users
+              {{ meta.total ?? users.length }} user{{ (meta.total ?? users.length) !== 1 ? 's' : '' }}
             </span>
+            <span v-if="hasFilter" class="chip chip--filter">filtered</span>
           </p>
         </div>
         <div class="uv-card-right">
           <div class="uv-card-search">
-            <SearchInput v-model="search" placeholder="Search users…" @update:model-value="fetchUsers" />
+            <SearchInput v-model="search" placeholder="Search users…" />
           </div>
           <button class="uv-new-btn" @click="openCreate">
             <AddIcon :size="16" :stroke-width="2.5" />
@@ -384,7 +404,7 @@ async function confirmDeleteUser() {
       </div>
 
       <!-- Table -->
-      <DataTable :columns="columns" :rows="filteredUsers" :loading="loading" :flat="true" empty-message="No users found.">
+      <DataTable :columns="columns" :rows="users" :loading="loading" :flat="true" :has-filter="hasFilter" empty-message="No users found.">
         <template #cell-roles="{ row }">
           <span v-if="row.roles && row.roles.length" class="uv-roles-row">
             <span
@@ -413,6 +433,16 @@ async function confirmDeleteUser() {
           </div>
         </template>
       </DataTable>
+
+      <AppPagination
+        v-if="meta.last_page > 1"
+        :current-page="meta.current_page ?? 1"
+        :last-page="meta.last_page ?? 1"
+        :total="meta.total ?? 0"
+        :from="meta.from ?? 0"
+        :to="meta.to ?? 0"
+        @change="p => { page = p; fetchUsers() }"
+      />
     </div>
 
     <!-- ── Modal ──────────────────────────────────────────────── -->
@@ -591,17 +621,26 @@ async function confirmDeleteUser() {
             <div v-if="editingUser" class="uv-field uv-field--row">
               <label class="uv-label">Account Active</label>
               <label class="uv-toggle">
-                <input v-model="form.is_active" type="checkbox" />
+                <input v-model="form.is_active" type="checkbox" @change="showBlockConfirm = false" />
                 <span class="uv-toggle-track" />
               </label>
+            </div>
+
+            <!-- Block confirmation banner -->
+            <div v-if="showBlockConfirm" class="uv-block-confirm">
+              <AlertIcon :size="16" class="uv-block-confirm-icon" />
+              <div>
+                <p class="uv-block-confirm-title">Block this account?</p>
+                <p class="uv-block-confirm-body">This user will not be able to log in until their account is reactivated.</p>
+              </div>
             </div>
 
             <p v-if="formError" class="uv-form-err">{{ formError }}</p>
 
             <div class="uv-modal-foot">
-              <button type="button" class="uv-btn-ghost" @click="showModal = false">Cancel</button>
-              <button type="submit" class="uv-btn-primary" :disabled="saving">
-                {{ saving ? 'Saving…' : (editingUser ? 'Save Changes' : 'Create User') }}
+              <button type="button" class="uv-btn-ghost" @click="showModal = false; showBlockConfirm = false">Cancel</button>
+              <button type="submit" :class="['uv-btn-primary', showBlockConfirm && 'uv-btn-danger']" :disabled="saving">
+                {{ saving ? 'Saving…' : showBlockConfirm ? 'Confirm Block' : (editingUser ? 'Save Changes' : 'Create User') }}
               </button>
             </div>
           </form>
@@ -836,12 +875,25 @@ async function confirmDeleteUser() {
 .uv-toggle-track::after {
   content: ''; position: absolute; top: 3px; left: 3px;
   width: 14px; height: 14px; border-radius: 50%;
-  background: #fff; transition: transform 0.2s;
+  background: var(--c-surface); transition: transform 0.2s;
 }
 .uv-toggle input:checked + .uv-toggle-track { background: var(--c-accent); }
 .uv-toggle input:checked + .uv-toggle-track::after { transform: translateX(16px); }
 
 .uv-form-err { font-size: 0.8125rem; color: var(--c-red); background: var(--c-red-tint); padding: 8px 12px; border-radius: 8px; }
+
+.uv-block-confirm {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--c-red-tint); border: 1px solid color-mix(in srgb, var(--c-red) 25%, transparent);
+  border-radius: 8px; padding: 12px 14px;
+}
+.uv-block-confirm-icon { color: var(--c-red); flex-shrink: 0; margin-top: 1px; }
+.uv-block-confirm-title { font-size: 0.8125rem; font-weight: 600; color: var(--c-red); }
+.uv-block-confirm-body  { font-size: 0.75rem; color: var(--c-text-2); margin-top: 2px; }
+
+.uv-btn-danger {
+  background: var(--c-red) !important; color: #fff !important;
+}
 
 .uv-btn-primary {
   background: var(--c-accent); color: #fff; border: none; border-radius: 8px;

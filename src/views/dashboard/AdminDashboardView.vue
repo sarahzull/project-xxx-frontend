@@ -30,16 +30,22 @@ const loadingBlocked   = ref(false)
 // ── New dashboard widget state ─────────────────────────────────────────────
 const alertsData         = ref(null)
 const alertsLoading      = ref(true)
+const alertsError        = ref(false)
 const tripsToday         = ref(null)
 const tripsTodayLoading  = ref(true)
+const tripsTodayError    = ref(false)
 const driverAvail        = ref(null)
 const driverAvailLoading = ref(true)
+const driverAvailError   = ref(false)
 const activities         = ref([])
 const activitiesLoading  = ref(true)
+const activitiesError    = ref(false)
 const riskDrivers        = ref([])
 const riskLoading        = ref(true)
+const riskError          = ref(false)
 const birthdays          = ref([])
 const birthdaysLoading   = ref(true)
+const birthdaysError     = ref(false)
 
 // ── Date display ──────────────────────────────────────────────────────────────
 const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -87,7 +93,7 @@ const isDark = computed(() => theme.isDark)
 const apexTheme = computed(() => isDark.value ? 'dark' : 'light')
 const gridColor = computed(() => isDark.value ? '#2A2D3A' : '#F1F5F9')
 const labelColor = computed(() => isDark.value ? '#94A3B8' : '#475569')
-const bgColor = computed(() => isDark.value ? '#1A1D27' : '#FFFFFF')
+const bgColor = computed(() => isDark.value ? '#1A1D27' : '#F8FAFC')
 
 // ── Monthly Trips bar chart ───────────────────────────────────────────────────
 const heroSeries = computed(() => [{
@@ -109,7 +115,7 @@ const heroOptions = computed(() => ({
     bar: { borderRadius: 5, columnWidth: '55%', borderRadiusApplication: 'end' },
   },
   dataLabels: { enabled: false },
-  colors: ['#1D4ED8'],
+  colors: [isDark.value ? '#60A5FA' : '#1D4ED8'],
   xaxis: {
     categories: monthlyTrips.value.map(m => m.label),
     labels: { style: { colors: labelColor.value, fontSize: '11px' } },
@@ -147,7 +153,7 @@ const statusOptions = computed(() => ({
   },
   theme: { mode: apexTheme.value },
   labels: ['Active', 'Blocked', 'Inactive'],
-  colors: ['#16A34A', '#EF4444', '#94A3B8'],
+  colors: [isDark.value ? '#4ADE80' : '#16A34A', isDark.value ? '#F87171' : '#EF4444', '#94A3B8'],
   plotOptions: {
     pie: {
       donut: {
@@ -179,7 +185,11 @@ const statusOptions = computed(() => ({
 }))
 
 // ── Oil Company bar chart ─────────────────────────────────────────────────────
-const palette = ['#1D4ED8','#7C3AED','#16A34A','#D97706','#EF4444','#0891B2','#BE185D','#65A30D']
+// Token-aware palette: light values / dark values mirror CSS design tokens
+const palette = computed(() => isDark.value
+  ? ['#60A5FA','#A78BFA','#4ADE80','#FBBF24','#F87171','#22D3EE','#F472B6','#A3E635']
+  : ['#1D4ED8','#7C3AED','#16A34A','#D97706','#EF4444','#0891B2','#BE185D','#65A30D']
+)
 
 const oilEntries = computed(() => {
   const obj = tripStats.value?.by_oil_company || {}
@@ -205,7 +215,7 @@ const oilOptions = computed(() => ({
     bar: { borderRadius: 4, columnWidth: '55%', borderRadiusApplication: 'end' },
   },
   dataLabels: { enabled: false },
-  colors: oilEntries.value.map((_, i) => palette[i % palette.length]),
+  colors: oilEntries.value.map((_, i) => palette.value[i % palette.value.length]),
   xaxis: {
     categories: oilEntries.value.map(([k]) => k.charAt(0).toUpperCase() + k.slice(1)),
     labels: { style: { colors: labelColor.value, fontSize: '11px' } },
@@ -224,7 +234,10 @@ const oilOptions = computed(() => ({
 }))
 
 // ── Rankings bar chart ────────────────────────────────────────────────────────
-const rankMap = { A: '#16A34A', B: '#1D4ED8', C: '#D97706' }
+const rankMap = computed(() => isDark.value
+  ? { A: '#4ADE80', B: '#60A5FA', C: '#FBBF24' }
+  : { A: '#16A34A', B: '#1D4ED8', C: '#D97706' }
+)
 
 const rankEntries = computed(() => {
   const obj = driverStats.value?.drivers_by_ranking || {}
@@ -250,7 +263,7 @@ const rankOptions = computed(() => ({
     bar: { borderRadius: 4, columnWidth: '50%', borderRadiusApplication: 'end' },
   },
   dataLabels: { enabled: false },
-  colors: rankEntries.value.map(([r]) => rankMap[r] || '#94A3B8'),
+  colors: rankEntries.value.map(([r]) => rankMap.value[r] || '#94A3B8'),
   xaxis: {
     categories: rankEntries.value.map(([r]) => `Rank ${r}`),
     labels: { style: { colors: labelColor.value, fontSize: '11px' } },
@@ -287,36 +300,56 @@ onMounted(async () => {
   }
 
   // ── New widget data (each loads independently, non-blocking) ───────────
+  loadAlerts()
+  loadTripsToday()
+  loadDriverAvail()
+  loadActivities()
+  loadRiskDrivers()
+  loadBirthdays()
+})
+
+function loadAlerts() {
+  alertsLoading.value = true; alertsError.value = false
   dashboardApi.getAlerts()
-    .then(r  => { alertsData.value       = r.data.data })
-    .catch(() => { alertsData.value       = { license_expiring: 0, blocked_assigned: 0, incomplete_trips: 0 } })
-    .finally(() => { alertsLoading.value  = false })
-
+    .then(r  => { alertsData.value      = r.data.data })
+    .catch(() => { alertsError.value    = true })
+    .finally(() => { alertsLoading.value = false })
+}
+function loadTripsToday() {
+  tripsTodayLoading.value = true; tripsTodayError.value = false
   dashboardApi.getTripsToday()
-    .then(r  => { tripsToday.value        = r.data.data })
-    .catch(() => { tripsToday.value        = null })
+    .then(r  => { tripsToday.value         = r.data.data })
+    .catch(() => { tripsTodayError.value   = true })
     .finally(() => { tripsTodayLoading.value = false })
-
+}
+function loadDriverAvail() {
+  driverAvailLoading.value = true; driverAvailError.value = false
   dashboardApi.getDriverAvailability()
-    .then(r  => { driverAvail.value       = r.data.data })
-    .catch(() => { driverAvail.value       = null })
+    .then(r  => { driverAvail.value         = r.data.data })
+    .catch(() => { driverAvailError.value   = true })
     .finally(() => { driverAvailLoading.value = false })
-
+}
+function loadActivities() {
+  activitiesLoading.value = true; activitiesError.value = false
   dashboardApi.getRecentActivity()
-    .then(r  => { activities.value        = r.data.data })
-    .catch(() => { activities.value        = [] })
+    .then(r  => { activities.value         = r.data.data })
+    .catch(() => { activitiesError.value   = true })
     .finally(() => { activitiesLoading.value = false })
-
+}
+function loadRiskDrivers() {
+  riskLoading.value = true; riskError.value = false
   dashboardApi.getRiskDrivers()
     .then(r  => { riskDrivers.value       = r.data.data })
-    .catch(() => { riskDrivers.value       = [] })
-    .finally(() => { riskLoading.value     = false })
-
+    .catch(() => { riskError.value        = true })
+    .finally(() => { riskLoading.value    = false })
+}
+function loadBirthdays() {
+  birthdaysLoading.value = true; birthdaysError.value = false
   dashboardApi.getBirthdays()
-    .then(r  => { birthdays.value         = r.data.data })
-    .catch(() => { birthdays.value         = [] })
+    .then(r  => { birthdays.value          = r.data.data })
+    .catch(() => { birthdaysError.value    = true })
     .finally(() => { birthdaysLoading.value = false })
-})
+}
 </script>
 
 <template>
@@ -359,7 +392,11 @@ onMounted(async () => {
     <template v-else>
 
       <!-- ── Alerts ────────────────────────────────────────── -->
-      <AlertsWidget :data="alertsData" :loading="alertsLoading" />
+      <div v-if="alertsError" class="adash-widget-err">
+        Failed to load alerts.
+        <button class="adash-retry-btn" @click="loadAlerts">Retry</button>
+      </div>
+      <AlertsWidget v-else :data="alertsData" :loading="alertsLoading" />
 
       <!-- ── Command Center: Today's Operations ────────────── -->
       <div class="adash-ops-zone">
@@ -513,12 +550,24 @@ onMounted(async () => {
       <!-- ── Risk & Activity ───────────────────────────────── -->
       <p class="adash-section-lbl">Risk &amp; Activity</p>
       <div class="adash-intel-grid">
-        <RiskDrivers :drivers="riskDrivers" :loading="riskLoading" />
-        <ActivityFeed :items="activities"   :loading="activitiesLoading" />
+        <div v-if="riskError" class="adash-widget-err">
+          Failed to load risk data.
+          <button class="adash-retry-btn" @click="loadRiskDrivers">Retry</button>
+        </div>
+        <RiskDrivers v-else :drivers="riskDrivers" :loading="riskLoading" />
+        <div v-if="activitiesError" class="adash-widget-err">
+          Failed to load activity.
+          <button class="adash-retry-btn" @click="loadActivities">Retry</button>
+        </div>
+        <ActivityFeed v-else :items="activities" :loading="activitiesLoading" />
       </div>
 
       <!-- ── Upcoming Birthdays ────────────────────────────── -->
-      <BirthdayCard :birthdays="birthdays" :loading="birthdaysLoading" />
+      <div v-if="birthdaysError" class="adash-widget-err">
+        Failed to load birthdays.
+        <button class="adash-retry-btn" @click="loadBirthdays">Retry</button>
+      </div>
+      <BirthdayCard v-else :birthdays="birthdays" :loading="birthdaysLoading" />
 
       <!-- ── License Alerts ─────────────────────────────────── -->
       <p class="adash-section-lbl">License Alerts</p>
@@ -917,4 +966,20 @@ onMounted(async () => {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ── Widget error states ──────────────────────────────────────────────────── */
+.adash-widget-err {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 12px 16px;
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  border-radius: var(--r-lg); font-size: 0.8125rem; color: var(--c-text-3);
+}
+.adash-retry-btn {
+  font-size: 0.75rem; font-weight: 600; color: var(--c-accent);
+  background: none; border: 1px solid var(--c-accent);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer;
+  transition: background var(--dur), color var(--dur);
+  white-space: nowrap; flex-shrink: 0;
+}
+.adash-retry-btn:hover { background: var(--c-accent); color: #fff; }
 </style>

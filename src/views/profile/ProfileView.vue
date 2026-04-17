@@ -445,7 +445,7 @@ function userInitials(name) {
 }
 .pv-banner::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, #7C3AED, var(--c-accent));
+  background: linear-gradient(90deg, var(--c-purple), var(--c-accent));
   border-radius: var(--r-xl) var(--r-xl) 0 0;
 }
 @media (min-width: 640px) { .pv-banner { padding: 18px 24px; margin-bottom: 24px; } }
@@ -453,7 +453,7 @@ function userInitials(name) {
 .pv-banner-left { display: flex; align-items: center; gap: 12px; }
 .pv-banner-icon {
   width: 42px; height: 42px; border-radius: var(--r-lg); flex-shrink: 0;
-  background: #7C3AED; color: #fff;
+  background: var(--c-purple); color: #fff;
   display: flex; align-items: center; justify-content: center;
 }
 .pv-banner-icon svg { width: 20px; height: 20px; }

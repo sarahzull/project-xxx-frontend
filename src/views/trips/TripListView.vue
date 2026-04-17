@@ -1,8 +1,10 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import tripsApi    from '../../api/trips'
-import DataTable   from '../../components/common/DataTable.vue'
-import SearchInput from '../../components/common/SearchInput.vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import tripsApi      from '../../api/trips'
+import DataTable        from '../../components/common/DataTable.vue'
+import SearchInput      from '../../components/common/SearchInput.vue'
+import AppPagination    from '../../components/common/AppPagination.vue'
+import DateRangePicker  from '../../components/common/DateRangePicker.vue'
 import { useAuthStore } from '../../stores/auth'
 import {
   TruckIcon, FilterIcon, FuelIcon, ChevronDownIcon, SearchIcon, CheckIcon, CloseIcon,
@@ -83,6 +85,7 @@ const filteredTrips = computed(() => {
     const q = search.value.toLowerCase()
     list = list.filter(t =>
       String(t.driver_id || '').toLowerCase().includes(q)          ||
+      String(t.driver_name || '').toLowerCase().includes(q)        ||
       String(t.delivery_note || '').toLowerCase().includes(q)      ||
       String(t.ship_to_party_name || '').toLowerCase().includes(q) ||
       String(t.location || '').toLowerCase().includes(q)
@@ -109,9 +112,21 @@ const filteredTrips = computed(() => {
 
 const hasFilter = computed(() => typeFilter.value || oilFilter.value || dateFrom.value || dateTo.value || search.value)
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+const ITEMS_PER_PAGE = 15
+const page = ref(1)
+const pagedTrips = computed(() => {
+  const start = (page.value - 1) * ITEMS_PER_PAGE
+  return filteredTrips.value.slice(start, start + ITEMS_PER_PAGE)
+})
+const lastPage = computed(() => Math.max(1, Math.ceil(filteredTrips.value.length / ITEMS_PER_PAGE)))
+const pageFrom = computed(() => filteredTrips.value.length === 0 ? 0 : (page.value - 1) * ITEMS_PER_PAGE + 1)
+const pageTo   = computed(() => Math.min(page.value * ITEMS_PER_PAGE, filteredTrips.value.length))
+watch([search, typeFilter, oilFilter, dateFrom, dateTo], () => { page.value = 1 })
+
 // ── Columns ───────────────────────────────────────────────────────────────────
 const columns = [
-  { key: 'driver_id',          label: 'Driver ID',  sortable: true  },
+  { key: 'driver_id',          label: 'Driver',      sortable: true  },
   { key: 'date',               label: 'Date',        sortable: true  },
   { key: 'road_tanker_id',     label: 'Tanker',      sortable: false },
   { key: 'delivery_note',      label: 'D/Note',      sortable: false },
@@ -171,6 +186,7 @@ function clearFilters() {
   dateTo.value     = ''
   search.value     = ''
   oilSearch.value  = ''
+  page.value       = 1
 }
 </script>
 
@@ -306,17 +322,7 @@ function clearFilters() {
         <div class="tv-sep" />
 
         <!-- Date range -->
-        <div class="tv-date-range">
-          <div class="tv-date-field">
-            <label class="tv-date-lbl">From</label>
-            <input v-model="dateFrom" type="date" class="tv-date-input" :max="dateTo || undefined" />
-          </div>
-          <span class="tv-date-arrow">→</span>
-          <div class="tv-date-field">
-            <label class="tv-date-lbl">To</label>
-            <input v-model="dateTo" type="date" class="tv-date-input" :min="dateFrom || undefined" />
-          </div>
-        </div>
+        <DateRangePicker v-model:from="dateFrom" v-model:to="dateTo" />
 
         <Transition name="tv-fade">
           <button v-if="hasFilter" class="tv-clear-btn" @click="clearFilters">
@@ -333,14 +339,21 @@ function clearFilters() {
       <!-- Table -->
       <DataTable
         :columns="columns"
-        :rows="filteredTrips"
+        :rows="pagedTrips"
         :loading="loading"
         :flat="true"
+        :has-filter="hasFilter"
         :sort-key="sortKey"
         :sort-dir="sortDir"
         empty-message="No trips found."
         @sort="handleSort"
       >
+        <template #cell-driver_id="{ row, value }">
+          <div class="tv-driver-cell">
+            <span class="tv-driver-id mono">{{ value || '—' }}</span>
+            <span v-if="row.driver_name" class="tv-driver-name">{{ row.driver_name }}</span>
+          </div>
+        </template>
         <template #cell-date="{ value }">
           <span class="mono">{{ formatDate(value) }}</span>
         </template>
@@ -366,6 +379,16 @@ function clearFilters() {
           <span v-else class="tc-3">—</span>
         </template>
       </DataTable>
+
+      <AppPagination
+        v-if="lastPage > 1"
+        :current-page="page"
+        :last-page="lastPage"
+        :total="filteredTrips.length"
+        :from="pageFrom"
+        :to="pageTo"
+        @change="p => { page = p }"
+      />
     </div>
   </div>
 </template>
@@ -427,6 +450,14 @@ function clearFilters() {
 }
 .tv-card-search { flex-shrink: 0; width: 220px; }
 @media (max-width: 767px) { .tv-card-hd { padding: 12px 14px; } .tv-card-search { display: none; } }
+
+.tv-driver-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tv-driver-id { color: var(--c-text-1); }
+.tv-driver-name { color: var(--c-text-3); font-size: 0.75rem; }
 
 
 /* ── Filter bar ──────────────────────────────────────────────── */
@@ -509,25 +540,6 @@ function clearFilters() {
 
 .tv-drop-empty { padding: 12px; text-align: center; font-size: 0.8125rem; color: var(--c-text-3); margin: 0; }
 
-/* ── Date range ──────────────────────────────────────────────── */
-.tv-date-range {
-  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
-}
-.tv-date-field { display: flex; align-items: center; gap: 5px; }
-.tv-date-lbl {
-  font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--c-text-3); white-space: nowrap;
-}
-.tv-date-input {
-  padding: 4px 8px; border-radius: 8px;
-  border: 1.5px solid var(--c-border); background: var(--c-surface);
-  color: var(--c-text-1); font-size: 0.8125rem;
-  transition: border-color var(--dur); cursor: pointer;
-}
-.tv-date-input:focus { outline: none; border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-ring); }
-.tv-date-input::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
-.tv-date-arrow { font-size: 0.75rem; color: var(--c-text-3); }
-
 /* ── Clear button ────────────────────────────────────────────── */
 .tv-clear-btn {
   display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 500;
@@ -548,7 +560,6 @@ function clearFilters() {
 
   .tv-seg,
   .tv-drop-wrap,
-  .tv-date-range,
   .tv-clear-btn {
     width: 100%;
   }
@@ -575,27 +586,6 @@ function clearFilters() {
 
   .tv-drop-opt {
     min-height: 44px;
-  }
-
-  .tv-date-range {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .tv-date-field {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-  }
-
-  .tv-date-input {
-    width: 100%;
-    min-height: 44px;
-  }
-
-  .tv-date-arrow {
-    display: none;
   }
 
   .tv-clear-btn {

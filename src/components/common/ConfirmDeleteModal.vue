@@ -213,15 +213,15 @@ onBeforeUnmount(() => {
 }
 
 .cdm-btn--cancel {
-  background: #fff;
+  background: var(--c-surface);
   border-color: var(--c-border);
   color: var(--c-text-2);
   box-shadow: var(--sh-xs);
 }
 
 .cdm-btn--cancel:hover:not(:disabled) {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+  border-color: var(--c-border);
+  background: var(--c-bg);
   color: var(--c-text-1);
 }
 

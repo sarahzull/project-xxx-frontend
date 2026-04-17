@@ -155,15 +155,15 @@ function close() { emit('update:modelValue', false) }
 .ms-leave-active { transition: opacity 160ms ease; }
 .ms-enter-from, .ms-leave-to { opacity: 0; }
 
-.ms-enter-active .ms-panel { transition: transform 220ms cubic-bezier(0.34,1.3,0.64,1); }
+.ms-enter-active .ms-panel { transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1); }
 .ms-leave-active .ms-panel  { transition: transform 180ms ease; }
 .ms-enter-from .ms-panel    { transform: translateY(100%); }
 .ms-leave-to .ms-panel      { transform: translateY(100%); }
 
 @media (min-width: 640px) {
-  .ms-enter-active .ms-panel { transition: transform 200ms cubic-bezier(0.34,1.2,0.64,1), opacity 180ms ease; }
+  .ms-enter-active .ms-panel { transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease; }
   .ms-leave-active .ms-panel { transition: transform 160ms ease, opacity 140ms ease; }
-  .ms-enter-from .ms-panel   { transform: scale(0.95); opacity: 0; }
-  .ms-leave-to .ms-panel     { transform: scale(0.95); opacity: 0; }
+  .ms-enter-from .ms-panel   { transform: scale(0.96); opacity: 0; }
+  .ms-leave-to .ms-panel     { transform: scale(0.96); opacity: 0; }
 }
 </style>

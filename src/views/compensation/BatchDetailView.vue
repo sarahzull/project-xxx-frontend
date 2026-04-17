@@ -341,7 +341,7 @@ onMounted(fetchData)
   background: var(--c-bg); border: 1px solid var(--c-border-light); gap: 3px;
 }
 .bd-stat-val { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.03em; color: var(--c-text-1); line-height: 1; }
-.bd-stat-lbl { font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-text-3); }
+.bd-stat-lbl { font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-text-3); line-height: 1.3; text-align: center; }
 .bd-stat--blue   .bd-stat-val { color: var(--c-accent); }
 .bd-stat--purple .bd-stat-val { color: var(--c-purple); }
 .bd-stat--green  .bd-stat-val { color: var(--c-green);  font-size: 1.125rem; }
@@ -401,4 +401,17 @@ onMounted(fetchData)
 .bd-edit-btn { font-size: 0.8125rem; font-weight: 500; color: var(--c-accent); background: var(--c-accent-tint); border: 1px solid rgba(29,78,216,0.2); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .bd-save-btn { font-size: 0.8125rem; font-weight: 600; color: #fff; background: var(--c-green); border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .bd-cancel-btn { font-size: 0.8125rem; font-weight: 500; color: var(--c-text-2); background: transparent; border: 1px solid var(--c-border); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+@media (max-width: 360px) {
+  .bd-rec-top,
+  .bd-rec-grid {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bd-rec-actions > * {
+    width: 100%;
+    min-height: 44px;
+  }
+}
 </style>

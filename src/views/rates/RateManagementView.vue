@@ -232,7 +232,7 @@ async function deleteColumn(ki) {
 // ── Special note helpers ──────────────────────────────────────────────────────
 function addNote() {
   const idx = specialRates.value.length
-  specialRates.value.push({ id: null, note_type: '', rate_per_trip: 0, _new: true })
+  specialRates.value.push({ id: null, note_key: '', label: '', allowance: 0, _new: true })
   editNoteBackup.value   = null
   editingNoteIndex.value = idx
 }
@@ -255,17 +255,18 @@ function cancelEditNote() {
 
 async function saveEditNote(index) {
   const rate = specialRates.value[index]
-  if (!rate.note_type?.trim()) {
-    toast.warning('Please enter a note type name before saving.', { title: 'Missing Note Type' })
+  if (!rate.label?.trim()) {
+    toast.warning('Please enter a note label before saving.', { title: 'Missing Label' })
     return
   }
   saving.value = true
   try {
+    const derivedKey = rate.label.trim().toLowerCase().replace(/\s+/g, '_')
     if (!rate.id) {
-      const res = await ratesApi.createSpecialNote({ note_type: rate.note_type.trim().toLowerCase(), rate_per_trip: rate.rate_per_trip })
-      rate.id = res.data.data.id; rate._new = false
+      const res = await ratesApi.createSpecialNote({ note_key: derivedKey, label: rate.label.trim(), allowance: rate.allowance })
+      rate.id = res.data.data.id; rate.note_key = derivedKey; rate._new = false
     } else {
-      await ratesApi.updateSpecialNoteRates([{ id: rate.id, note_type: rate.note_type.trim().toLowerCase(), rate_per_trip: rate.rate_per_trip }])
+      await ratesApi.updateSpecialNoteRates([{ id: rate.id, note_key: rate.note_key || derivedKey, label: rate.label.trim(), allowance: rate.allowance }])
     }
     editingNoteIndex.value = null
     editNoteBackup.value   = null
@@ -290,6 +291,8 @@ async function deleteNote(index) {
 
 const NOTE_COLORS = ['amber','green','orange','blue','purple','teal','red','indigo']
 function noteColor(i) { return NOTE_COLORS[i % NOTE_COLORS.length] }
+
+const activeTab = ref('trip-rates') // 'trip-rates' | 'special-notes'
 </script>
 
 <template>
@@ -307,6 +310,27 @@ function noteColor(i) { return NOTE_COLORS[i % NOTE_COLORS.length] }
         </div>
       </div>
     </div>
+    <!-- ── Tab bar ───────────────────────────────────────────── -->
+    <div class="rm-tabs" role="tablist">
+      <button
+        role="tab"
+        :aria-selected="activeTab === 'trip-rates'"
+        :class="['rm-tab', activeTab === 'trip-rates' && 'rm-tab--active']"
+        @click="activeTab = 'trip-rates'"
+      >
+        Trip Rates
+      </button>
+      <button
+        role="tab"
+        :aria-selected="activeTab === 'special-notes'"
+        :class="['rm-tab', activeTab === 'special-notes' && 'rm-tab--active']"
+        @click="activeTab = 'special-notes'"
+      >
+        Special Note Rates
+        <span v-if="!loading && specialRates.length" class="rm-tab-count">{{ specialRates.length }}</span>
+      </button>
+    </div>
+
     <!-- ── Loading ────────────────────────────────────────────── -->
     <div v-if="loading" class="rm-loading">
       <div class="rm-spinner" /><span>Loading rates…</span>
@@ -317,7 +341,7 @@ function noteColor(i) { return NOTE_COLORS[i % NOTE_COLORS.length] }
       <!-- ════════════════════════════════════════════════════════
            TRIP RATE MATRIX
       ════════════════════════════════════════════════════════ -->
-      <div class="rm-card">
+      <div v-if="activeTab === 'trip-rates'" class="rm-card">
         <div class="rm-card-hd">
           <div>
             <p class="rm-card-title">Trip Rate Matrix</p>
@@ -493,7 +517,7 @@ function noteColor(i) { return NOTE_COLORS[i % NOTE_COLORS.length] }
       <!-- ════════════════════════════════════════════════════════
            SPECIAL NOTE RATES
       ════════════════════════════════════════════════════════ -->
-      <div class="rm-card">
+      <div v-if="activeTab === 'special-notes'" class="rm-card">
         <div class="rm-card-hd">
           <div>
             <p class="rm-card-title">Special Note Rates</p>
@@ -508,7 +532,7 @@ function noteColor(i) { return NOTE_COLORS[i % NOTE_COLORS.length] }
         <!-- Column labels -->
         <div v-if="specialRates.length" class="rm-sn-col-labels">
           <span>Note Type</span>
-          <span>Rate (RM / trip)</span>
+          <span>Allowance (RM)</span>
           <span></span>
         </div>
 
@@ -524,12 +548,11 @@ function noteColor(i) { return NOTE_COLORS[i % NOTE_COLORS.length] }
             <template v-if="editingNoteIndex !== index">
               <div class="rm-sn-type-view">
                 <span :class="['rm-color-dot', `rm-dot--${noteColor(index)}`]"></span>
-                <span class="rm-sn-type-text">{{ rate.note_type || '—' }}</span>
+                <span class="rm-sn-type-text">{{ rate.label || rate.note_key || '—' }}</span>
               </div>
               <div class="rm-sn-rate-view">
                 <span class="rm-sn-rate-rm">RM</span>
-                <span class="rm-sn-rate-val">{{ Number(rate.rate_per_trip).toFixed(2) }}</span>
-                <span class="rm-sn-rate-suffix">/ trip</span>
+                <span class="rm-sn-rate-val">{{ Number(rate.allowance).toFixed(2) }}</span>
               </div>
               <div class="rm-sn-view-actions">
                 <button
@@ -556,10 +579,10 @@ function noteColor(i) { return NOTE_COLORS[i % NOTE_COLORS.length] }
               <div class="rm-sn-type-edit">
                 <span :class="['rm-color-dot', `rm-dot--${noteColor(index)}`]"></span>
                 <input
-                  v-model="rate.note_type"
+                  v-model="rate.label"
                   type="text"
                   class="rm-sn-type-input"
-                  placeholder="e.g. diversion"
+                  placeholder="e.g. Diversion"
                   maxlength="50"
                   autofocus
                 />
@@ -567,11 +590,10 @@ function noteColor(i) { return NOTE_COLORS[i % NOTE_COLORS.length] }
               <div class="rm-sn-rate-edit">
                 <span class="rm-rm-prefix">RM</span>
                 <input
-                  v-model.number="rate.rate_per_trip"
+                  v-model.number="rate.allowance"
                   type="number" step="0.01" min="0"
                   class="rm-special-input"
                 />
-                <span class="rm-sn-suffix">/ trip</span>
               </div>
               <div class="rm-sn-edit-actions">
                 <button class="rm-icon-btn rm-icon-btn--save" :disabled="saving" title="Save" @click="saveEditNote(index)">
@@ -630,6 +652,31 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .rm-banner-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text-1); letter-spacing: -.02em; margin-bottom: 1px; }
 @media (min-width: 640px) { .rm-banner-title { font-size: 1.25rem; } }
 .rm-banner-sub { font-size: .8125rem; color: var(--c-text-3); }
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.rm-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  border-radius: 10px; padding: 4px;
+}
+.rm-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 7px; border: none; background: transparent;
+  font-size: 0.84rem; font-weight: 600; color: var(--c-text-2);
+  cursor: pointer; transition: all var(--dur); white-space: nowrap;
+}
+.rm-tab:hover { color: var(--c-text-1); }
+.rm-tab--active {
+  background: var(--c-surface); color: var(--c-text-1);
+  box-shadow: var(--sh-sm);
+}
+.rm-tab-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: var(--r-full); background: var(--c-amber-tint);
+  color: var(--c-amber); font-size: 0.65rem; font-weight: 700;
+}
+@media (min-width: 640px) { .rm-tabs { margin-bottom: 20px; } }
 
 /* ── Loading ─────────────────────────────────────────────────────────────── */
 .rm-loading { display: flex; align-items: center; gap: 10px; padding: 40px 0; color: var(--c-text-3); }

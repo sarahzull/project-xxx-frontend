@@ -168,7 +168,7 @@ const badgeLabel = computed(() => {
   transition: background var(--dur), color var(--dur);
 }
 .nb-btn:hover       { background: var(--c-bg); color: var(--c-text-1); }
-.nb-btn--unread     { color: #7C3AED; }
+.nb-btn--unread     { color: #1D4ED8; }
 .nb-btn--open       { background: var(--c-bg); color: var(--c-text-1); }
 
 .nb-badge {
@@ -212,10 +212,10 @@ const badgeLabel = computed(() => {
 
 .nb-mark-all {
   display: flex; align-items: center; gap: 3px;
-  font-size: 0.72rem; font-weight: 600; color: #7C3AED; padding: 3px 6px; border-radius: 6px;
+  font-size: 0.72rem; font-weight: 600; color: #1D4ED8; padding: 3px 6px; border-radius: 6px;
   transition: background var(--dur);
 }
-.nb-mark-all:hover { background: rgba(124,58,237,0.08); }
+.nb-mark-all:hover { background: rgba(29,78,216,0.08); }
 
 .nb-close-panel {
   width: 26px; height: 26px; border-radius: 6px;
@@ -235,7 +235,7 @@ const badgeLabel = computed(() => {
 }
 .nb-spinner {
   width: 18px; height: 18px; border-radius: 50%;
-  border: 2px solid var(--c-border); border-top-color: #7C3AED;
+  border: 2px solid var(--c-border); border-top-color: #1D4ED8;
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -250,8 +250,8 @@ const badgeLabel = computed(() => {
 }
 .nb-item:last-child   { border-bottom: none; }
 .nb-item:hover        { background: var(--c-bg); }
-.nb-item--unread      { background: rgba(124,58,237,0.03); }
-.nb-item--unread:hover{ background: rgba(124,58,237,0.06); }
+.nb-item--unread      { background: rgba(29,78,216,0.03); }
+.nb-item--unread:hover{ background: rgba(29,78,216,0.06); }
 
 .nb-item-icon {
   width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
@@ -267,7 +267,7 @@ const badgeLabel = computed(() => {
 
 .nb-unread-dot {
   position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
-  width: 8px; height: 8px; border-radius: 50%; background: #7C3AED; flex-shrink: 0;
+  width: 8px; height: 8px; border-radius: 50%; background: #1D4ED8; flex-shrink: 0;
 }
 
 /* ── Mobile backdrop ──────────────────────────────────────────────────────── */
@@ -284,7 +284,7 @@ const badgeLabel = computed(() => {
 }
 
 /* ── Transitions ──────────────────────────────────────────────────────────── */
-.nb-panel-enter-active { transition: opacity 160ms ease, transform 180ms cubic-bezier(0.34,1.3,0.64,1); }
+.nb-panel-enter-active { transition: opacity 160ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
 .nb-panel-leave-active { transition: opacity 140ms ease, transform 140ms ease; }
 .nb-panel-enter-from   { opacity: 0; transform: translateY(-8px) scale(0.97); }
 .nb-panel-leave-to     { opacity: 0; transform: translateY(-6px) scale(0.97); }

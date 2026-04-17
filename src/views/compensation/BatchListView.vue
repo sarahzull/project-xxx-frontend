@@ -370,7 +370,7 @@ onMounted(fetchBatches)
   padding: 10px 16px; text-align: left;
   font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--c-text-3);
-  white-space: nowrap; background: var(--c-surface);
+  white-space: nowrap; background: var(--c-bg);
 }
 .bv-tbl td { padding: 12px 16px; border-bottom: 1px solid var(--c-border-light); vertical-align: middle; }
 .bv-row { cursor: pointer; transition: background var(--dur); }

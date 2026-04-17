@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { SearchIcon } from '../icons/index.js'
+import { SearchIcon, CloseIcon } from '../icons/index.js'
 
 const props = defineProps({
   modelValue:  { type: String, default: '' },
@@ -15,6 +15,11 @@ watch(query, (val) => {
   clearTimeout(timeout)
   timeout = setTimeout(() => emit('update:modelValue', val), 300)
 })
+
+function clear() {
+  query.value = ''
+  emit('update:modelValue', '')
+}
 </script>
 
 <template>
@@ -26,5 +31,8 @@ watch(query, (val) => {
       :placeholder="placeholder"
       class="search-input"
     />
+    <button v-if="query" class="search-clear" type="button" @click="clear" aria-label="Clear search">
+      <CloseIcon :size="12" :stroke-width="2.5" />
+    </button>
   </div>
 </template>

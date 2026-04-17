@@ -531,7 +531,7 @@ function userInitials(name) {
 .pv-menu-wrap { position: relative; margin-left: auto; }
 
 .pv-menu-btn {
-  width: 30px; height: 30px; border-radius: 7px; border: none;
+  width: 44px; height: 44px; border-radius: 10px; border: none;
   background: transparent; cursor: pointer; color: var(--c-text-3);
   display: flex; align-items: center; justify-content: center;
   transition: background var(--dur), color var(--dur);
@@ -573,12 +573,19 @@ function userInitials(name) {
   padding: 14px 18px;
   border-top: 1px solid var(--c-border-light);
   background: var(--c-bg);
+  min-height: 0; /* required for grid-template-rows animation */
 }
+/* grid-template-rows approach: no layout thrash, GPU-safe */
 .pv-footer-enter-active, .pv-footer-leave-active {
-  transition: max-height 0.25s ease, opacity 0.2s ease;
-  overflow: hidden; max-height: 80px;
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
 }
-.pv-footer-enter-from, .pv-footer-leave-to { max-height: 0; opacity: 0; }
+.pv-footer-enter-from, .pv-footer-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
 
 /* ── Photo lightbox modal ────────────────────────────────────── */
 .pv-lightbox {
@@ -604,7 +611,7 @@ function userInitials(name) {
 }
 .pv-lightbox-close {
   position: absolute; top: -14px; right: -14px;
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 44px; height: 44px; border-radius: 50%;
   background: rgba(255,255,255,0.15); backdrop-filter: blur(4px);
   border: 1.5px solid rgba(255,255,255,0.25);
   display: flex; align-items: center; justify-content: center;
@@ -651,6 +658,16 @@ function userInitials(name) {
 .pv-info-label { font-size: 0.8125rem; color: var(--c-text-3); font-weight: 500; }
 .pv-info-val { font-size: 0.875rem; color: var(--c-text-1); font-weight: 600; text-align: right; }
 .pv-info-val--mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; letter-spacing: 0.04em; }
+@media (max-width: 360px) {
+  .pv-info-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pv-info-val {
+    text-align: left;
+  }
+}
 
 .pv-ro-note {
   display: flex; align-items: flex-start; gap: 8px;

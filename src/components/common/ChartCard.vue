@@ -15,11 +15,12 @@ defineProps({
   title:    { type: String, required: true },
   subtitle: { type: String, default: '' },
   height:   { type: String, default: '220px' },
+  fill:     { type: Boolean, default: false },
 })
 </script>
 
 <template>
-  <div class="cc-root card">
+  <div :class="['cc-root', 'card', fill && 'cc-root--fill']">
     <div class="cc-header">
       <div class="cc-titles">
         <p class="cc-title">{{ title }}</p>
@@ -29,7 +30,7 @@ defineProps({
         <slot name="actions" />
       </div>
     </div>
-    <div class="cc-body" :style="{ height }">
+    <div class="cc-body" :style="fill ? {} : { height }">
       <slot />
     </div>
   </div>
@@ -64,6 +65,15 @@ defineProps({
   align-items: center;
   gap: 6px;
 }
+.cc-root--fill {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.cc-root--fill .cc-header { flex-shrink: 0; }
+.cc-root--fill .cc-body   { flex: 1; min-height: 0; }
+
 .cc-body {
   position: relative;
   min-width: 0;

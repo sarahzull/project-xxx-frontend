@@ -540,6 +540,70 @@ function clearFilters() {
 .tv-mobile-search { display: none; }
 @media (max-width: 767px) { .tv-mobile-search { display: block; width: 100%; margin-top: 2px; } }
 
+@media (max-width: 767px) {
+  .tv-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tv-seg,
+  .tv-drop-wrap,
+  .tv-date-range,
+  .tv-clear-btn {
+    width: 100%;
+  }
+
+  .tv-seg {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tv-seg-btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .tv-drop-trigger {
+    width: 100%;
+    min-height: 44px;
+    justify-content: space-between;
+  }
+
+  .tv-drop-panel {
+    width: 100%;
+  }
+
+  .tv-drop-opt {
+    min-height: 44px;
+  }
+
+  .tv-date-range {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tv-date-field {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .tv-date-input {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .tv-date-arrow {
+    display: none;
+  }
+
+  .tv-clear-btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
 /* ── Transitions ─────────────────────────────────────────────── */
 .tv-fade-enter-active, .tv-fade-leave-active { transition: opacity 150ms, transform 150ms; }
 .tv-fade-enter-from, .tv-fade-leave-to { opacity: 0; transform: scale(0.85); }

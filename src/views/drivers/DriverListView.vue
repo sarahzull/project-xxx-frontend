@@ -218,6 +218,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
             v-for="r in ['A', 'B', 'C']"
             :key="r"
             :class="['dv-rank-btn', `dv-rank-btn--${r.toLowerCase()}`, rankFilter === r && 'dv-rank-btn--active']"
+            :title="r === 'A' ? 'Rank A — Top performer. Best compliance and safety record.' : r === 'B' ? 'Rank B — Good standing. Some areas for improvement.' : 'Rank C — Needs attention. Performance or compliance issues flagged.'"
             @click="toggleRank(r)"
           >
             <span class="dv-rank-letter">{{ r }}</span>
@@ -240,6 +241,15 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
         </div>
       </div>
 
+      <!-- Rank legend -->
+      <div class="dv-rank-legend">
+        <span class="dv-rl-item dv-rl--a"><span class="dv-rl-dot"></span>Rank A — Top performer</span>
+        <span class="dv-rl-sep">·</span>
+        <span class="dv-rl-item dv-rl--b"><span class="dv-rl-dot"></span>Rank B — Good standing</span>
+        <span class="dv-rl-sep">·</span>
+        <span class="dv-rl-item dv-rl--c"><span class="dv-rl-dot"></span>Rank C — Needs attention</span>
+      </div>
+
       <!-- Flat table (card chrome comes from dv-table-card) -->
       <DataTable
         :columns="columns"
@@ -258,9 +268,10 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
           <StatusBadge :status="value" />
         </template>
         <template #cell-ranking="{ value }">
-          <span :class="['dv-rank-chip', value === 'A' ? 'dv-chip-a' : value === 'B' ? 'dv-chip-b' : 'dv-chip-c']">
-            {{ value }}
-          </span>
+          <span
+            :class="['dv-rank-chip', value === 'A' ? 'dv-chip-a' : value === 'B' ? 'dv-chip-b' : 'dv-chip-c']"
+            :title="value === 'A' ? 'Rank A — Top performer' : value === 'B' ? 'Rank B — Good standing' : value === 'C' ? 'Rank C — Needs attention' : ''"
+          >{{ value }}</span>
         </template>
         <template #cell-license_expiry="{ value }">
           <span :class="isExpiringSoon(value) ? 'dv-expiry-warn' : ''">{{ formatDate(value) }}</span>
@@ -282,6 +293,22 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 .dv { min-width: 0; overflow: hidden; }
 .mb-section { margin-bottom: 20px; }
 @media (min-width: 640px) { .mb-section { margin-bottom: 24px; } }
+
+/* ── Rank legend ──────────────────────────────────────────────── */
+.dv-rank-legend {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.5rem;
+  padding: 0.5rem 1.1rem; border-top: 1px solid var(--c-border);
+  font-size: 0.7rem; color: var(--c-text-3);
+}
+.dv-rl-item { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
+.dv-rl-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dv-rl--a .dv-rl-dot { background: #16A34A; }
+.dv-rl--b .dv-rl-dot { background: #1D4ED8; }
+.dv-rl--c .dv-rl-dot { background: #D97706; }
+.dv-rl--a { color: #16A34A; }
+.dv-rl--b { color: #1D4ED8; }
+.dv-rl--c { color: #D97706; }
+.dv-rl-sep { color: var(--c-border); font-size: 0.75rem; }
 
 /* ── Section label ────────────────────────────────────────────── */
 .dv-section-label {
@@ -523,7 +550,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 /* Default (inactive) letter colours */
 .dv-rank-btn--a .dv-rank-letter { background: #16A34A; color: #fff; }  /* green  */
 .dv-rank-btn--b .dv-rank-letter { background: #1D4ED8; color: #fff; }  /* blue   */
-.dv-rank-btn--c .dv-rank-letter { background: #F97316; color: #fff; }  /* orange */
+.dv-rank-btn--c .dv-rank-letter { background: #D97706; color: #fff; }  /* amber  */
 
 .dv-rank-label {
   font-size: 0.75rem; font-weight: 500; color: var(--c-text-3);
@@ -561,13 +588,13 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 .dv-rank-btn--active.dv-rank-btn--b .dv-rank-label  { color: #1D4ED8; }
 
 .dv-rank-btn--active.dv-rank-btn--c {
-  border-color: #F97316;
-  background: #FFF7ED;
-  color: #F97316;
+  border-color: #D97706;
+  background: #FFFBEB;
+  color: #D97706;
 }
-.dv-rank-btn--active.dv-rank-btn--c .dv-rank-letter { background: #F97316; color: #fff; }
-.dv-rank-btn--active.dv-rank-btn--c .dv-rank-badge  { background: #FFEDD5; color: #F97316; border-color: transparent; }
-.dv-rank-btn--active.dv-rank-btn--c .dv-rank-label  { color: #F97316; }
+.dv-rank-btn--active.dv-rank-btn--c .dv-rank-letter { background: #D97706; color: #fff; }
+.dv-rank-btn--active.dv-rank-btn--c .dv-rank-badge  { background: #FEF3C7; color: #D97706; border-color: transparent; }
+.dv-rank-btn--active.dv-rank-btn--c .dv-rank-label  { color: #D97706; }
 
 /* ── Clear button ─────────────────────────────────────────────── */
 .dv-clear-btn {
@@ -590,6 +617,46 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 .dv-mobile-search { display: none; }
 @media (max-width: 767px) { .dv-mobile-search { display: block; width: 100%; margin-top: 2px; } }
 
+@media (max-width: 767px) {
+  .dv-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dv-seg,
+  .dv-rank-group,
+  .dv-clear-btn {
+    width: 100%;
+  }
+
+  .dv-seg {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dv-seg-btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .dv-rank-group {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dv-rank-btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    padding-inline: 10px;
+  }
+
+  .dv-clear-btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
 /* ── Table cell styles ────────────────────────────────────────── */
 .dv-rank-chip {
   display: inline-flex; align-items: center; justify-content: center;
@@ -598,7 +665,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 }
 .dv-chip-a { background: #16A34A; color: #fff; }  /* green  */
 .dv-chip-b { background: #1D4ED8; color: #fff; }  /* blue   */
-.dv-chip-c { background: #F97316; color: #fff; }  /* orange */
+.dv-chip-c { background: #D97706; color: #fff; }  /* amber  */
 
 .dv-expiry-warn { color: var(--c-amber); font-weight: 600; }
 </style>

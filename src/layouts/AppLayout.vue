@@ -222,8 +222,8 @@ function userInitials(name) {
   text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
   margin-top: 2px;
 }
-.role-admin  { background: #DBEAFE; color: #1D4ED8; }
-.role-driver { background: #D1FAE5; color: #047857; }
+.role-admin  { background: rgba(59,130,246,0.18);  color: #93C5FD; }
+.role-driver { background: rgba(34,197,94,0.15);   color: #6EE7B7; }
 
 /* Sidebar user as clickable profile link */
 .sidebar-user--link {
@@ -232,7 +232,7 @@ function userInitials(name) {
   padding: 6px 8px; margin: -6px -8px;
 }
 .sidebar-user--link:hover { background: rgba(255,255,255,0.07); }
-.sidebar-user-arrow { flex-shrink: 0; opacity: 0.4; color: var(--c-text-3); }
+.sidebar-user-arrow { flex-shrink: 0; opacity: 0.4; color: #CBD5E1; }
 
 /* Avatar photo support */
 .sidebar-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }

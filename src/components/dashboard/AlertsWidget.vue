@@ -190,8 +190,6 @@ const totalAlerts = computed(() =>
 }
 .aw-item:last-child { border-bottom: none; }
 .aw-item:hover      { background: var(--c-hover); }
-.aw-item--critical  { border-left: 3px solid #EF4444; }
-.aw-item--warning   { border-left: 3px solid #F59E0B; }
 
 .aw-item-ico {
   width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;

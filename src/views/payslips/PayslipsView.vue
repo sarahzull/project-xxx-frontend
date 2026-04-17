@@ -414,4 +414,15 @@ async function openDetail(p) {
 @media (max-width: 640px) {
   .ps-card-breakdown { flex-direction: column; gap: 0.3rem; }
 }
+@media (max-width: 360px) {
+  .ps-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ps-dr {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
 </style>

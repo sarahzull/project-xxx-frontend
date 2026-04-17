@@ -5,12 +5,14 @@ import {
 } from '../icons/index.js'
 
 const props = defineProps({
-  type:      { type: String,  default: 'info' },
-  title:     { type: String,  default: '' },
-  message:   { type: String,  default: '' },
-  open:      { type: Boolean, default: true },
-  autoClose: { type: Boolean, default: true },
-  duration:  { type: Number,  default: 4000 },
+  type:        { type: String,   default: 'info' },
+  title:       { type: String,   default: '' },
+  message:     { type: String,   default: '' },
+  open:        { type: Boolean,  default: true },
+  autoClose:   { type: Boolean,  default: true },
+  duration:    { type: Number,   default: 4000 },
+  onAction:    { type: Function, default: null },
+  actionLabel: { type: String,   default: 'Undo' },
 })
 
 const emit = defineEmits(['close'])
@@ -23,6 +25,11 @@ const iconComponent = computed(() => {
 })
 
 function handleClose() {
+  emit('close')
+}
+
+function handleAction() {
+  if (props.onAction) props.onAction()
   emit('close')
 }
 </script>
@@ -43,6 +50,14 @@ function handleClose() {
       <p v-if="message" class="at-message">{{ message }}</p>
     </div>
     <button
+      v-if="onAction"
+      type="button"
+      class="at-action"
+      @click="handleAction"
+    >
+      {{ actionLabel }}
+    </button>
+    <button
       type="button"
       class="at-close"
       :aria-label="`Dismiss ${type} notification`"
@@ -57,7 +72,7 @@ function handleClose() {
 .at {
   position: relative;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   align-items: flex-start;
   gap: 12px;
   width: min(100%, 380px);
@@ -108,6 +123,25 @@ function handleClose() {
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--c-text-2);
+}
+
+.at-action {
+  align-self: center;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--at-accent);
+  border: 1.5px solid var(--at-accent);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--dur), color var(--dur);
+  white-space: nowrap;
+}
+
+.at-action:hover {
+  background: var(--at-bg);
 }
 
 .at-close {

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..900;1,300..900&display=swap');
 
 /* ============================================================
    DESIGN TOKENS
@@ -46,14 +46,14 @@
   --c-slate-tint:   #F8FAFC;   /* slate-50 */
   --c-slate-bg:     #E2E8F0;   /* slate-200 */
 
-  /* Sidebar */
-  --sb-bg:          #FFFFFF;
-  --sb-hover:       #F1F5F9;
-  --sb-active-bg:   #EFF6FF;
-  --sb-active-line: #1D4ED8;
-  --sb-text:        #64748B;
-  --sb-text-h:      #0F172A;
-  --sb-text-active: #1D4ED8;
+  /* Sidebar — permanent dark nav */
+  --sb-bg:          #0F172A;
+  --sb-hover:       rgba(255,255,255,0.065);
+  --sb-active-bg:   rgba(96,165,250,0.14);
+  --sb-active-line: #60A5FA;
+  --sb-text:        #6B7FA0;
+  --sb-text-h:      #CBD5E1;
+  --sb-text-active: #93C5FD;
   --sb-width:       244px;
 
   /* Spacing & geometry */
@@ -66,11 +66,11 @@
   --r-full: 9999px;
 
   /* Shadows */
-  --sh-xs: 0 1px 2px rgba(0,0,0,0.05);
-  --sh-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-  --sh-md: 0 4px 8px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
-  --sh-lg: 0 10px 20px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
-  --sh-xl: 0 20px 40px rgba(0,0,0,0.12), 0 8px 16px rgba(0,0,0,0.06);
+  --sh-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --sh-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.03);
+  --sh-md: 0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.03);
+  --sh-lg: 0 10px 24px rgba(0,0,0,0.07), 0 4px 8px rgba(0,0,0,0.04);
+  --sh-xl: 0 20px 48px rgba(0,0,0,0.10), 0 8px 16px rgba(0,0,0,0.05);
 
   --dur: 140ms;
   --ease: ease;
@@ -84,7 +84,7 @@
 html { font-size: 16px; -webkit-text-size-adjust: 100%; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--c-text-1);
@@ -242,6 +242,17 @@ img     { display: block; max-width: 100%; }
 }
 .sidebar-logout:hover { background: var(--c-red-tint); color: var(--c-red); }
 
+/* ── Dark sidebar element overrides ─────────────────────────── */
+/* Sidebar is always dark regardless of page theme */
+.sidebar               { border-right-color: rgba(255,255,255,0.06); }
+.sidebar-brand         { border-bottom-color: rgba(255,255,255,0.08); }
+.sidebar-brand-name    { color: #F1F5F9; }
+.sidebar-footer        { border-top-color: rgba(255,255,255,0.08); }
+.sidebar-username      { color: #E2E8F0; }
+.sidebar-avatar        { background: rgba(96,165,250,0.18); color: #93C5FD; }
+.sidebar-logout        { color: #6B7FA0; border-top-color: rgba(255,255,255,0.08); }
+.sidebar-logout:hover  { background: rgba(239,68,68,0.12); color: #FCA5A5; }
+
 /* ── Header ────────────────────────────────────────────────── */
 .app-header {
   position: sticky; top: 0;
@@ -258,7 +269,7 @@ img     { display: block; max-width: 100%; }
 
 .header-menu-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px;
+  width: 44px; height: 44px;
   border-radius: var(--r-md);
   color: var(--c-text-2);
   transition: background var(--dur);
@@ -301,7 +312,7 @@ img     { display: block; max-width: 100%; }
 
 /* Icon-only logout button */
 .header-logout-icon {
-  width: 34px; height: 34px; border-radius: var(--r-md);
+  width: 44px; height: 44px; border-radius: var(--r-md);
   display: flex; align-items: center; justify-content: center;
   color: var(--c-text-3);
   transition: background var(--dur), color var(--dur);
@@ -331,10 +342,11 @@ img     { display: block; max-width: 100%; }
 }
 
 .page {
-  padding: 20px 16px;
+  padding: 24px 20px;
 }
-@media (min-width: 640px) { .page { padding: 24px 24px; } }
-@media (min-width: 1024px) { .page { padding: 30px 36px; } }
+@media (min-width: 640px) { .page { padding: 32px 28px; } }
+@media (min-width: 1024px) { .page { padding: 48px 56px; } }
+@media (max-width: 360px) { .page { padding: 20px 16px; } }
 
 /* ── Mobile bottom nav ──────────────────────────────────────── */
 .bottom-nav {
@@ -354,7 +366,7 @@ img     { display: block; max-width: 100%; }
   flex: 1;
   gap: 3px;
   color: var(--c-text-3);
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   transition: color var(--dur);
@@ -418,11 +430,11 @@ img     { display: block; max-width: 100%; }
   margin-bottom: 24px;
 }
 .page-title {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: 1.75rem;
+  font-weight: 800;
   color: var(--c-text-1);
-  letter-spacing: -0.025em;
-  line-height: 1.2;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
 }
 .page-title small {
   font-size: 0.875rem;
@@ -457,23 +469,10 @@ img     { display: block; max-width: 100%; }
 .stat-card {
   background: var(--c-surface);
   border-radius: var(--r-xl);
+  border: 1px solid var(--c-border);
   box-shadow: var(--sh-sm);
-  padding: 20px;
-  position: relative;
-  overflow: hidden;
+  padding: 24px;
 }
-.stat-card::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  border-radius: var(--r-xl) var(--r-xl) 0 0;
-}
-.sc-blue   ::after, .sc-blue::after   { background: var(--c-accent); }
-.sc-green  ::after, .sc-green::after  { background: var(--c-green); }
-.sc-red    ::after, .sc-red::after    { background: var(--c-red); }
-.sc-yellow ::after, .sc-yellow::after { background: var(--c-amber); }
-.sc-purple ::after, .sc-purple::after { background: var(--c-purple); }
 
 .stat-label {
   font-size: 0.6875rem;
@@ -484,8 +483,8 @@ img     { display: block; max-width: 100%; }
   margin-bottom: 10px;
 }
 .stat-value {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 2.5rem;
+  font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1;
 }
@@ -714,7 +713,7 @@ img     { display: block; max-width: 100%; }
 .search-input {
   display: block;
   width: 100%;
-  padding: 9px 13px 9px 36px;
+  padding: 9px 32px 9px 36px;
   border: 1.5px solid var(--c-border);
   border-radius: var(--r-md);
   color: var(--c-text-1);
@@ -727,6 +726,16 @@ img     { display: block; max-width: 100%; }
   box-shadow: 0 0 0 3px var(--c-accent-ring);
 }
 .search-input::placeholder { color: var(--c-text-3); }
+
+.search-clear {
+  position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--c-border); color: var(--c-text-3);
+  transition: background var(--dur), color var(--dur);
+  flex-shrink: 0; cursor: pointer; border: none; padding: 0;
+}
+.search-clear:hover { background: var(--c-text-3); color: var(--c-surface); }
 
 /* ============================================================
    TABLE
@@ -829,10 +838,10 @@ img     { display: block; max-width: 100%; }
   min-height: 22px;
 }
 .tbl-card-label {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--c-text-3);
   flex-shrink: 0;
   min-width: 90px;
@@ -855,6 +864,27 @@ img     { display: block; max-width: 100%; }
 @media (min-width: 768px) {
   .d-md-up { display: block; }
   .d-md-dn { display: none; }
+}
+@media (max-width: 360px) {
+  .tbl-card {
+    padding: 12px 14px;
+  }
+
+  .tbl-card--flat {
+    padding: 12px 14px;
+  }
+
+  .tbl-card-row {
+    align-items: flex-start;
+  }
+
+  .tbl-card-label {
+    min-width: 72px;
+  }
+
+  .tbl-card-val {
+    font-size: 0.78rem;
+  }
 }
 
 /* ============================================================
@@ -1001,54 +1031,122 @@ img     { display: block; max-width: 100%; }
 /* ============================================================
    LOGIN PAGE
    ============================================================ */
+/* ── Two-panel login layout ──────────────────────────────────── */
 .login-page {
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 768px) {
+  .login-page { grid-template-columns: 1fr; }
+  .login-brand-panel { display: none; }
+}
+
+/* Left: brand panel */
+.login-brand-panel {
+  background: #0F172A;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 3rem;
+}
+.login-brand-content { max-width: 360px; }
+.login-brand-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3.5rem;
+}
+.login-brand-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #60A5FA;
+  flex-shrink: 0;
+}
+.login-brand-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #F1F5F9;
+  letter-spacing: -0.02em;
+}
+.login-brand-headline {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #F8FAFC;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  margin-bottom: 1.25rem;
+}
+.login-brand-sub {
+  font-size: 0.875rem;
+  color: #6B7FA0;
+  line-height: 1.7;
+}
+
+/* Right: form panel */
+.login-form-panel {
   background: var(--c-bg);
-  padding: 24px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
 }
 .login-card {
-  background: var(--c-surface);
-  border-radius: var(--r-2xl);
-  box-shadow: var(--sh-lg);
-  padding: 40px 36px;
   width: 100%;
-  max-width: 400px;
+  max-width: 380px;
 }
-@media (max-width: 480px) { .login-card { padding: 28px 24px; } }
 
-.login-icon {
-  width: 48px; height: 48px;
+/* Mobile wordmark (shown only on mobile where brand panel is hidden) */
+.login-wordmark--mobile { display: none; }
+@media (max-width: 768px) {
+  .login-wordmark--mobile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2rem;
+  }
+}
+.login-wordmark-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
   background: var(--c-accent);
-  border-radius: var(--r-lg);
-  display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 20px;
+  flex-shrink: 0;
 }
-.login-icon svg { width: 26px; height: 26px; color: #fff; }
-
-.login-title {
-  font-size: 1.375rem;
+.login-title-mobile {
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--c-text-1);
-  text-align: center;
-  letter-spacing: -0.025em;
-  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.login-title {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--c-text-1);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-bottom: 0.5rem;
 }
 .login-sub {
   font-size: 0.875rem;
   color: var(--c-text-3);
-  text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 2rem;
+  line-height: 1.5;
 }
 .login-field { margin-bottom: 16px; }
-.login-hint {
-  font-size: 0.75rem;
-  color: var(--c-text-3);
-  text-align: center;
-  margin-top: 20px;
+.login-field-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
 }
+.login-forgot {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--c-accent);
+  transition: color var(--dur);
+}
+.login-forgot:hover { color: var(--c-accent-h); }
 
 /* ============================================================
    PROFILE / DETAIL PAGE
@@ -1319,16 +1417,49 @@ img     { display: block; max-width: 100%; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234B5563' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
 }
 
-/* Login page tint in dark */
-[data-theme="dark"] .login-card { border: 1px solid var(--c-border); }
+/* Login page in dark mode — brand panel gets even deeper */
+[data-theme="dark"] .login-brand-panel { background: #080C14; }
+[data-theme="dark"] .login-form-panel  { background: var(--c-bg); }
 
-/* Sidebar tokens in dark mode */
+/* ============================================================
+   ACCESSIBILITY — Focus & Motion
+   ============================================================ */
+
+/* Keyboard focus ring — visible only for keyboard nav, not mouse clicks */
+:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Form controls use box-shadow ring — suppress outline to avoid double indicator */
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible,
+.search-input:focus-visible {
+  outline: none;
+}
+
+/* Reduced motion — disable all transitions/animations for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 0ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Sidebar tokens in dark mode — go deeper since light sidebar is already navy */
 [data-theme="dark"] {
-  --sb-bg:          #1A1D27;
-  --sb-hover:       #212330;
-  --sb-active-bg:   rgba(59, 130, 246, 0.12);
-  --sb-active-line: #3B82F6;   /* blue-500 — readable on dark */
-  --sb-text:        #4B5563;
+  --sb-bg:          #080C14;
+  --sb-hover:       rgba(255,255,255,0.05);
+  --sb-active-bg:   rgba(96,165,250,0.14);
+  --sb-active-line: #60A5FA;
+  --sb-text:        #4B607A;
   --sb-text-h:      #94A3B8;
-  --sb-text-active: #60A5FA;   /* blue-400 — bright enough on dark */
+  --sb-text-active: #93C5FD;
 }

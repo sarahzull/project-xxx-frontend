@@ -14,7 +14,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   CommunicationsIcon, CheckCircleIcon, AlertIcon, AddIcon,
-  CloseIcon, CalendarIcon, ViewIcon, ResendIcon, SearchIcon, FilterIcon,
+  CloseIcon, CalendarIcon, ViewIcon, ResendIcon, FilterIcon,
 } from '../../components/icons/index.js'
 import communicationsApi from '../../api/communications'
 import { useAuthStore }  from '../../stores/auth'
@@ -22,6 +22,7 @@ import { useToast }      from '../../composables/useToast'
 import ModalSheet        from '../../components/common/ModalSheet.vue'
 import ComposeModal      from '../../components/communications/ComposeModal.vue'
 import ActionBtn         from '../../components/common/ActionBtn.vue'
+import SearchInput       from '../../components/common/SearchInput.vue'
 
 const auth  = useAuthStore()
 const toast = useToast()
@@ -89,7 +90,7 @@ const filtered = computed(() => {
       i.subject?.toLowerCase().includes(q) ||
       i.driver_name?.toLowerCase().includes(q) ||
       i.driver_id?.toLowerCase().includes(q) ||
-      i.content?.toLowerCase().includes(q)
+      i.body?.toLowerCase().includes(q)
     )
   }
   return list
@@ -180,12 +181,6 @@ function onSent() { fetchItems() }
             <span class="cv-bstat-lbl">Warnings</span>
           </div>
         </div>
-
-        <!-- Compose button (admin) -->
-        <button v-if="isAdmin" class="cv-compose-btn" @click="showCompose = true">
-          <AddIcon :size="15" />
-          New Communication
-        </button>
       </div>
     </div>
 
@@ -214,15 +209,16 @@ function onSent() { fetchItems() }
             </p>
           </div>
           <div class="cv-card-hd-right">
-            <div class="cv-search-wrap">
-              <SearchIcon :size="14" class="cv-search-icon" />
-              <input
+            <div class="cv-card-search">
+              <SearchInput
                 v-model="searchQuery"
-                type="text"
-                class="cv-search"
-                :placeholder="isAdmin ? 'Search subject, driver, or content…' : 'Search subject or content…'"
+                :placeholder="isAdmin ? 'Search subject, driver…' : 'Search subject…'"
               />
             </div>
+            <button v-if="isAdmin" class="cv-compose-btn" @click="showCompose = true">
+              <AddIcon :size="16" :stroke-width="2.5" />
+              New Communication
+            </button>
           </div>
         </div>
 
@@ -311,8 +307,8 @@ function onSent() { fetchItems() }
                       {{ item.subject || '(No subject)' }}
                       <span v-if="!isAdmin && !isViewed(item.id)" class="cv-unread-dot" />
                     </span>
-                    <span v-if="contentPreview(item.content)" class="cv-preview">
-                      {{ contentPreview(item.content) }}
+                    <span v-if="contentPreview(item.body)" class="cv-preview">
+                      {{ contentPreview(item.body) }}
                     </span>
                   </div>
                 </td>
@@ -399,7 +395,7 @@ function onSent() { fetchItems() }
         </div>
 
         <!-- Content body -->
-        <div class="cv-detail-body" v-html="formatContent(activeItem.content)" />
+        <div class="cv-detail-body" v-html="formatContent(activeItem.body)" />
       </div>
     </ModalSheet>
 
@@ -473,13 +469,13 @@ function onSent() { fetchItems() }
 .cv-bstat--amber .cv-bstat-val { color: var(--c-amber, #D97706); }
 
 .cv-compose-btn {
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  padding: 0.5rem 1rem; border-radius: 9px;
-  background: var(--c-accent); color: #fff; font-size: 0.84rem; font-weight: 600;
-  transition: background var(--dur), box-shadow var(--dur);
-  white-space: nowrap; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--c-accent); color: #fff; border: none; border-radius: 8px;
+  padding: 8px 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+  transition: opacity var(--dur); white-space: nowrap; flex-shrink: 0;
 }
-.cv-compose-btn:hover { filter: brightness(1.1); box-shadow: 0 3px 12px rgba(0,0,0,0.18); }
+.cv-compose-btn svg { width: 14px; height: 14px; }
+.cv-compose-btn:hover { opacity: 0.88; }
 
 /* ══ LOADING / ERROR ═════════════════════════════════════════════════════════ */
 .cv-loading {
@@ -520,22 +516,10 @@ function onSent() { fetchItems() }
 .cv-card-title   { font-size: 0.9375rem; font-weight: 700; color: var(--c-text-1); margin: 0; }
 .cv-card-sub     { font-size: 0.78rem; color: var(--c-text-3); margin: 0; display: flex; align-items: center; gap: 0.4rem; }
 
-.cv-card-hd-right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.cv-card-hd-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-/* Search */
-.cv-search-wrap  { position: relative; }
-.cv-search-icon  {
-  position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%);
-  color: var(--c-text-3); pointer-events: none;
-}
-.cv-search {
-  background: var(--c-bg); border: 1px solid var(--c-border);
-  border-radius: 8px; padding: 0.42rem 0.75rem 0.42rem 2rem;
-  font-size: 0.82rem; color: var(--c-text-1); outline: none; font-family: inherit;
-  width: 220px; max-width: 100%;
-  transition: border-color var(--dur), box-shadow var(--dur);
-}
-.cv-search:focus { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-ring); }
+.cv-card-search { width: 200px; }
+@media (max-width: 640px) { .cv-card-search { display: none; } }
 
 /* Filter bar — same structure as Driver/Trip/Batch pages */
 .cv-filter-bar {
@@ -695,14 +679,36 @@ function onSent() { fetchItems() }
 @media (max-width: 640px) {
   .cv-card-hd { flex-direction: column; align-items: flex-start; }
   .cv-card-hd-right { width: 100%; }
-  .cv-search { width: 100%; }
-  .cv-filter-bar { flex-wrap: wrap; }
+  .cv-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cv-seg,
+  .cv-clear-btn {
+    width: 100%;
+  }
+  .cv-seg {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .cv-seg-btn,
+  .cv-clear-btn {
+    min-height: 44px;
+    justify-content: center;
+  }
   .cv-th--driver,
   .cv-td--driver { display: none; }
   .cv-th--date,
   .cv-td--date { display: none; }
   .cv-subject { max-width: 180px; }
   .cv-preview { max-width: 180px; }
+}
+
+@media (max-width: 360px) {
+  .cv-subject,
+  .cv-preview {
+    max-width: 140px;
+  }
 }
 
 /* ══ DETAIL MODAL ════════════════════════════════════════════════════════════ */

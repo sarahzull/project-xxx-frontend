@@ -18,6 +18,8 @@ const { toasts, dismissToast } = useToast()
           :open="toast.open"
           :auto-close="toast.autoClose"
           :duration="toast.duration"
+          :on-action="toast.onAction"
+          :action-label="toast.actionLabel"
           @close="dismissToast(toast.id)"
         />
       </TransitionGroup>

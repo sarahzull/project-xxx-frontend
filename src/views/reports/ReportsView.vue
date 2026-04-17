@@ -137,7 +137,7 @@ onMounted(async () => {
                 <div
                   class="rv-rank-bar"
                   :class="`rv-rank-bar-${rank.toLowerCase()}`"
-                  :style="{ width: `${(count / (driverSummary?.total_drivers || 1)) * 100}%` }"
+                  :style="{ transform: `scaleX(${count / (driverSummary?.total_drivers || 1)})` }"
                 />
               </div>
               <span class="rv-rank-count">{{ count }} driver{{ count !== 1 ? 's' : '' }}</span>
@@ -162,7 +162,7 @@ onMounted(async () => {
             <div v-for="([co, count]) in byOilCompany" :key="co" class="rv-oil-row">
               <span class="rv-oil-name">{{ co }}</span>
               <div class="rv-oil-bar-wrap">
-                <div class="rv-oil-bar" :style="{ width: `${(count / topOilMax) * 100}%` }" />
+                <div class="rv-oil-bar" :style="{ transform: `scaleX(${count / topOilMax})` }" />
               </div>
               <span class="rv-oil-count">{{ count }}</span>
             </div>
@@ -206,7 +206,10 @@ onMounted(async () => {
                   <td class="mono">{{ formatDate(d.license_expiry) }}</td>
                   <td class="mono">{{ formatDate(d.gdl_expiry) }}</td>
                   <td>
-                    <span :class="['rv-rank-chip', `rv-rank-${(d.ranking||'').toLowerCase()}`]">{{ d.ranking || '—' }}</span>
+                    <span
+                      :class="['rv-rank-chip', `rv-rank-${(d.ranking||'').toLowerCase()}`]"
+                      :title="d.ranking === 'A' ? 'Rank A — Top performer' : d.ranking === 'B' ? 'Rank B — Good standing' : d.ranking === 'C' ? 'Rank C — Needs attention' : ''"
+                    >{{ d.ranking || '—' }}</span>
                   </td>
                   <td>
                     <span :class="['rv-urg-badge', `rv-urg-${urgencyKey(daysUntil(d.license_expiry))}`]">
@@ -238,7 +241,10 @@ onMounted(async () => {
                 <span><span class="rv-mk">Expiry</span>{{ formatDate(d.license_expiry) }}</span>
                 <span><span class="rv-mk">GDL</span>{{ formatDate(d.gdl_expiry) }}</span>
                 <span><span class="rv-mk">Rank</span>
-                  <span :class="['rv-rank-chip', `rv-rank-${(d.ranking||'').toLowerCase()}`]">{{ d.ranking || '—' }}</span>
+                  <span
+                    :class="['rv-rank-chip', `rv-rank-${(d.ranking||'').toLowerCase()}`]"
+                    :title="d.ranking === 'A' ? 'Rank A — Top performer' : d.ranking === 'B' ? 'Rank B — Good standing' : d.ranking === 'C' ? 'Rank C — Needs attention' : ''"
+                  >{{ d.ranking || '—' }}</span>
                 </span>
               </div>
             </div>
@@ -341,13 +347,13 @@ onMounted(async () => {
   font-size: 0.875rem; font-weight: 800; flex-shrink: 0;
 }
 .rv-rank-a { background: var(--c-green-bg); color: #047857; }
-.rv-rank-b { background: #BFDBFE; color: #1D4ED8; }
-.rv-rank-c { background: var(--c-orange-bg); color: var(--c-orange); }
+.rv-rank-b { background: #DBEAFE;            color: #1D4ED8; }
+.rv-rank-c { background: #FEF3C7;            color: #D97706; }
 .rv-rank-bar-wrap { flex: 1; height: 8px; background: var(--c-bg); border-radius: var(--r-full); overflow: hidden; }
-.rv-rank-bar { height: 100%; border-radius: var(--r-full); transition: width 0.5s ease; }
+.rv-rank-bar { height: 100%; transform-origin: left center; transform: scaleX(0); transition: transform 0.5s ease; }
 .rv-rank-bar-a { background: var(--c-green); }
-.rv-rank-bar-b { background: var(--c-accent); }
-.rv-rank-bar-c { background: var(--c-orange); }
+.rv-rank-bar-b { background: #1D4ED8; }
+.rv-rank-bar-c { background: #D97706; }
 .rv-rank-count { font-size: 0.8125rem; font-weight: 600; color: var(--c-text-2); white-space: nowrap; min-width: 72px; text-align: right; }
 
 /* Oil company */
@@ -355,7 +361,7 @@ onMounted(async () => {
 .rv-oil-row { display: flex; align-items: center; gap: 12px; }
 .rv-oil-name { font-size: 0.875rem; font-weight: 500; color: var(--c-text-2); text-transform: capitalize; min-width: 80px; }
 .rv-oil-bar-wrap { flex: 1; height: 8px; background: var(--c-bg); border-radius: var(--r-full); overflow: hidden; }
-.rv-oil-bar { height: 100%; background: var(--c-purple); border-radius: var(--r-full); transition: width 0.5s ease; }
+.rv-oil-bar { height: 100%; background: var(--c-purple); transform-origin: left center; transform: scaleX(0); transition: transform 0.5s ease; }
 .rv-oil-count { font-size: 0.875rem; font-weight: 700; color: var(--c-purple); min-width: 28px; text-align: right; }
 
 /* Expiry table */
@@ -369,9 +375,9 @@ onMounted(async () => {
 .rv-exp-row { transition: background var(--dur); }
 .rv-exp-row:hover td { background: var(--c-bg); }
 
-.rv-urg-row-critical td { border-left: 3px solid var(--c-red); }
-.rv-urg-row-warning  td { border-left: 3px solid var(--c-amber); }
-.rv-urg-row-notice   td { border-left: 3px solid var(--c-accent); }
+.rv-urg-row-critical { background: rgba(220,38,38,0.04); }
+.rv-urg-row-warning  { background: rgba(217,119,6,0.04); }
+.rv-urg-row-notice   { background: transparent; }
 
 .rv-driver-cell { display: flex; flex-direction: column; gap: 1px; }
 .rv-driver-name { font-weight: 600; color: var(--c-text-1); }
@@ -393,12 +399,33 @@ onMounted(async () => {
   background: var(--c-bg); border: 1px solid var(--c-border);
   border-radius: var(--r-lg); padding: 14px;
 }
-.rv-urg-row-critical.rv-exp-card { border-left: 3px solid var(--c-red); }
-.rv-urg-row-warning.rv-exp-card  { border-left: 3px solid var(--c-amber); }
-.rv-urg-row-notice.rv-exp-card   { border-left: 3px solid var(--c-accent); }
+.rv-urg-row-critical.rv-exp-card { border-color: var(--c-red-bg);   background: rgba(220,38,38,0.04); }
+.rv-urg-row-warning.rv-exp-card  { border-color: var(--c-amber-bg); background: rgba(217,119,6,0.04); }
+.rv-urg-row-notice.rv-exp-card   { background: transparent; }
 .rv-exp-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
 .rv-exp-card-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.8125rem; color: var(--c-text-2); }
-.rv-mk { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-text-3); margin-right: 4px; }
+.rv-mk { font-size: 0.75rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--c-text-3); margin-right: 4px; }
+
+@media (max-width: 360px) {
+  .rv-rank-row,
+  .rv-oil-row,
+  .rv-exp-card-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rv-rank-count,
+  .rv-oil-name,
+  .rv-oil-count {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .rv-exp-card-meta {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
 
 /* Empty */
 .rv-empty-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px; color: var(--c-text-3); text-align: center; }

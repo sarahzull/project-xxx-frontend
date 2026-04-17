@@ -63,6 +63,45 @@ const form        = ref({
   is_active: true,
 })
 const photoPreview = ref('')
+const fieldErrors  = ref({ email: '', phone: '' })
+const fieldTouched = ref({ email: false, phone: false })
+
+const passwordStrength = computed(() => {
+  const pw = form.value.password
+  if (!pw) return 0
+  let s = 0
+  if (pw.length >= 8) s++
+  if (pw.length >= 12) s++
+  if (/[A-Z]/.test(pw)) s++
+  if (/[0-9]/.test(pw)) s++
+  if (/[^A-Za-z0-9]/.test(pw)) s++
+  return s // 0–5
+})
+
+const pwLabel = computed(() => {
+  if (!form.value.password) return ''
+  return passwordStrength.value <= 1 ? 'Weak' : passwordStrength.value <= 3 ? 'Fair' : 'Strong'
+})
+const pwClass = computed(() => {
+  if (!form.value.password) return ''
+  return passwordStrength.value <= 1 ? 'pw-weak' : passwordStrength.value <= 3 ? 'pw-fair' : 'pw-strong'
+})
+
+function validateEmail() {
+  if (!fieldTouched.value.email) return
+  const v = form.value.email
+  fieldErrors.value.email = v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+    ? 'Enter a valid email address'
+    : ''
+}
+
+function validatePhone() {
+  if (!fieldTouched.value.phone) return
+  const v = (form.value.phone || '').replace(/[\s-]/g, '')
+  fieldErrors.value.phone = v && !/^(\+?60|0)\d{7,11}$/.test(v)
+    ? 'Enter a valid phone number (e.g. 012-3456789)'
+    : ''
+}
 
 function onPhotoChange(e) {
   const file = e.target.files[0]
@@ -115,6 +154,8 @@ function openCreate() {
   }
   photoPreview.value = ''
   formError.value = ''
+  fieldErrors.value  = { email: '', phone: '' }
+  fieldTouched.value = { email: false, phone: false }
   showModal.value = true
 }
 
@@ -141,6 +182,8 @@ function openEdit(user) {
   }
   photoPreview.value = user.photo || ''
   formError.value = ''
+  fieldErrors.value  = { email: '', phone: '' }
+  fieldTouched.value = { email: false, phone: false }
   showModal.value = true
 }
 
@@ -217,22 +260,40 @@ function closeDeleteModal() {
 
 async function confirmDeleteUser() {
   if (!deletingUser.value) return
-  const userId = deletingUser.value.id
-  deleting.value = true
-  deleteError.value = ''
-  try {
-    await usersApi.delete(userId)
-    showDeleteModal.value = false
-    deletingUser.value = null
-    deleteError.value = ''
-    await fetchUsers()
-    toast.success('User deleted successfully.', { title: 'User Deleted' })
-  } catch (e) {
-    deleteError.value = e.response?.data?.message || 'Failed to delete user.'
-    toast.error(deleteError.value, { title: 'Delete Failed' })
-  } finally {
-    deleting.value = false
-  }
+  const userId   = deletingUser.value.id
+  const userName = deletingUser.value.name
+  const userIdx  = users.value.findIndex(u => u.id === userId)
+  const snapshot = userIdx !== -1 ? { ...users.value[userIdx] } : null
+
+  // Optimistically close modal and remove from list
+  showDeleteModal.value = false
+  deletingUser.value    = null
+  deleteError.value     = ''
+  if (userIdx !== -1) users.value.splice(userIdx, 1)
+
+  let undone = false
+
+  toast.info(`${userName} has been removed.`, {
+    title: 'User Deleted',
+    duration: 5000,
+    actionLabel: 'Undo',
+    onAction: () => {
+      undone = true
+      if (snapshot !== null) users.value.splice(userIdx, 0, snapshot)
+      toast.success('Deletion cancelled.', { title: 'Restored' })
+    },
+  })
+
+  setTimeout(async () => {
+    if (undone) return
+    try {
+      await usersApi.delete(userId)
+    } catch (e) {
+      // Restore if API call fails
+      if (snapshot !== null) users.value.splice(userIdx, 0, snapshot)
+      toast.error(e.response?.data?.message || 'Failed to delete user.', { title: 'Delete Failed' })
+    }
+  }, 5000)
 }
 </script>
 
@@ -288,31 +349,6 @@ async function confirmDeleteUser() {
           </p>
         </div>
         <div class="uv-card-right">
-          <!-- Filters -->
-          <div class="uv-filters">
-            <div class="uv-filter-wrap">
-              <FilterIcon :size="13" class="uv-filter-ico" />
-              <select v-model="filterStatus" class="uv-filter-select">
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="blocked">Blocked</option>
-              </select>
-            </div>
-            <div class="uv-filter-wrap">
-              <FilterIcon :size="13" class="uv-filter-ico" />
-              <select v-model="filterRole" class="uv-filter-select">
-                <option value="">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="driver">Driver</option>
-              </select>
-            </div>
-            <Transition name="uv-fade">
-              <button v-if="hasFilter" class="uv-reset-btn" @click="resetFilters">
-                <CloseIcon :size="10" :stroke-width="2.5" />
-                Reset
-              </button>
-            </Transition>
-          </div>
           <div class="uv-card-search">
             <SearchInput v-model="search" placeholder="Search users…" @update:model-value="fetchUsers" />
           </div>
@@ -321,6 +357,30 @@ async function confirmDeleteUser() {
             New User
           </button>
         </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="uv-filter-bar">
+        <span class="uv-filter-lbl">
+          <FilterIcon :size="12" aria-hidden="true" />
+          Filter
+        </span>
+        <div class="uv-seg" role="group" aria-label="Filter by status">
+          <button :class="['uv-seg-btn', filterStatus === '' && 'uv-seg-btn--on']" @click="filterStatus = ''">All</button>
+          <button :class="['uv-seg-btn', filterStatus === 'active'  && 'uv-seg-btn--on uv-seg-btn--active']"  @click="filterStatus = 'active'">Active</button>
+          <button :class="['uv-seg-btn', filterStatus === 'blocked' && 'uv-seg-btn--on uv-seg-btn--blocked']" @click="filterStatus = 'blocked'">Blocked</button>
+        </div>
+        <div class="uv-seg" role="group" aria-label="Filter by role">
+          <button :class="['uv-seg-btn', filterRole === '' && 'uv-seg-btn--on']" @click="filterRole = ''">All Roles</button>
+          <button :class="['uv-seg-btn', filterRole === 'admin'  && 'uv-seg-btn--on']" @click="filterRole = 'admin'">Admin</button>
+          <button :class="['uv-seg-btn', filterRole === 'driver' && 'uv-seg-btn--on']" @click="filterRole = 'driver'">Driver</button>
+        </div>
+        <Transition name="uv-fade">
+          <button v-if="hasFilter" class="uv-reset-btn" @click="resetFilters">
+            <CloseIcon :size="10" :stroke-width="2.5" />
+            Reset
+          </button>
+        </Transition>
       </div>
 
       <!-- Table -->
@@ -381,7 +441,14 @@ async function confirmDeleteUser() {
             <!-- Email -->
             <div class="uv-field">
               <label class="uv-label">Email Address</label>
-              <input v-model="form.email" class="uv-input" type="email" required placeholder="user@example.com" />
+              <input
+                v-model="form.email"
+                :class="['uv-input', fieldErrors.email ? 'uv-input--error' : (fieldTouched.email && form.email && !fieldErrors.email ? 'uv-input--valid' : '')]"
+                type="email" required placeholder="user@example.com"
+                @blur="fieldTouched.email = true; validateEmail()"
+                @input="fieldTouched.email && validateEmail()"
+              />
+              <p v-if="fieldErrors.email" class="uv-field-err">{{ fieldErrors.email }}</p>
             </div>
 
             <!-- Password -->
@@ -398,6 +465,12 @@ async function confirmDeleteUser() {
                 placeholder="Min. 8 characters"
                 autocomplete="new-password"
               />
+              <div v-if="form.password" class="uv-pw-strength">
+                <div class="uv-pw-bars">
+                  <div v-for="i in 4" :key="i" :class="['uv-pw-bar', i <= Math.ceil(passwordStrength * 4 / 5) ? pwClass : '']" />
+                </div>
+                <span :class="['uv-pw-label', pwClass]">{{ pwLabel }}</span>
+              </div>
             </div>
 
             <!-- DOB + Phone — side by side -->
@@ -408,7 +481,14 @@ async function confirmDeleteUser() {
               </div>
               <div class="uv-field">
                 <label class="uv-label">Phone No.</label>
-                <input v-model="form.phone" class="uv-input" type="tel" placeholder="e.g. 012-3456789" />
+                <input
+                  v-model="form.phone"
+                  :class="['uv-input', fieldErrors.phone ? 'uv-input--error' : '']"
+                  type="tel" placeholder="e.g. 012-3456789"
+                  @blur="fieldTouched.phone = true; validatePhone()"
+                  @input="fieldTouched.phone && validatePhone()"
+                />
+                <p v-if="fieldErrors.phone" class="uv-field-err">{{ fieldErrors.phone }}</p>
               </div>
             </div>
 
@@ -602,25 +682,32 @@ async function confirmDeleteUser() {
 .uv-card-search { width: 200px; }
 @media (max-width: 640px) { .uv-card-search { display: none; } }
 
-/* ── Filters ─────────────────────────────────────────────────── */
-.uv-filters { display: flex; align-items: center; gap: 6px; }
-.uv-filter-wrap {
-  position: relative; display: inline-flex; align-items: center;
+/* ── Filter bar ──────────────────────────────────────────────── */
+.uv-filter-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 10px 20px; border-bottom: 1px solid var(--c-border-light);
 }
-.uv-filter-ico {
-  position: absolute; left: 8px; pointer-events: none;
-  color: var(--c-text-3); flex-shrink: 0;
+@media (max-width: 767px) { .uv-filter-bar { padding: 10px 14px; gap: 6px; } }
+.uv-filter-lbl {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--c-text-3); flex-shrink: 0;
 }
-.uv-filter-select {
-  appearance: none; padding: 6px 10px 6px 26px;
-  border: 1px solid var(--c-border); border-radius: 8px;
-  background: var(--c-bg); color: var(--c-text-2);
-  font-size: 0.8125rem; font-weight: 500; cursor: pointer;
-  transition: border-color var(--dur); white-space: nowrap;
+.uv-seg {
+  display: inline-flex; background: var(--c-bg); border: 1px solid var(--c-border);
+  border-radius: var(--r-full); padding: 3px; gap: 2px; flex-shrink: 0;
 }
-.uv-filter-select:focus { outline: none; border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-ring); }
-.uv-filter-select:hover { border-color: var(--c-text-3); }
-@media (max-width: 640px) { .uv-filters { display: none; } }
+.uv-seg-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: var(--r-full);
+  font-size: 0.8125rem; font-weight: 500; color: var(--c-text-3);
+  background: transparent; border: none; cursor: pointer;
+  transition: all var(--dur); white-space: nowrap;
+}
+.uv-seg-btn:hover:not(.uv-seg-btn--on) { background: var(--c-surface); color: var(--c-text-1); }
+.uv-seg-btn--on        { background: var(--c-surface); color: var(--c-accent); font-weight: 600; box-shadow: var(--sh-xs); }
+.uv-seg-btn--on.uv-seg-btn--active  { color: var(--c-green); }
+.uv-seg-btn--on.uv-seg-btn--blocked { color: var(--c-red); }
 
 .uv-reset-btn {
   display: inline-flex; align-items: center; gap: 4px;
@@ -643,6 +730,34 @@ async function confirmDeleteUser() {
 }
 .uv-new-btn svg { width: 14px; height: 14px; }
 .uv-new-btn:hover { opacity: 0.88; }
+
+@media (max-width: 767px) {
+  .uv-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .uv-seg,
+  .uv-reset-btn {
+    width: 100%;
+  }
+
+  .uv-seg {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .uv-seg-btn,
+  .uv-reset-btn,
+  .uv-new-btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .uv-card-right {
+    width: 100%;
+  }
+}
 
 /* Cell styles */
 .uv-roles-row { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -695,7 +810,22 @@ async function confirmDeleteUser() {
   transition: border-color var(--dur); box-sizing: border-box;
 }
 .uv-input:focus { outline: none; border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-ring); }
-.uv-input--mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.875rem; letter-spacing: 0.04em; }
+.uv-input--mono  { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.875rem; letter-spacing: 0.04em; }
+.uv-input--error { border-color: var(--c-red) !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
+.uv-input--valid { border-color: #16A34A; }
+.uv-field-err { font-size: 0.75rem; color: var(--c-red); margin-top: 1px; }
+
+/* Password strength meter */
+.uv-pw-strength { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.uv-pw-bars { display: flex; gap: 4px; flex: 1; }
+.uv-pw-bar { height: 3px; flex: 1; border-radius: 2px; background: var(--c-border); transition: background 0.2s; }
+.pw-weak  .uv-pw-bar, .uv-pw-bar.pw-weak  { background: #EF4444; }
+.pw-fair  .uv-pw-bar, .uv-pw-bar.pw-fair  { background: #D97706; }
+.pw-strong .uv-pw-bar, .uv-pw-bar.pw-strong { background: #16A34A; }
+.uv-pw-label { font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.uv-pw-label.pw-weak   { color: #EF4444; }
+.uv-pw-label.pw-fair   { color: #D97706; }
+.uv-pw-label.pw-strong { color: #16A34A; }
 
 .uv-toggle { display: inline-flex; align-items: center; cursor: pointer; }
 .uv-toggle input { display: none; }

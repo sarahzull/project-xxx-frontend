@@ -39,6 +39,8 @@ function showToast(options = {}) {
     open: true,
     autoClose: options.autoClose !== false,
     duration: Number(options.duration) > 0 ? Number(options.duration) : DEFAULT_DURATION,
+    onAction: options.onAction || null,
+    actionLabel: options.actionLabel || 'Undo',
   }
 
   state.toasts.push(toast)

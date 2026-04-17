@@ -270,9 +270,10 @@ onMounted(async () => {
         </div>
         <div class="dd-banner-badges">
           <StatusBadge :status="driver.status" />
-          <span :class="['dd-rank-badge', `dd-rank-${(driver.ranking || '').toLowerCase()}`]">
-            Rank {{ driver.ranking }}
-          </span>
+          <span
+            :class="['dd-rank-badge', `dd-rank-${(driver.ranking || '').toLowerCase()}`]"
+            :title="driver.ranking === 'A' ? 'Rank A — Top performer. Best compliance and safety record.' : driver.ranking === 'B' ? 'Rank B — Good standing. Some areas for improvement.' : driver.ranking === 'C' ? 'Rank C — Needs attention. Performance or compliance issues flagged.' : ''"
+          >Rank {{ driver.ranking }}</span>
           <span v-if="driver.road_tanker_id" class="dd-tanker-chip">
             <TruckIcon :size="14" />
             {{ driver.road_tanker_id }}
@@ -454,7 +455,6 @@ onMounted(async () => {
   gap: 14px;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
-  border-left: 4px solid var(--c-border);   /* overridden by status below */
   border-radius: var(--r-xl);
   box-shadow: var(--sh-sm);
   padding: 18px 20px;
@@ -467,9 +467,6 @@ onMounted(async () => {
     padding: 20px 24px;
   }
 }
-/* Status-coloured left bar */
-.dd-banner-active  { border-left-color: var(--c-green); }
-.dd-banner-blocked { border-left-color: var(--c-red); }
 
 .dd-banner-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .dd-banner-info { min-width: 0; }
@@ -501,7 +498,7 @@ onMounted(async () => {
 }
 .dd-rank-a { background: #16A34A; color: #fff; border-color: #16A34A; }  /* green  */
 .dd-rank-b { background: #1D4ED8; color: #fff; border-color: #1D4ED8; }  /* blue   */
-.dd-rank-c { background: #F97316; color: #fff; border-color: #F97316; }  /* orange */
+.dd-rank-c { background: #D97706; color: #fff; border-color: #D97706; }  /* amber  */
 
 /* Tanker chip */
 .dd-tanker-chip {
@@ -583,7 +580,7 @@ onMounted(async () => {
 /* Rank text colours in profile meta grid */
 .rank-a { color: #16A34A; font-weight: 700; }  /* green  */
 .rank-b { color: #1D4ED8; font-weight: 700; }  /* blue   */
-.rank-c { color: #F97316; font-weight: 700; }  /* orange */
+.rank-c { color: #D97706; font-weight: 700; }  /* amber  */
 
 .dd-history-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .dd-history-search { flex-shrink: 0; width: 200px; min-width: 0; }

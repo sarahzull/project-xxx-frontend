@@ -1,11 +1,17 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   DriverIcon, TruckIcon, RouteIcon, ReportsIcon, IdCardIcon, CloseIcon,
+  AlertIcon, PayIcon, DocumentIcon,
 } from '../../components/icons/index.js'
 import driverMeApi from '../../api/driverMe'
 import { useThemeStore } from '../../stores/theme'
 import { useAuthStore } from '../../stores/auth'
+import { useNotificationsStore } from '../../stores/notifications'
+
+const router        = useRouter()
+const notifications = useNotificationsStore()
 
 const theme = useThemeStore()
 const auth  = useAuthStore()
@@ -75,7 +81,7 @@ const areaOptions = computed(() => ({
     type: 'area',
     toolbar: { show: false },
     background: 'transparent',
-    fontFamily: 'Inter, system-ui, sans-serif',
+    fontFamily: 'Hanken Grotesk, system-ui, sans-serif',
     animations: { enabled: true, easing: 'easeinout', speed: 600 },
   },
   theme: { mode: apexTheme.value },
@@ -141,20 +147,56 @@ onMounted(async () => {
 
     <!-- ── Banner ────────────────────────────────────────────── -->
     <div class="ddash-banner">
-      <div class="ddash-banner-left">
-        <div class="ddash-banner-avatar" aria-hidden="true">
-          <DriverIcon :size="26" />
-        </div>
-        <div class="ddash-banner-text">
-          <p class="ddash-greeting">{{ greeting }},</p>
-          <h1 class="ddash-banner-title">{{ auth.userName }}</h1>
-          <p class="ddash-banner-sub">Dashboard</p>
-        </div>
+      <div>
+        <p class="ddash-greeting">{{ greeting }}</p>
+        <h1 class="ddash-banner-title">
+          {{ auth.userName }}
+          <span v-if="profile?.ranking" :class="['ddash-rank-inline', `ddash-rank-inline--${(profile.ranking||'').toLowerCase()}`]">
+            Rank {{ profile.ranking }}
+          </span>
+          <span class="ddash-license-badge" :style="{ background: licenseStatus.color + '18', color: licenseStatus.color }">
+            <IdCardIcon :size="11" :stroke-width="2.5" />
+            License {{ licenseStatus.label }}
+          </span>
+        </h1>
+        <p class="ddash-banner-sub">Driver Dashboard</p>
       </div>
       <div class="ddash-banner-date">
         <span class="ddash-date-label">Today</span>
         <span class="ddash-date-value">{{ todayFormatted }}</span>
       </div>
+    </div>
+
+    <!-- ── License urgency alert ──────────────────────────────── -->
+    <div v-if="!loading && licenseCountdown <= 90" class="ddash-license-alert" :data-urgency="licenseStatus.key">
+      <AlertIcon :size="16" :stroke-width="2" class="ddash-la-icon" />
+      <div class="ddash-la-body">
+        <strong class="ddash-la-title">License {{ licenseStatus.label }}</strong>
+        <span class="ddash-la-detail">
+          Expires <strong>{{ formatDate(licenseExpiry) }}</strong>
+          <template v-if="licenseCountdown > 0"> — {{ licenseCountdown }} day{{ licenseCountdown !== 1 ? 's' : '' }} remaining</template>
+          <template v-else> — <strong>Expired</strong></template>
+        </span>
+      </div>
+    </div>
+
+    <!-- ── Quick links ────────────────────────────────────────── -->
+    <div class="ddash-quicklinks">
+      <button class="ddash-ql-btn" @click="router.push({ name: 'trips' })">
+        <RouteIcon :size="16" :stroke-width="2" />
+        My Trips
+      </button>
+      <button class="ddash-ql-btn" @click="router.push({ name: 'payslips' })">
+        <PayIcon :size="16" :stroke-width="2" />
+        Payslips
+      </button>
+      <button class="ddash-ql-btn ddash-ql-btn--comms" @click="router.push({ name: 'communications' })">
+        <DocumentIcon :size="16" :stroke-width="2" />
+        Communications
+        <span v-if="notifications.unreadCount > 0" class="ddash-ql-badge">
+          {{ notifications.unreadCount > 9 ? '9+' : notifications.unreadCount }}
+        </span>
+      </button>
     </div>
 
     <!-- ── Error ─────────────────────────────────────────────── -->
@@ -257,9 +299,11 @@ onMounted(async () => {
             <div class="ddash-pi">
               <span class="ddash-pi-key">Ranking</span>
               <span class="ddash-pi-val">
-                <span v-if="profile.ranking" :class="['ddash-rank', `ddash-rank-${(profile.ranking||'').toLowerCase()}`]">
-                  {{ profile.ranking }}
-                </span>
+                <span
+                  v-if="profile.ranking"
+                  :class="['ddash-rank', `ddash-rank-${(profile.ranking||'').toLowerCase()}`]"
+                  :title="profile.ranking === 'A' ? 'Rank A — Top performer. Best compliance and safety record.' : profile.ranking === 'B' ? 'Rank B — Good standing. Some areas for improvement.' : profile.ranking === 'C' ? 'Rank C — Needs attention. Performance or compliance issues flagged.' : ''"
+                >{{ profile.ranking }}</span>
                 <span v-else>—</span>
               </span>
             </div>
@@ -367,25 +411,80 @@ onMounted(async () => {
 
 /* ── Banner ─────────────────────────────────────────────────────────────────── */
 .ddash-banner {
-  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
-  background: linear-gradient(135deg, #065F46 0%, #16A34A 55%, #34D399 100%);
-  border-radius: 16px; padding: 1.5rem 1.75rem; color: #fff; margin-bottom: 0.5rem;
+  display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+  padding: 0.25rem 0 1rem; margin-bottom: 0;
 }
-.ddash-banner-left   { display: flex; align-items: center; gap: 1rem; }
-.ddash-banner-avatar {
-  width: 52px; height: 52px; border-radius: 50%;
-  background: rgba(255,255,255,0.2); display: grid; place-items: center; flex-shrink: 0;
+.ddash-greeting     { font-size: 0.8125rem; color: var(--c-text-3); margin: 0 0 0.2rem; font-weight: 500; }
+.ddash-banner-title {
+  font-size: 1.875rem; font-weight: 800; margin: 0 0 0.15rem;
+  letter-spacing: -0.04em; color: var(--c-text-1); line-height: 1.05;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
 }
-.ddash-banner-avatar svg { width: 28px; height: 28px; }
-.ddash-greeting     { font-size: 0.8rem; opacity: 0.85; margin: 0 0 2px; font-weight: 500; }
-.ddash-banner-title { font-size: 1.5rem; font-weight: 700; margin: 0 0 2px; }
-.ddash-banner-sub   { font-size: 0.875rem; opacity: 0.85; margin: 0; }
-.ddash-banner-date  {
-  display: flex; flex-direction: column; align-items: flex-end;
-  /* background: rgba(255,255,255,0.15); border-radius: 10px; padding: 0.5rem 1rem; */
+.ddash-banner-sub   { font-size: 0.8125rem; color: var(--c-text-3); margin: 0; font-weight: 500; }
+.ddash-banner-date  { display: flex; flex-direction: column; align-items: flex-end; }
+.ddash-date-label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: .08em; color: var(--c-text-3); }
+.ddash-date-value { font-size: 0.875rem; font-weight: 600; margin-top: 2px; color: var(--c-text-2); }
+
+/* Inline rank + license badges in title */
+.ddash-rank-inline {
+  font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem;
+  border-radius: 6px; letter-spacing: 0; line-height: 1.4;
 }
-.ddash-date-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .08em; opacity: .8; }
-.ddash-date-value { font-size: 0.9rem; font-weight: 600; margin-top: 2px; }
+.ddash-rank-inline--a { background: rgba(22,163,74,0.12);  color: #16A34A; }
+.ddash-rank-inline--b { background: rgba(29,78,216,0.12);  color: #1D4ED8; }
+.ddash-rank-inline--c { background: rgba(217,119,6,0.12);  color: #D97706; }
+.ddash-license-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem;
+  border-radius: 6px; letter-spacing: 0; line-height: 1.4;
+}
+.ddash-license-badge svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+/* ── License urgency alert strip ──────────────────────────────────────────────── */
+.ddash-license-alert {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  padding: 0.875rem 1.1rem; border-radius: 10px;
+}
+.ddash-la-icon { flex-shrink: 0; margin-top: 2px; }
+.ddash-la-body { display: flex; flex-direction: column; gap: 2px; }
+.ddash-la-title { font-size: 0.875rem; font-weight: 700; }
+.ddash-la-detail { font-size: 0.8125rem; }
+.ddash-license-alert[data-urgency="critical"] {
+  background: rgba(239,68,68,0.08); color: #EF4444;
+  border: 1px solid rgba(239,68,68,0.2);
+}
+.ddash-license-alert[data-urgency="warning"] {
+  background: rgba(245,158,11,0.08); color: #D97706;
+  border: 1px solid rgba(245,158,11,0.2);
+}
+.ddash-license-alert[data-urgency="notice"] {
+  background: rgba(59,130,246,0.08); color: #2563EB;
+  border: 1px solid rgba(59,130,246,0.2);
+}
+
+/* ── Quick links row ─────────────────────────────────────────────────────────── */
+.ddash-quicklinks {
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+}
+.ddash-ql-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px; font-size: 0.8125rem; font-weight: 600;
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  color: var(--c-text-2); transition: background var(--dur), color var(--dur), border-color var(--dur);
+  cursor: pointer; white-space: nowrap;
+}
+.ddash-ql-btn svg { width: 16px; height: 16px; }
+.ddash-ql-btn:hover {
+  background: var(--c-accent); color: #fff; border-color: var(--c-accent);
+}
+.ddash-ql-btn--comms { position: relative; }
+.ddash-ql-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px;
+  background: #EF4444; color: #fff;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0; line-height: 1;
+}
+.ddash-ql-btn:hover .ddash-ql-badge { background: rgba(255,255,255,0.25); }
 
 /* ── Loading / Error ────────────────────────────────────────────────────────── */
 .ddash-loading {
@@ -434,7 +533,7 @@ onMounted(async () => {
 [data-status="warning"]  .ddash-stat-icon { background: rgba(245,158,11,0.1); color: #F59E0B; }
 [data-status="notice"]   .ddash-stat-icon { background: rgba(59,130,246,0.1); color: #3B82F6; }
 
-.ddash-stat-value { font-size: 1.5rem; font-weight: 700; color: var(--c-text); line-height: 1; margin-bottom: 4px; }
+.ddash-stat-value { font-size: 2.5rem; font-weight: 800; color: var(--c-text); line-height: 1; margin-bottom: 4px; letter-spacing: -0.03em; }
 .ddash-stat-label { font-size: 0.78rem; color: var(--c-text-2); font-weight: 500; }
 .ddash-license-date { font-size: 0.72rem; color: var(--c-text-2); font-family: monospace; margin-top: 3px; }
 
@@ -468,8 +567,8 @@ onMounted(async () => {
   border-radius: 6px; font-size: 0.75rem; font-weight: 700;
 }
 .ddash-rank-a { background: rgba(22,163,74,0.12);  color: #16A34A; }
-.ddash-rank-b { background: rgba(217,119,6,0.12);  color: #D97706; }
-.ddash-rank-c { background: rgba(239,68,68,0.12);  color: #EF4444; }
+.ddash-rank-b { background: rgba(29,78,216,0.12);  color: #1D4ED8; }
+.ddash-rank-c { background: rgba(217,119,6,0.12);  color: #D97706; }
 
 /* ── Chart card ──────────────────────────────────────────────────────────────── */
 .ddash-chart-card {
@@ -554,13 +653,13 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .ddash-stats-grid { grid-template-columns: 1fr 1fr; }
   .ddash-profile-grid { grid-template-columns: repeat(2, 1fr); }
-  .ddash-banner-title { font-size: 1.25rem; }
+  .ddash-banner-title { font-size: 1.5rem; }
+  .ddash-stat-value   { font-size: 2rem; }
 }
 @media (max-width: 640px) {
-  .ddash-banner { padding: 1.25rem; }
   .ddash-banner-date { display: none; }
   .ddash-stats-grid   { grid-template-columns: 1fr 1fr; }
-  .ddash-profile-grid { grid-template-columns: 1fr 1fr; }
+  .ddash-profile-grid { grid-template-columns: 1fr; }
   .ddash-trips-tbl    { display: none; }
   .ddash-trips-cards  { display: block; }
 }

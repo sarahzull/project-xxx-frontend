@@ -1440,6 +1440,13 @@ img     { display: block; max-width: 100%; }
   outline: none;
 }
 
+/* Prevent iOS Safari auto-zoom on input focus (triggered when font-size < 16px) */
+@media (max-width: 768px) {
+  .input, .select, .textarea, .search-input, input, select, textarea {
+    font-size: 16px;
+  }
+}
+
 /* Reduced motion — disable all transitions/animations for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
   :root {

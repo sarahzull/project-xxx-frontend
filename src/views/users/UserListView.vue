@@ -664,7 +664,7 @@ async function confirmDeleteUser() {
 </template>
 
 <style scoped>
-.uv { min-width: 0; overflow: hidden; }
+.uv { min-width: 0; }
 
 /* ── Banner ──────────────────────────────────────────────────── */
 .uv-banner {
@@ -716,7 +716,7 @@ async function confirmDeleteUser() {
 }
 @media (max-width: 767px) { .uv-card-hd { padding: 12px 14px; flex-wrap: wrap; } }
 .uv-card-title { font-size: 0.9375rem; font-weight: 600; color: var(--c-text-1); letter-spacing: -0.01em; }
-.uv-card-sub { font-size: 0.75rem; color: var(--c-text-3); margin-top: 2px; }
+.uv-card-sub { font-size: 0.75rem; color: var(--c-text-3); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
 .uv-card-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
 .uv-card-search { width: 200px; }
 @media (max-width: 640px) { .uv-card-search { display: none; } }

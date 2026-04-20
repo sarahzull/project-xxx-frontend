@@ -108,8 +108,7 @@ img     { display: block; max-width: 100%; }
   display: none;
   position: fixed; inset: 0;
   z-index: 40;
-  background: rgba(0,0,0,0.45);
-  backdrop-filter: blur(1px);
+  background: rgba(0,0,0,0.40);
 }
 .backdrop.open { display: block; }
 @media (min-width: 1024px) { .backdrop { display: none !important; } }
@@ -335,7 +334,8 @@ img     { display: block; max-width: 100%; }
 
 /* ── Main content ──────────────────────────────────────────── */
 .main-wrap {
-  padding-bottom: 72px; /* room for mobile bottom nav */
+  /* room for mobile bottom nav + iOS home indicator safe area */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 1024px) {
   .main-wrap { padding-left: var(--sb-width); padding-bottom: 0; }

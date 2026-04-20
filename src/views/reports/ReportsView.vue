@@ -228,7 +228,7 @@ onMounted(async () => {
               :class="['rv-exp-card', `rv-urg-row-${urgencyKey(daysUntil(d.license_expiry))}`]"
             >
               <div class="rv-exp-card-top">
-                <div>
+                <div class="rv-driver-cell">
                   <span class="rv-driver-name">{{ d.name }}</span>
                   <span class="rv-driver-id">{{ d.driver_id }}</span>
                 </div>

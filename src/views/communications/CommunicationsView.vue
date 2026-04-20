@@ -718,22 +718,20 @@ function onSent() { fetchItems() }
 @media (max-width: 640px) {
   .cv-card-hd { flex-direction: column; align-items: flex-start; }
   .cv-card-hd-right { width: 100%; }
+  /* Keep filter bar as wrapping horizontal row — pills stay compact */
   .cv-filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .cv-seg,
-  .cv-clear-btn {
-    width: 100%;
+    gap: 6px;
   }
   .cv-seg {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex-wrap: wrap;
+    border-radius: var(--r-lg);
+    flex-shrink: 0;
   }
-  .cv-seg-btn,
+  .cv-seg-btn {
+    min-height: 40px;
+  }
   .cv-clear-btn {
-    min-height: 44px;
-    justify-content: center;
+    min-height: 40px;
   }
   .cv-th--driver,
   .cv-td--driver { display: none; }

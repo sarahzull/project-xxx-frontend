@@ -273,18 +273,16 @@ watch(() => props.to, v => {
   transform: translateX(-8px);
 }
 
-/* Mobile */
+/* Mobile — keep preset chips compact/horizontal (wrap if needed),
+   only the custom date inputs stack to full-width */
 @media (max-width: 767px) {
-  .drp { flex-direction: column; align-items: stretch; }
-
   .drp-seg {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex-wrap: wrap;
+    border-radius: var(--r-lg);
   }
 
   .drp-chip {
-    min-height: 44px;
-    justify-content: center;
+    min-height: 40px;
   }
 
   .drp-custom {
@@ -300,7 +298,7 @@ watch(() => props.to, v => {
 
   .drp-input {
     width: 100%;
-    min-height: 44px;
+    min-height: 40px;
   }
 
   .drp-arrow { display: none; }

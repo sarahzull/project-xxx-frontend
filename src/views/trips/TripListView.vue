@@ -336,59 +336,62 @@ function clearFilters() {
         </div>
       </div>
 
-      <!-- Table -->
-      <DataTable
-        :columns="columns"
-        :rows="pagedTrips"
-        :loading="loading"
-        :flat="true"
-        :has-filter="hasFilter"
-        :sort-key="sortKey"
-        :sort-dir="sortDir"
-        empty-message="No trips found."
-        @sort="handleSort"
-      >
-        <template #cell-driver_id="{ row, value }">
-          <div class="tv-driver-cell">
-            <span class="tv-driver-id mono">{{ value || '—' }}</span>
-            <span v-if="row.driver_name" class="tv-driver-name">{{ row.driver_name }}</span>
-          </div>
-        </template>
-        <template #cell-date="{ value }">
-          <span class="mono">{{ formatDate(value) }}</span>
-        </template>
-        <template #cell-type="{ value }">
-          <span :class="['type-tag', value === 'RE' ? 'type-tag--re' : 'type-tag--cb']">{{ value || '—' }}</span>
-        </template>
-        <template #cell-oil_company="{ value }">
-          <span class="oil-text">{{ value ? capitalize(value) : '—' }}</span>
-        </template>
-        <template #cell-load_size="{ value }">
-          <span class="mono">{{ Number(value).toLocaleString() }}</span>
-        </template>
-        <template #cell-km_driven="{ value }">
-          <span class="mono">{{ value }}</span>
-        </template>
-        <template #cell-special_notes="{ value }">
-          <span v-if="value && value.length" class="notes-row">
-            <span
-              v-for="(note, i) in value" :key="i"
-              :class="['note-tag', `note-tag--${note}`]"
-            >{{ note }}</span>
-          </span>
-          <span v-else class="tc-3">—</span>
-        </template>
-      </DataTable>
+      <!-- Table + Pagination in a separate overflow:hidden wrapper so the filter
+           dropdown above can escape the card boundary without being clipped -->
+      <div class="tv-table-body">
+        <DataTable
+          :columns="columns"
+          :rows="pagedTrips"
+          :loading="loading"
+          :flat="true"
+          :has-filter="hasFilter"
+          :sort-key="sortKey"
+          :sort-dir="sortDir"
+          empty-message="No trips found."
+          @sort="handleSort"
+        >
+          <template #cell-driver_id="{ row, value }">
+            <div class="tv-driver-cell">
+              <span class="tv-driver-id mono">{{ value || '—' }}</span>
+              <span v-if="row.driver_name" class="tv-driver-name">{{ row.driver_name }}</span>
+            </div>
+          </template>
+          <template #cell-date="{ value }">
+            <span class="mono">{{ formatDate(value) }}</span>
+          </template>
+          <template #cell-type="{ value }">
+            <span :class="['type-tag', value === 'RE' ? 'type-tag--re' : 'type-tag--cb']">{{ value || '—' }}</span>
+          </template>
+          <template #cell-oil_company="{ value }">
+            <span class="oil-text">{{ value ? capitalize(value) : '—' }}</span>
+          </template>
+          <template #cell-load_size="{ value }">
+            <span class="mono">{{ Number(value).toLocaleString() }}</span>
+          </template>
+          <template #cell-km_driven="{ value }">
+            <span class="mono">{{ value }}</span>
+          </template>
+          <template #cell-special_notes="{ value }">
+            <span v-if="value && value.length" class="notes-row">
+              <span
+                v-for="(note, i) in value" :key="i"
+                :class="['note-tag', `note-tag--${note}`]"
+              >{{ note }}</span>
+            </span>
+            <span v-else class="tc-3">—</span>
+          </template>
+        </DataTable>
 
-      <AppPagination
-        v-if="lastPage > 1"
-        :current-page="page"
-        :last-page="lastPage"
-        :total="filteredTrips.length"
-        :from="pageFrom"
-        :to="pageTo"
-        @change="p => { page = p }"
-      />
+        <AppPagination
+          v-if="lastPage > 1"
+          :current-page="page"
+          :last-page="lastPage"
+          :total="filteredTrips.length"
+          :from="pageFrom"
+          :to="pageTo"
+          @change="p => { page = p }"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -437,7 +440,13 @@ function clearFilters() {
 /* ── Table card ──────────────────────────────────────────────── */
 .tv-table-card {
   background: var(--c-surface); border: 1px solid var(--c-border);
-  border-radius: var(--r-xl); box-shadow: var(--sh-sm); overflow: hidden;
+  border-radius: var(--r-xl); box-shadow: var(--sh-sm);
+  /* no overflow:hidden here — the filter dropdown needs to escape the card boundary */
+}
+/* Only the table+pagination section clips to the card's rounded bottom corners */
+.tv-table-body {
+  overflow: hidden;
+  border-radius: 0 0 var(--r-xl) var(--r-xl);
 }
 .tv-card-hd {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -553,31 +562,25 @@ function clearFilters() {
 @media (max-width: 767px) { .tv-mobile-search { display: block; width: 100%; margin-top: 2px; } }
 
 @media (max-width: 767px) {
+  /* Keep filter bar as wrapping horizontal row — don't stretch everything full-width */
   .tv-filter-bar {
-    flex-direction: column;
-    align-items: stretch;
+    gap: 6px;
   }
 
-  .tv-seg,
-  .tv-drop-wrap,
-  .tv-clear-btn {
-    width: 100%;
-  }
-
+  /* Seg pill group: wrap chips instead of full-width grid */
   .tv-seg {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex-wrap: wrap;
+    border-radius: var(--r-lg);
+    flex-shrink: 0;
   }
 
   .tv-seg-btn {
-    min-height: 44px;
-    justify-content: center;
+    min-height: 40px;
   }
 
+  /* Oil dropdown: stays compact inline, panel goes full-width */
   .tv-drop-trigger {
-    width: 100%;
-    min-height: 44px;
-    justify-content: space-between;
+    min-height: 40px;
   }
 
   .tv-drop-panel {
@@ -585,12 +588,11 @@ function clearFilters() {
   }
 
   .tv-drop-opt {
-    min-height: 44px;
+    min-height: 40px;
   }
 
   .tv-clear-btn {
-    min-height: 44px;
-    justify-content: center;
+    min-height: 40px;
   }
 }
 

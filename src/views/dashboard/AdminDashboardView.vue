@@ -11,6 +11,7 @@ import AlertsWidget    from '../../components/dashboard/AlertsWidget.vue'
 import ActivityFeed    from '../../components/dashboard/ActivityFeed.vue'
 import RiskDrivers     from '../../components/dashboard/RiskDrivers.vue'
 import BirthdayCard    from '../../components/dashboard/BirthdayCard.vue'
+import DriverLocationMap from '../../components/dashboard/DriverLocationMap.vue'
 import { DashboardIcon, AlertIcon, CheckCircleIcon } from '../../components/icons/index.js'
 
 const router = useRouter()
@@ -46,6 +47,26 @@ const riskError          = ref(false)
 const birthdays          = ref([])
 const birthdaysLoading   = ref(true)
 const birthdaysError     = ref(false)
+
+// ── Time range selector ───────────────────────────────────────────────────────
+const timeRange = ref('today')
+
+// ── Mock driver locations (prototype — replace with API later) ────────────────
+const mapLocations = computed(() => {
+  const allLocations = [
+    { driver_name: 'Ahmad Rizal', driver_id: 'DRV-012', location_name: 'Shah Alam, Selangor', lat: 3.0733, lng: 101.5185, trips_count: 3 },
+    { driver_name: 'Mohd Faisal', driver_id: 'DRV-008', location_name: 'Petaling Jaya, Selangor', lat: 3.1073, lng: 101.6067, trips_count: 2 },
+    { driver_name: 'Ismail Hassan', driver_id: 'DRV-003', location_name: 'Klang, Selangor', lat: 3.0449, lng: 101.4455, trips_count: 4 },
+    { driver_name: 'Razak Othman', driver_id: 'DRV-015', location_name: 'Subang Jaya, Selangor', lat: 3.0565, lng: 101.5856, trips_count: 1 },
+    { driver_name: 'Hafiz Kamal', driver_id: 'DRV-021', location_name: 'Puchong, Selangor', lat: 3.0044, lng: 101.6164, trips_count: 2 },
+    { driver_name: 'Zulkifli Amin', driver_id: 'DRV-007', location_name: 'Cyberjaya, Selangor', lat: 2.9188, lng: 101.6538, trips_count: 1 },
+    { driver_name: 'Kamal Arif', driver_id: 'DRV-019', location_name: 'Rawang, Selangor', lat: 3.3210, lng: 101.5769, trips_count: 3 },
+    { driver_name: 'Syed Nabil', driver_id: 'DRV-025', location_name: 'Port Klang, Selangor', lat: 3.0006, lng: 101.3926, trips_count: 5 },
+  ]
+  if (timeRange.value === 'today') return allLocations.slice(0, 5)
+  if (timeRange.value === 'week') return allLocations.slice(0, 7)
+  return allLocations
+})
 
 // ── Date display ──────────────────────────────────────────────────────────────
 const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -103,16 +124,24 @@ const heroSeries = computed(() => [{
 
 const heroOptions = computed(() => ({
   chart: {
-    type: 'bar',
+    type: 'area',
     toolbar: { show: false },
     background: 'transparent',
     fontFamily: 'Hanken Grotesk, system-ui, sans-serif',
     redrawOnParentResize: true,
     parentHeightOffset: 0,
+    sparkline: { enabled: false },
   },
   theme: { mode: apexTheme.value },
-  plotOptions: {
-    bar: { borderRadius: 5, columnWidth: '55%', borderRadiusApplication: 'end' },
+  stroke: { curve: 'smooth', width: 2.5 },
+  fill: {
+    type: 'gradient',
+    gradient: {
+      shadeIntensity: 1,
+      opacityFrom: 0.4,
+      opacityTo: 0.05,
+      stops: [0, 90, 100],
+    },
   },
   dataLabels: { enabled: false },
   colors: [isDark.value ? '#60A5FA' : '#1D4ED8'],
@@ -130,9 +159,7 @@ const heroOptions = computed(() => ({
     theme: apexTheme.value,
     y: { formatter: v => `${v} trips` },
   },
-  states: {
-    hover: { filter: { type: 'lighten', value: 0.05 } },
-  },
+  markers: { size: 3, strokeWidth: 0, hover: { size: 6 } },
 }))
 
 // ── Driver Status donut chart ─────────────────────────────────────────────────
@@ -260,20 +287,20 @@ const rankOptions = computed(() => ({
   },
   theme: { mode: apexTheme.value },
   plotOptions: {
-    bar: { borderRadius: 4, columnWidth: '50%', borderRadiusApplication: 'end' },
+    bar: { borderRadius: 6, horizontal: true, barHeight: '55%', borderRadiusApplication: 'end' },
   },
-  dataLabels: { enabled: false },
+  dataLabels: { enabled: true, style: { fontSize: '12px', fontWeight: 700 } },
   colors: rankEntries.value.map(([r]) => rankMap.value[r] || '#94A3B8'),
   xaxis: {
-    categories: rankEntries.value.map(([r]) => `Rank ${r}`),
     labels: { style: { colors: labelColor.value, fontSize: '11px' } },
     axisBorder: { show: false },
     axisTicks: { show: false },
   },
   yaxis: {
-    labels: { style: { colors: labelColor.value, fontSize: '11px' } },
+    categories: rankEntries.value.map(([r]) => `Rank ${r}`),
+    labels: { style: { colors: labelColor.value, fontSize: '12px', fontWeight: 600 } },
   },
-  grid: { borderColor: gridColor.value, strokeDashArray: 3 },
+  grid: { borderColor: gridColor.value, strokeDashArray: 3, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
   legend: { show: false },
   tooltip: {
     theme: apexTheme.value,
@@ -359,7 +386,6 @@ function loadBirthdays() {
     <div class="adash-banner">
       <div>
         <h1 class="adash-banner-title">Fleet Dashboard</h1>
-        <p class="adash-banner-sub">Fleet Management Overview</p>
         <!-- Live status chips -->
         <div class="adash-banner-chips">
           <span class="adash-chip adash-chip--blue">
@@ -377,9 +403,19 @@ function loadBirthdays() {
           </span>
         </div>
       </div>
-      <div class="adash-banner-date">
-        <span class="adash-date-label">Today</span>
-        <span class="adash-date-value">{{ todayFormatted }}</span>
+      <div class="adash-banner-right">
+        <!-- Time range toggle -->
+        <div class="adash-range-toggle">
+          <button
+            v-for="opt in [{ key: 'today', label: 'Today' }, { key: 'week', label: 'Week' }, { key: 'month', label: 'Month' }]"
+            :key="opt.key"
+            :class="['adash-range-btn', timeRange === opt.key && 'adash-range-btn--active']"
+            @click="timeRange = opt.key"
+          >{{ opt.label }}</button>
+        </div>
+        <div class="adash-banner-date">
+          <span class="adash-date-value">{{ todayFormatted }}</span>
+        </div>
       </div>
     </div>
 
@@ -398,34 +434,44 @@ function loadBirthdays() {
       </div>
       <AlertsWidget v-else :data="alertsData" :loading="alertsLoading" />
 
-      <!-- ── Command Center: Today's Operations ────────────── -->
-      <div class="adash-ops-zone">
-        <p class="adash-section-lbl adash-section-lbl--ops">Today's Operations</p>
-        <div v-if="tripsTodayLoading" class="adash-stats-grid adash-skel-grid">
-          <div v-for="i in 4" :key="i" class="adash-skel-card"></div>
-        </div>
-        <div v-else class="adash-stats-grid">
-          <StatCard title="Total Trips Today" :value="tripsToday?.total     || 0" color="blue"   />
-          <StatCard title="Completed"         :value="tripsToday?.completed || 0" color="green"  />
-          <StatCard title="Ongoing"           :value="tripsToday?.ongoing   || 0" color="yellow" />
-          <StatCard title="Cancelled"         :value="tripsToday?.cancelled || 0" color="red"    />
-        </div>
-        <!-- Completion rate bar -->
-        <div v-if="!tripsTodayLoading && tripsToday?.total > 0" class="adash-completion-wrap">
-          <div class="adash-completion-meta">
-            <span class="adash-completion-lbl">Trip completion rate</span>
-            <span class="adash-completion-pct">{{ Math.round((tripsToday?.completed || 0) / (tripsToday?.total || 1) * 100) }}%</span>
-          </div>
-          <div class="adash-completion-track">
-            <div
-              class="adash-completion-fill"
-              :style="{ transform: `scaleX(${(tripsToday?.completed || 0) / (tripsToday?.total || 1)})` }"
-            ></div>
+      <!-- ── Hero: Map + Operations side-by-side ───────────── -->
+      <div class="adash-hero-row">
+        <DriverLocationMap
+          :locations="mapLocations"
+          :loading="loading"
+          :period="timeRange"
+          class="adash-hero-map"
+        />
+        <div class="adash-hero-ops">
+          <div class="adash-ops-zone adash-ops-zone--compact">
+            <p class="adash-section-lbl adash-section-lbl--ops">Today's Operations</p>
+            <div v-if="tripsTodayLoading" class="adash-stats-grid adash-stats-grid--2 adash-skel-grid">
+              <div v-for="i in 4" :key="i" class="adash-skel-card"></div>
+            </div>
+            <div v-else class="adash-stats-grid adash-stats-grid--2">
+              <StatCard title="Total Trips Today" :value="tripsToday?.total     || 0" color="blue"   />
+              <StatCard title="Completed"         :value="tripsToday?.completed || 0" color="green"  />
+              <StatCard title="Ongoing"           :value="tripsToday?.ongoing   || 0" color="yellow" />
+              <StatCard title="Cancelled"         :value="tripsToday?.cancelled || 0" color="red"    />
+            </div>
+            <!-- Completion rate bar -->
+            <div v-if="!tripsTodayLoading && tripsToday?.total > 0" class="adash-completion-wrap">
+              <div class="adash-completion-meta">
+                <span class="adash-completion-lbl">Completion rate</span>
+                <span class="adash-completion-pct">{{ Math.round((tripsToday?.completed || 0) / (tripsToday?.total || 1) * 100) }}%</span>
+              </div>
+              <div class="adash-completion-track">
+                <div
+                  class="adash-completion-fill"
+                  :style="{ transform: `scaleX(${(tripsToday?.completed || 0) / (tripsToday?.total || 1)})` }"
+                ></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- ── Driver Availability ───────────────────────────── -->
+      <!-- ── Driver Availability + Fleet Headcount (merged) ──── -->
       <p class="adash-section-lbl">Driver Availability</p>
       <div v-if="driverAvailLoading" class="adash-avail-grid adash-skel-grid">
         <div v-for="i in 3" :key="i" class="adash-skel-card"></div>
@@ -508,7 +554,7 @@ function loadBirthdays() {
           </div>
         </template>
         <apexchart
-          type="bar"
+          type="area"
           :options="heroOptions"
           :series="heroSeries"
           height="230"
@@ -516,39 +562,8 @@ function loadBirthdays() {
         />
       </ChartCard>
 
-      <!-- ── Analytics row ──────────────────────────────────── -->
-      <p class="adash-section-lbl">Analytics</p>
-      <div class="adash-charts-grid adash-charts-grid--2">
-        <ChartCard title="Trips by Oil Company" subtitle="Distribution across clients" height="220px">
-          <apexchart
-            type="bar"
-            :options="oilOptions"
-            :series="oilSeries"
-            height="200"
-            width="100%"
-          />
-        </ChartCard>
-        <ChartCard title="Drivers by Ranking" subtitle="A · B · C performance tiers" height="220px">
-          <apexchart
-            type="bar"
-            :options="rankOptions"
-            :series="rankSeries"
-            height="200"
-            width="100%"
-          />
-        </ChartCard>
-      </div>
-
-      <!-- ── Trip stat cards ────────────────────────────────── -->
-      <p class="adash-section-lbl">Trip Overview</p>
-      <div class="adash-trip-grid">
-        <StatCard title="Total Trips"        :value="tripStats?.total_trips || 0"                         color="purple" />
-        <StatCard title="Total KM Driven"    :value="(tripStats?.total_km_driven || 0).toLocaleString()" color="blue"   subtitle="km" />
-        <StatCard title="Drivers with Trips" :value="Object.keys(tripStats?.by_driver || {}).length"      color="green"  subtitle="unique drivers" />
-      </div>
-
-      <!-- ── Risk & Activity ───────────────────────────────── -->
-      <p class="adash-section-lbl">Risk &amp; Activity</p>
+      <!-- ── Risk & Activity (actionable — elevated) ────────── -->
+      <p class="adash-section-lbl">Attention Required</p>
       <div class="adash-intel-grid">
         <div v-if="riskError" class="adash-widget-err">
           Failed to load risk data.
@@ -560,6 +575,47 @@ function loadBirthdays() {
           <button class="adash-retry-btn" @click="loadActivities">Retry</button>
         </div>
         <ActivityFeed v-else :items="activities" :loading="activitiesLoading" />
+      </div>
+
+      <!-- ── Analytics (collapsed section) ──────────────────── -->
+      <p class="adash-section-lbl">Analytics</p>
+      <div class="adash-analytics-zone">
+        <!-- Trip summary strip -->
+        <div class="adash-trip-strip">
+          <div class="adash-trip-strip-item">
+            <span class="adash-trip-strip-val tc-purple">{{ tripStats?.total_trips || 0 }}</span>
+            <span class="adash-trip-strip-lbl">Total Trips</span>
+          </div>
+          <div class="adash-trip-strip-item">
+            <span class="adash-trip-strip-val tc-accent">{{ (tripStats?.total_km_driven || 0).toLocaleString() }}</span>
+            <span class="adash-trip-strip-lbl">KM Driven</span>
+          </div>
+          <div class="adash-trip-strip-item">
+            <span class="adash-trip-strip-val tc-green">{{ Object.keys(tripStats?.by_driver || {}).length }}</span>
+            <span class="adash-trip-strip-lbl">Active Drivers</span>
+          </div>
+        </div>
+        <!-- Charts -->
+        <div class="adash-charts-grid adash-charts-grid--2">
+          <ChartCard title="Trips by Oil Company" subtitle="Distribution across clients" height="220px">
+            <apexchart
+              type="bar"
+              :options="oilOptions"
+              :series="oilSeries"
+              height="200"
+              width="100%"
+            />
+          </ChartCard>
+          <ChartCard title="Drivers by Ranking" subtitle="A · B · C performance tiers" height="220px">
+            <apexchart
+              type="bar"
+              :options="rankOptions"
+              :series="rankSeries"
+              height="200"
+              width="100%"
+            />
+          </ChartCard>
+        </div>
       </div>
 
       <!-- ── Upcoming Birthdays ────────────────────────────── -->
@@ -703,13 +759,26 @@ function loadBirthdays() {
   margin-bottom: 0.5rem;
 }
 .adash-banner-title {
-  font-size: 1.875rem; font-weight: 800; margin: 0 0 0.15rem;
+  font-size: 1.875rem; font-weight: 800; margin: 0 0 0.5rem;
   letter-spacing: -0.04em; color: var(--c-text-1); line-height: 1.05;
 }
-.adash-banner-sub   { font-size: 0.8125rem; color: var(--c-text-3); margin: 0 0 0.75rem; font-weight: 500; }
+.adash-banner-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
 .adash-banner-date  { display: flex; flex-direction: column; align-items: flex-end; }
-.adash-date-label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: .08em; color: var(--c-text-3); }
-.adash-date-value { font-size: 0.875rem; font-weight: 600; margin-top: 2px; color: var(--c-text-2); }
+.adash-date-value { font-size: 0.8125rem; font-weight: 500; color: var(--c-text-3); }
+
+/* Time range toggle */
+.adash-range-toggle {
+  display: inline-flex; background: var(--c-bg); border: 1px solid var(--c-border);
+  border-radius: 8px; padding: 3px; gap: 2px;
+}
+.adash-range-btn {
+  padding: 5px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;
+  color: var(--c-text-3); transition: all 0.15s ease;
+}
+.adash-range-btn:hover { color: var(--c-text-1); }
+.adash-range-btn--active {
+  background: var(--c-surface); color: var(--c-accent); box-shadow: var(--sh-xs);
+}
 
 /* Live status chips in banner */
 .adash-banner-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -742,6 +811,29 @@ function loadBirthdays() {
   transform-origin: left; transform: scaleX(0);
   transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* ── Hero row: Map + Operations ─────────────────────────────────────────────── */
+.adash-hero-row {
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 1rem;
+  margin-top: 0.5rem;
+}
+.adash-hero-map { min-width: 0; }
+.adash-hero-ops { display: flex; flex-direction: column; }
+.adash-ops-zone--compact { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.adash-ops-zone--compact .adash-section-lbl { margin-top: 0; }
+.adash-stats-grid--2 { grid-template-columns: repeat(2, 1fr) !important; }
+
+/* ── Analytics zone ────────────────────────────────────────────────────────── */
+.adash-analytics-zone {
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;
+}
+.adash-trip-strip {
+  display: flex; gap: 2rem; padding: 0.75rem 0; border-bottom: 1px solid var(--c-border);
+}
+.adash-trip-strip-item { display: flex; flex-direction: column; gap: 2px; }
+.adash-trip-strip-val  { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.adash-trip-strip-lbl  { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--c-text-3); }
 
 /* Driver availability distribution bar */
 .adash-distrib-wrap { margin-top: 0.625rem; }
@@ -937,19 +1029,25 @@ function loadBirthdays() {
 
 /* ── Responsive ──────────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
+  .adash-hero-row        { grid-template-columns: 1fr; }
   .adash-charts-grid     { grid-template-columns: 1fr 1fr; }
   .adash-headcount       { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
-  .adash-banner          { padding: 0 0 1rem; }
+  .adash-banner          { flex-direction: column; align-items: stretch; padding: 0 0 1rem; }
   .adash-banner-title    { font-size: 1.5rem; }
+  .adash-banner-right    { flex-direction: row; align-items: center; justify-content: space-between; }
   .adash-stats-grid      { grid-template-columns: 1fr 1fr; }
   .adash-headcount-stats { grid-template-columns: 1fr 1fr; }
   .adash-avail-grid      { grid-template-columns: 1fr 1fr 1fr; }
-  .adash-trip-grid       { grid-template-columns: 1fr 1fr; }
+  .adash-trip-strip      { gap: 1.25rem; }
+  .adash-trip-strip-val  { font-size: 1.25rem; }
   .adash-charts-grid     { grid-template-columns: 1fr; }
   .adash-charts-grid--2  { grid-template-columns: 1fr; }
   .adash-intel-grid      { grid-template-columns: 1fr; }
+  .adash-hero-ops        { order: -1; }
+  .adash-ops-zone--compact { padding: 0.75rem; }
+  .adash-analytics-zone  { padding: 1rem; }
 }
 @media (max-width: 640px) {
   .adash-expiry-tbl-wrap { display: none; }
@@ -957,14 +1055,22 @@ function loadBirthdays() {
   .adash-stats-grid      { grid-template-columns: 1fr 1fr; }
   .adash-headcount-stats { grid-template-columns: 1fr 1fr; }
   .adash-avail-grid      { grid-template-columns: 1fr 1fr 1fr; }
-  .adash-trip-grid       { grid-template-columns: 1fr; }
   .adash-banner-date     { display: none; }
+  .adash-trip-strip      { flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+  .adash-range-btn       { padding: 5px 10px; font-size: 0.7rem; }
+  .adash-hero-ops        { order: 0; }
+  .adash-section-lbl     { margin: 1.5rem 0 0.6rem; }
 }
 @media (max-width: 360px) {
   .adash-headcount-stats,
   .adash-avail-grid {
     grid-template-columns: 1fr 1fr;
   }
+  .adash-range-toggle    { width: 100%; }
+  .adash-range-btn       { flex: 1; text-align: center; }
+  .adash-trip-strip-val  { font-size: 1.1rem; }
+  .adash-banner-chips    { gap: 0.35rem; }
+  .adash-chip            { padding: 4px 8px; font-size: 0.72rem; }
 }
 
 /* ── Widget error states ──────────────────────────────────────────────────── */

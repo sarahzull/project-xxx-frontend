@@ -95,15 +95,15 @@ onBeforeUnmount(() => {
 .dpp {
   position: absolute;
   z-index: 50;
+  /* Slide down from above on bottom-placement; slide up from below on top-placement. */
+  --dpp-enter-offset: -4px;
 }
+.dpp[data-placement="top"] { --dpp-enter-offset: 4px; }
+
 .dpp-enter-active { transition: opacity 140ms ease-out, transform 140ms ease-out; }
 .dpp-leave-active { transition: opacity 100ms ease-in,  transform 100ms ease-in; }
 .dpp-enter-from, .dpp-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
-}
-.dpp[data-placement="top"].dpp-enter-from,
-.dpp[data-placement="top"].dpp-leave-to {
-  transform: translateY(4px);
+  transform: translateY(var(--dpp-enter-offset));
 }
 </style>

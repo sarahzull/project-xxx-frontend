@@ -45,16 +45,45 @@ const cells = computed(() => {
     const d = new Date(gridStart)
     d.setDate(gridStart.getDate() + i)
     const iso = toISO(d)
+
+    const singleOn = props.mode === 'single' && iso === props.modelValue
+
+    let rangeOn  = false
+    let rangeEnd = false
+    if (props.mode === 'range') {
+      if (props.from && props.to) {
+        rangeOn  = inRange(iso, props.from, props.to)
+        rangeEnd = isEnd(iso, props.from, props.to)
+      } else if (pendingStart.value) {
+        rangeOn  = hoverISO.value ? inRange(iso, pendingStart.value, hoverISO.value) : false
+        rangeEnd = iso === pendingStart.value || iso === hoverISO.value
+      }
+    }
+
     result.push({
       iso,
       day: d.getDate(),
       inMonth: d.getMonth() === viewMonth.value,
       isToday: iso === nowISO,
-      isSelected: iso === props.modelValue,
+      isSelected: singleOn || rangeEnd,
+      inRange: rangeOn,
     })
   }
   return result
 })
+
+const pendingStart = ref('')
+const hoverISO     = ref('')
+
+function inRange(iso, a, b) {
+  if (!a || !b) return false
+  const lo = a < b ? a : b
+  const hi = a < b ? b : a
+  return iso > lo && iso < hi
+}
+function isEnd(iso, a, b) {
+  return iso === a || iso === b
+}
 
 const viewMode = ref('days') // 'days' | 'months'
 
@@ -87,7 +116,27 @@ function selectDay(cell) {
     viewYear.value  = parseYear(cell.iso)
     viewMonth.value = parseMonth(cell.iso)
   }
-  emit('select', cell.iso)
+
+  if (props.mode === 'single') {
+    emit('select', cell.iso)
+    return
+  }
+
+  if (!pendingStart.value) {
+    pendingStart.value = cell.iso
+    return
+  }
+  const a = pendingStart.value
+  const b = cell.iso
+  const [from, to] = a <= b ? [a, b] : [b, a]
+  pendingStart.value = ''
+  hoverISO.value = ''
+  emit('select', { from, to })
+}
+
+function onDayHover(cell) {
+  if (props.mode !== 'range' || !pendingStart.value) return
+  hoverISO.value = cell.iso
 }
 
 function pickToday() {
@@ -95,12 +144,28 @@ function pickToday() {
   viewYear.value  = parseYear(iso)
   viewMonth.value = parseMonth(iso)
   emit('today')
-  emit('select', iso)
+  if (props.mode === 'single') {
+    emit('select', iso)
+  } else {
+    if (pendingStart.value) {
+      const [from, to] = pendingStart.value <= iso
+        ? [pendingStart.value, iso]
+        : [iso, pendingStart.value]
+      pendingStart.value = ''
+      hoverISO.value = ''
+      emit('select', { from, to })
+    } else {
+      emit('select', { from: iso, to: iso })
+    }
+  }
 }
 
 function pickClear() {
+  pendingStart.value = ''
+  hoverISO.value = ''
   emit('clear')
-  emit('select', '')
+  if (props.mode === 'single') emit('select', '')
+  else                         emit('select', { from: '', to: '' })
 }
 
 watch(() => props.modelValue, (v) => {
@@ -151,11 +216,13 @@ watch(() => props.modelValue, (v) => {
         :aria-selected="cell.isSelected"
         :class="[
           'cal-day',
-          !cell.inMonth && 'cal-day--other',
-          cell.isToday  && 'cal-day--today',
+          !cell.inMonth   && 'cal-day--other',
+          cell.isToday    && 'cal-day--today',
           cell.isSelected && 'cal-day--on',
+          cell.inRange    && 'cal-day--in-range',
         ]"
         @click="selectDay(cell)"
+        @mouseenter="onDayHover(cell)"
       >{{ cell.day }}</button>
     </div>
 
@@ -260,6 +327,12 @@ watch(() => props.modelValue, (v) => {
 .cal-day--today:not(.cal-day--on) {
   box-shadow: inset 0 0 0 1.5px var(--c-accent);
 }
+.cal-day--in-range {
+  background: var(--c-accent-ring);
+  border-radius: 0;
+  color: var(--c-text-1);
+}
+.cal-day--in-range:hover { background: var(--c-accent-ring); }
 .cal-day--on {
   background: var(--c-accent);
   color: #fff;

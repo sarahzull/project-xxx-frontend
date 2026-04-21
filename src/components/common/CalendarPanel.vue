@@ -190,8 +190,8 @@ watch(() => [props.from, props.to], ([f, t]) => {
   }
 })
 
-const focusedISO = ref(toISO(getToday()))
-const gridHasFocus = ref(false)
+// Seed focus from active selection so keyboard users land on a cell visible in the rendered grid.
+const focusedISO = ref(props.modelValue || props.from || toISO(getToday()))
 const WEEKDAY_LABELS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 
 function addDays(iso, n) {
@@ -204,6 +204,21 @@ function dayAriaLabel(cell) {
   return `${WEEKDAY_LABELS[d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
 }
 
+// Clamp an ISO date to [props.min, props.max] so arrow keys can't land on disabled cells.
+function clampISO(iso) {
+  if (props.min && iso < props.min) return props.min
+  if (props.max && iso > props.max) return props.max
+  return iso
+}
+
+// Re-anchor focus to the same day-of-month when paging months via PageUp/PageDown.
+function focusSameDayInView() {
+  const day = Number(focusedISO.value.slice(8, 10))
+  const last = new Date(viewYear.value, viewMonth.value + 1, 0).getDate()
+  const d = new Date(viewYear.value, viewMonth.value, Math.min(day, last))
+  focusedISO.value = clampISO(toISO(d))
+}
+
 function onGridKeydown(e) {
   let delta = 0
   switch (e.key) {
@@ -211,12 +226,12 @@ function onGridKeydown(e) {
     case 'ArrowRight': delta =  1; break
     case 'ArrowUp':    delta = -7; break
     case 'ArrowDown':  delta =  7; break
-    case 'PageUp':     prevStep(); e.preventDefault(); return
-    case 'PageDown':   nextStep(); e.preventDefault(); return
-    case 'Home':       focusedISO.value = toISO(new Date(viewYear.value, viewMonth.value, 1)); e.preventDefault(); return
+    case 'PageUp':     prevStep(); focusSameDayInView(); e.preventDefault(); return
+    case 'PageDown':   nextStep(); focusSameDayInView(); e.preventDefault(); return
+    case 'Home':       focusedISO.value = clampISO(toISO(new Date(viewYear.value, viewMonth.value, 1))); e.preventDefault(); return
     case 'End': {
       const last = new Date(viewYear.value, viewMonth.value + 1, 0)
-      focusedISO.value = toISO(last); e.preventDefault(); return
+      focusedISO.value = clampISO(toISO(last)); e.preventDefault(); return
     }
     case 'Enter':
     case ' ': {
@@ -228,7 +243,7 @@ function onGridKeydown(e) {
     default: return
   }
   e.preventDefault()
-  const next = addDays(focusedISO.value, delta)
+  const next = clampISO(addDays(focusedISO.value, delta))
   focusedISO.value = next
   viewYear.value  = parseYear(next)
   viewMonth.value = parseMonth(next)
@@ -280,7 +295,7 @@ function onGridKeydown(e) {
         type="button"
         role="gridcell"
         :aria-selected="cell.isSelected || cell.inRange"
-        :aria-disabled="cell.disabled"
+        :aria-disabled="cell.disabled || undefined"
         :aria-label="dayAriaLabel(cell)"
         :tabindex="cell.iso === focusedISO ? 0 : -1"
         :disabled="cell.disabled"
@@ -294,8 +309,7 @@ function onGridKeydown(e) {
         ]"
         @click="selectDay(cell)"
         @mouseenter="onDayHover(cell)"
-        @focus="focusedISO = cell.iso; gridHasFocus = true"
-        @blur="gridHasFocus = false"
+        @focus="focusedISO = cell.iso"
       >{{ cell.day }}</button>
     </div>
 

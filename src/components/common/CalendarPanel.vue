@@ -174,6 +174,14 @@ watch(() => props.modelValue, (v) => {
     viewMonth.value = parseMonth(v)
   }
 })
+
+// Clear pending range state when the parent resets both bounds (e.g. Clear Filters).
+watch(() => [props.from, props.to], ([f, t]) => {
+  if (!f && !t) {
+    pendingStart.value = ''
+    hoverISO.value = ''
+  }
+})
 </script>
 
 <template>
@@ -207,13 +215,19 @@ watch(() => props.modelValue, (v) => {
       <span v-for="w in WEEKDAYS" :key="w" class="cal-wk">{{ w }}</span>
     </div>
 
-    <div v-if="viewMode === 'days'" class="cal-grid" role="grid" :aria-label="headerLabel">
+    <div
+      v-if="viewMode === 'days'"
+      class="cal-grid"
+      role="grid"
+      :aria-label="headerLabel"
+      @mouseleave="hoverISO = ''"
+    >
       <button
         v-for="cell in cells"
         :key="cell.iso"
         type="button"
         role="gridcell"
-        :aria-selected="cell.isSelected"
+        :aria-selected="cell.isSelected || cell.inRange"
         :class="[
           'cal-day',
           !cell.inMonth   && 'cal-day--other',

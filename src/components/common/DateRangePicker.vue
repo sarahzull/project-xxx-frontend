@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { CalendarIcon, ChevronDownIcon } from '../icons/index.js'
 import CalendarPanel     from './CalendarPanel.vue'
 import DatePickerPopover from './DatePickerPopover.vue'
@@ -111,6 +111,12 @@ function onCalendarClear() {
   emit('update:to', '')
   open.value = false
 }
+
+// Clear the active preset label when the parent resets both bounds (e.g. Clear Filters),
+// so the trigger doesn't keep showing "This Week" while the range is actually empty.
+watch([() => props.from, () => props.to], ([f, t]) => {
+  if (!f && !t) activePreset.value = null
+})
 </script>
 
 <template>

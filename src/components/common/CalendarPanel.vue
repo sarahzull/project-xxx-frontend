@@ -13,8 +13,10 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'clear', 'today'])
 
-const today = new Date()
-const initial = props.modelValue || props.from || toISO(today)
+// Re-read current date on each call so long-lived mounts don't keep a stale "today".
+function getToday() { return new Date() }
+
+const initial = props.modelValue || props.from || toISO(getToday())
 const viewYear  = ref(parseYear(initial))
 const viewMonth = ref(parseMonth(initial))
 
@@ -24,15 +26,15 @@ function toISO(d) {
   const dd = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${dd}`
 }
-function parseYear(iso)  { return iso ? Number(iso.slice(0, 4))  : today.getFullYear() }
-function parseMonth(iso) { return iso ? Number(iso.slice(5, 7)) - 1 : today.getMonth() }
-function parseDay(iso)   { return iso ? Number(iso.slice(8, 10)) : today.getDate() }
+function parseYear(iso)  { return iso ? Number(iso.slice(0, 4))  : getToday().getFullYear() }
+function parseMonth(iso) { return iso ? Number(iso.slice(5, 7)) - 1 : getToday().getMonth() }
 
 const MONTH_NAMES = ['January','February','March','April','May','June',
                      'July','August','September','October','November','December']
 const WEEKDAYS    = ['Su','Mo','Tu','We','Th','Fr','Sa']
 
 const cells = computed(() => {
+  const nowISO = toISO(getToday())
   const first = new Date(viewYear.value, viewMonth.value, 1)
   const startOffset = first.getDay()
   const gridStart = new Date(first)
@@ -47,7 +49,7 @@ const cells = computed(() => {
       iso,
       day: d.getDate(),
       inMonth: d.getMonth() === viewMonth.value,
-      isToday: iso === toISO(today),
+      isToday: iso === nowISO,
       isSelected: iso === props.modelValue,
     })
   }
@@ -74,7 +76,7 @@ function selectDay(cell) {
 }
 
 function pickToday() {
-  const iso = toISO(today)
+  const iso = toISO(getToday())
   viewYear.value  = parseYear(iso)
   viewMonth.value = parseMonth(iso)
   emit('today')

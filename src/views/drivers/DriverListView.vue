@@ -645,45 +645,8 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 .dv-mobile-search { display: none; }
 @media (max-width: 767px) { .dv-mobile-search { display: block; width: 100%; margin-top: 2px; } }
 
-@media (max-width: 767px) {
-  .dv-filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .dv-seg,
-  .dv-rank-group,
-  .dv-clear-btn {
-    width: 100%;
-  }
-
-  .dv-seg {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .dv-seg-btn {
-    min-height: 44px;
-    justify-content: center;
-  }
-
-  .dv-rank-group {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .dv-rank-btn {
-    width: 100%;
-    min-height: 44px;
-    justify-content: center;
-    padding-inline: 10px;
-  }
-
-  .dv-clear-btn {
-    min-height: 44px;
-    justify-content: center;
-  }
-}
+/* Mobile: filter pills inherit compact desktop style (matches Compensation standard).
+   No column stretch, no full-width grid — pills stay as natural inline-flex rows. */
 
 /* ── Table cell styles ────────────────────────────────────────── */
 .dv-rank-chip {

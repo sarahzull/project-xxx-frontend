@@ -770,31 +770,16 @@ async function confirmDeleteUser() {
 .uv-new-btn svg { width: 14px; height: 14px; }
 .uv-new-btn:hover { opacity: 0.88; }
 
+/* Mobile: filter pills inherit compact desktop style (matches Compensation standard).
+   Only the card-right (search + New User button) stretches full-width when wrapped. */
 @media (max-width: 767px) {
-  .uv-filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .uv-seg,
-  .uv-reset-btn {
+  .uv-card-right {
     width: 100%;
   }
 
-  .uv-seg {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .uv-seg-btn,
-  .uv-reset-btn,
   .uv-new-btn {
     min-height: 44px;
     justify-content: center;
-  }
-
-  .uv-card-right {
-    width: 100%;
   }
 }
 

@@ -561,38 +561,12 @@ function clearFilters() {
 .tv-mobile-search { display: none; }
 @media (max-width: 767px) { .tv-mobile-search { display: block; width: 100%; margin-top: 2px; } }
 
+/* Mobile: match Compensation/Payroll Batches compact filter style —
+   no min-height overrides, pills stay naturally compact */
 @media (max-width: 767px) {
-  /* Keep filter bar as wrapping horizontal row — don't stretch everything full-width */
-  .tv-filter-bar {
-    gap: 6px;
-  }
-
-  /* Seg pill group: wrap chips instead of full-width grid */
-  .tv-seg {
-    flex-wrap: wrap;
-    border-radius: var(--r-lg);
-    flex-shrink: 0;
-  }
-
-  .tv-seg-btn {
-    min-height: 40px;
-  }
-
-  /* Oil dropdown: stays compact inline, panel goes full-width */
-  .tv-drop-trigger {
-    min-height: 40px;
-  }
-
+  /* Oil dropdown panel: full-width on mobile so options are readable */
   .tv-drop-panel {
     width: 100%;
-  }
-
-  .tv-drop-opt {
-    min-height: 40px;
-  }
-
-  .tv-clear-btn {
-    min-height: 40px;
   }
 }
 

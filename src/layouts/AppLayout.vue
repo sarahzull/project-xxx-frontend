@@ -84,7 +84,14 @@ function userInitials(name) {
 <template>
   <div class="app-shell">
     <!-- Backdrop (mobile) -->
-    <div :class="['backdrop', (sidebarOpen || showMoreMenu) && 'open']" @click="sidebarOpen = false; showMoreMenu = false" />
+    <div
+      :class="[
+        'backdrop',
+        (sidebarOpen || showMoreMenu) && 'open',
+        showMoreMenu && !sidebarOpen && 'backdrop--light',
+      ]"
+      @click="sidebarOpen = false; showMoreMenu = false"
+    />
 
     <!-- ── Sidebar ── -->
     <aside :class="['sidebar', sidebarOpen && 'open']">

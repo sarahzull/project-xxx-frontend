@@ -715,24 +715,10 @@ function onSent() { fetchItems() }
 .spinning { animation: spin 0.7s linear infinite; }
 
 /* ══ MOBILE — collapse to card-like rows ════════════════════════════════════ */
+/* Filter pills inherit compact desktop style (matches Compensation standard) */
 @media (max-width: 640px) {
   .cv-card-hd { flex-direction: column; align-items: flex-start; }
   .cv-card-hd-right { width: 100%; }
-  /* Keep filter bar as wrapping horizontal row — pills stay compact */
-  .cv-filter-bar {
-    gap: 6px;
-  }
-  .cv-seg {
-    flex-wrap: wrap;
-    border-radius: var(--r-lg);
-    flex-shrink: 0;
-  }
-  .cv-seg-btn {
-    min-height: 40px;
-  }
-  .cv-clear-btn {
-    min-height: 40px;
-  }
   .cv-th--driver,
   .cv-td--driver { display: none; }
   .cv-th--date,

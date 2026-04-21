@@ -273,18 +273,9 @@ watch(() => props.to, v => {
   transform: translateX(-8px);
 }
 
-/* Mobile — keep preset chips compact/horizontal (wrap if needed),
-   only the custom date inputs stack to full-width */
+/* Mobile: match Compensation/Payroll Batches compact filter style —
+   preset chips stay compact, only custom date inputs stack vertically */
 @media (max-width: 767px) {
-  .drp-seg {
-    flex-wrap: wrap;
-    border-radius: var(--r-lg);
-  }
-
-  .drp-chip {
-    min-height: 40px;
-  }
-
   .drp-custom {
     flex-direction: column;
     align-items: stretch;
@@ -298,7 +289,6 @@ watch(() => props.to, v => {
 
   .drp-input {
     width: 100%;
-    min-height: 40px;
   }
 
   .drp-arrow { display: none; }

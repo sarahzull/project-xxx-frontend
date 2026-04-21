@@ -471,17 +471,15 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 }
 @media (max-width: 767px) { .dv-filter-bar { padding: 10px 14px; gap: 6px; } }
 
-/* Filter label */
+/* FILTER label always on its own row (matches Compensation/Payroll Batches standard) */
 .dv-filter-label {
   display: flex; align-items: center; gap: 5px;
   font-size: 0.6875rem; font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--c-text-3);
-  margin-right: 2px;
-  flex-shrink: 0;
+  width: 100%; margin-bottom: 4px;
 }
 .dv-filter-label svg { width: 12px; height: 12px; }
-@media (max-width: 767px) { .dv-filter-label { display: none; } }
 
 /* Separator */
 .dv-filter-sep {

@@ -727,10 +727,12 @@ async function confirmDeleteUser() {
   padding: 10px 20px; border-bottom: 1px solid var(--c-border-light);
 }
 @media (max-width: 767px) { .uv-filter-bar { padding: 10px 14px; gap: 6px; } }
+/* FILTER label always on its own row (matches Compensation/Payroll Batches standard) */
 .uv-filter-lbl {
   display: flex; align-items: center; gap: 5px;
   font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--c-text-3); flex-shrink: 0;
+  text-transform: uppercase; color: var(--c-text-3);
+  width: 100%; margin-bottom: 4px;
 }
 .uv-seg {
   display: inline-flex; background: var(--c-bg); border: 1px solid var(--c-border);

@@ -476,13 +476,14 @@ function clearFilters() {
 }
 @media (max-width: 767px) { .tv-filter-bar { padding: 10px 14px; gap: 6px; } }
 
+/* FILTER label always on its own row (matches Compensation/Payroll Batches standard) */
 .tv-filter-lbl {
   display: flex; align-items: center; gap: 5px;
   font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--c-text-3); flex-shrink: 0;
+  text-transform: uppercase; color: var(--c-text-3);
+  width: 100%; margin-bottom: 4px;
 }
 .tv-filter-lbl svg { width: 12px; height: 12px; }
-@media (max-width: 767px) { .tv-filter-lbl { display: none; } }
 
 .tv-sep { width: 1px; height: 24px; background: var(--c-border); flex-shrink: 0; margin: 0 2px; }
 @media (max-width: 640px) { .tv-sep { display: none; } }

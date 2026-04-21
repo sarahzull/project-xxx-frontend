@@ -352,9 +352,11 @@ onMounted(fetchBatches)
   padding: 10px 20px; border-bottom: 1px solid var(--c-border-light);
 }
 @media (max-width: 767px) { .bv-filter-bar { padding: 10px 14px; } }
+/* FILTER label always on its own row — baseline for the whole system */
 .bv-filter-lbl {
   display: flex; align-items: center; gap: 5px;
   font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--c-text-3);
+  width: 100%; margin-bottom: 4px;
 }
 .bv-filter-lbl svg { width: 12px; height: 12px; }
 .bv-seg {

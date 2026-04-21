@@ -18,11 +18,21 @@ const router = useRouter()
 const theme  = useThemeStore()
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const driverStats  = ref(null)
-const tripStats    = ref(null)
-const monthlyTrips = ref([])
-const expiringList = ref([])
-const loading      = ref(true)
+// Each primary section has its own loading flag so the page renders progressively:
+// the shell + banner paint instantly, and each widget becomes interactive the
+// moment *its* request resolves — independent of siblings.
+const driverStats          = ref(null)
+const driverStatsLoading   = ref(true)
+const driverStatsError     = ref(false)
+const tripStats            = ref(null)
+const tripStatsLoading     = ref(true)
+const tripStatsError       = ref(false)
+const monthlyTrips         = ref([])
+const monthlyTripsLoading  = ref(true)
+const monthlyTripsError    = ref(false)
+const expiringList         = ref([])
+const expiringListLoading  = ref(true)
+const expiringListError    = ref(false)
 
 const showBlockedModal = ref(false)
 const blockedDrivers   = ref([])
@@ -309,24 +319,16 @@ const rankOptions = computed(() => ({
 }))
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
-onMounted(async () => {
-  // ── Primary data (controls main loading state) ─────────────────────────
-  try {
-    const [dRes, tRes, mRes, lRes] = await Promise.all([
-      reportsApi.driverSummary(),
-      reportsApi.tripSummary(),
-      reportsApi.monthlyTrips(),
-      reportsApi.licenseExpiry(),
-    ])
-    driverStats.value  = dRes.data.data
-    tripStats.value    = tRes.data.data
-    monthlyTrips.value = mRes.data.data
-    expiringList.value = lRes.data.data
-  } finally {
-    loading.value = false
-  }
+// Fire every section's request in parallel with no await — the page shell
+// renders immediately and each widget populates as its own response arrives.
+onMounted(() => {
+  // Primary sections — now independent loaders (same pattern as widgets below)
+  loadDriverStats()
+  loadTripStats()
+  loadMonthlyTrips()
+  loadExpiringList()
 
-  // ── New widget data (each loads independently, non-blocking) ───────────
+  // Widget sections
   loadAlerts()
   loadTripsToday()
   loadDriverAvail()
@@ -334,6 +336,35 @@ onMounted(async () => {
   loadRiskDrivers()
   loadBirthdays()
 })
+
+function loadDriverStats() {
+  driverStatsLoading.value = true; driverStatsError.value = false
+  reportsApi.driverSummary()
+    .then(r  => { driverStats.value         = r.data.data })
+    .catch(() => { driverStatsError.value   = true })
+    .finally(() => { driverStatsLoading.value = false })
+}
+function loadTripStats() {
+  tripStatsLoading.value = true; tripStatsError.value = false
+  reportsApi.tripSummary()
+    .then(r  => { tripStats.value           = r.data.data })
+    .catch(() => { tripStatsError.value     = true })
+    .finally(() => { tripStatsLoading.value = false })
+}
+function loadMonthlyTrips() {
+  monthlyTripsLoading.value = true; monthlyTripsError.value = false
+  reportsApi.monthlyTrips()
+    .then(r  => { monthlyTrips.value          = r.data.data })
+    .catch(() => { monthlyTripsError.value    = true })
+    .finally(() => { monthlyTripsLoading.value = false })
+}
+function loadExpiringList() {
+  expiringListLoading.value = true; expiringListError.value = false
+  reportsApi.licenseExpiry()
+    .then(r  => { expiringList.value          = r.data.data })
+    .catch(() => { expiringListError.value    = true })
+    .finally(() => { expiringListLoading.value = false })
+}
 
 function loadAlerts() {
   alertsLoading.value = true; alertsError.value = false
@@ -419,13 +450,8 @@ function loadBirthdays() {
       </div>
     </div>
 
-    <!-- ── Loading ────────────────────────────────────────────── -->
-    <div v-if="loading" class="adash-loading">
-      <div class="adash-spinner"></div>
-      <span>Loading dashboard…</span>
-    </div>
-
-    <template v-else>
+    <!-- Sections render immediately with per-widget loading states
+         (progressive rendering — no page-level loading gate) -->
 
       <!-- ── Alerts ────────────────────────────────────────── -->
       <div v-if="alertsError" class="adash-widget-err">
@@ -438,7 +464,7 @@ function loadBirthdays() {
       <div class="adash-hero-row">
         <DriverLocationMap
           :locations="mapLocations"
-          :loading="loading"
+          :loading="false"
           :period="timeRange"
           class="adash-hero-map"
         />
@@ -514,8 +540,15 @@ function loadBirthdays() {
 
       <!-- ── Fleet Headcount ──────────────────────────────── -->
       <p class="adash-section-lbl">Fleet Headcount</p>
-      <div class="adash-headcount">
-        <div class="adash-headcount-stats">
+      <div v-if="driverStatsError" class="adash-widget-err">
+        Failed to load fleet headcount.
+        <button class="adash-retry-btn" @click="loadDriverStats">Retry</button>
+      </div>
+      <div v-else class="adash-headcount">
+        <div v-if="driverStatsLoading" class="adash-headcount-stats adash-skel-grid">
+          <div v-for="i in 4" :key="i" class="adash-skel-card"></div>
+        </div>
+        <div v-else class="adash-headcount-stats">
           <StatCard title="Total Drivers"         :value="driverStats?.total_drivers || 0"         color="blue"   />
           <StatCard title="Active Drivers"        :value="driverStats?.active_drivers || 0"        color="green"  />
           <StatCard
@@ -529,7 +562,9 @@ function loadBirthdays() {
           <StatCard title="License Expiring Soon" :value="driverStats?.license_expiring_soon || 0" color="yellow" subtitle="within 3 months" />
         </div>
         <ChartCard title="Driver Status" subtitle="Active · Blocked · Inactive" :fill="true">
+          <div v-if="driverStatsLoading" class="adash-skel-chart"></div>
           <apexchart
+            v-else
             type="donut"
             :options="statusOptions"
             :series="statusSeries"
@@ -541,7 +576,12 @@ function loadBirthdays() {
 
       <!-- ── Monthly Trips Trend ────────────────────────────── -->
       <p class="adash-section-lbl">Monthly Trips Trend</p>
+      <div v-if="monthlyTripsError" class="adash-widget-err">
+        Failed to load monthly trips.
+        <button class="adash-retry-btn" @click="loadMonthlyTrips">Retry</button>
+      </div>
       <ChartCard
+        v-else
         title="Monthly Trips"
         subtitle="Total trips recorded per month over the last 12 months"
         height="260px"
@@ -553,7 +593,9 @@ function loadBirthdays() {
             <span class="adash-legend-text">Trips</span>
           </div>
         </template>
+        <div v-if="monthlyTripsLoading" class="adash-skel-chart adash-skel-chart--tall"></div>
         <apexchart
+          v-else
           type="area"
           :options="heroOptions"
           :series="heroSeries"
@@ -581,7 +623,14 @@ function loadBirthdays() {
       <p class="adash-section-lbl">Analytics</p>
       <div class="adash-analytics-zone">
         <!-- Trip summary strip -->
-        <div class="adash-trip-strip">
+        <div v-if="tripStatsError" class="adash-widget-err">
+          Failed to load analytics.
+          <button class="adash-retry-btn" @click="loadTripStats">Retry</button>
+        </div>
+        <div v-else-if="tripStatsLoading" class="adash-trip-strip adash-skel-grid">
+          <div v-for="i in 3" :key="i" class="adash-skel-card adash-skel-card--slim"></div>
+        </div>
+        <div v-else class="adash-trip-strip">
           <div class="adash-trip-strip-item">
             <span class="adash-trip-strip-val tc-purple">{{ tripStats?.total_trips || 0 }}</span>
             <span class="adash-trip-strip-lbl">Total Trips</span>
@@ -598,7 +647,9 @@ function loadBirthdays() {
         <!-- Charts -->
         <div class="adash-charts-grid adash-charts-grid--2">
           <ChartCard title="Trips by Oil Company" subtitle="Distribution across clients" height="220px">
+            <div v-if="tripStatsLoading" class="adash-skel-chart"></div>
             <apexchart
+              v-else
               type="bar"
               :options="oilOptions"
               :series="oilSeries"
@@ -607,7 +658,9 @@ function loadBirthdays() {
             />
           </ChartCard>
           <ChartCard title="Drivers by Ranking" subtitle="A · B · C performance tiers" height="220px">
+            <div v-if="driverStatsLoading" class="adash-skel-chart"></div>
             <apexchart
+              v-else
               type="bar"
               :options="rankOptions"
               :series="rankSeries"
@@ -628,7 +681,14 @@ function loadBirthdays() {
       <!-- ── License Alerts ─────────────────────────────────── -->
       <p class="adash-section-lbl">License Alerts</p>
 
-      <div v-if="sortedExpiry.length" class="adash-expiry-card">
+      <div v-if="expiringListError" class="adash-widget-err">
+        Failed to load license alerts.
+        <button class="adash-retry-btn" @click="loadExpiringList">Retry</button>
+      </div>
+      <div v-else-if="expiringListLoading" class="adash-expiry-card">
+        <div class="adash-skel-chart adash-skel-chart--tall"></div>
+      </div>
+      <div v-else-if="sortedExpiry.length" class="adash-expiry-card">
         <div class="adash-expiry-hd">
           <div class="adash-expiry-hd-left">
             <div class="adash-expiry-icon" aria-hidden="true">
@@ -721,12 +781,10 @@ function loadBirthdays() {
         </div>
       </div>
 
-      <div v-else class="adash-expiry-empty">
+      <div v-else-if="!expiringListLoading && !expiringListError" class="adash-expiry-empty">
         <CheckCircleIcon :size="22" />
         <p>All licenses are valid for more than 3 months</p>
       </div>
-
-    </template>
 
     <!-- ── Blocked Drivers Modal ──────────────────────────── -->
     <ModalSheet v-model="showBlockedModal" title="Blocked Drivers">
@@ -914,13 +972,21 @@ function loadBirthdays() {
 .adash-intel-grid > * { min-width: 0; }
 .adash-hero-card { margin-bottom: 0.25rem; }
 
-/* ── Skeleton stat cards ──────────────────────────────────────────────────────── */
+/* ── Skeleton stat cards & chart placeholders ────────────────────────────────── */
 .adash-skel-grid { pointer-events: none; }
 .adash-skel-card {
   background: var(--c-surface); border: 1px solid var(--c-border);
   border-radius: 14px; height: 90px;
   animation: adash-pulse 1.4s ease-in-out infinite;
 }
+.adash-skel-card--slim { height: 56px; }
+.adash-skel-chart {
+  width: 100%; height: 200px;
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: 12px;
+  animation: adash-pulse 1.4s ease-in-out infinite;
+}
+.adash-skel-chart--tall { height: 230px; }
 @keyframes adash-pulse { 0%,100% { opacity:1; } 50% { opacity:.45; } }
 
 /* ── Legend ──────────────────────────────────────────────────────────────────── */

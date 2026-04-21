@@ -46,6 +46,10 @@ const cells = computed(() => {
     d.setDate(gridStart.getDate() + i)
     const iso = toISO(d)
 
+    const disabled =
+      (props.min && iso < props.min) ||
+      (props.max && iso > props.max)
+
     const singleOn = props.mode === 'single' && iso === props.modelValue
 
     let rangeOn  = false
@@ -67,6 +71,7 @@ const cells = computed(() => {
       isToday: iso === nowISO,
       isSelected: singleOn || rangeEnd,
       inRange: rangeOn,
+      disabled,
     })
   }
   return result
@@ -112,6 +117,7 @@ const headerLabel = computed(() =>
 )
 
 function selectDay(cell) {
+  if (cell.disabled) return
   if (!cell.inMonth) {
     viewYear.value  = parseYear(cell.iso)
     viewMonth.value = parseMonth(cell.iso)
@@ -135,6 +141,7 @@ function selectDay(cell) {
 }
 
 function onDayHover(cell) {
+  if (cell.disabled) return
   if (props.mode !== 'range' || !pendingStart.value) return
   hoverISO.value = cell.iso
 }
@@ -182,6 +189,50 @@ watch(() => [props.from, props.to], ([f, t]) => {
     hoverISO.value = ''
   }
 })
+
+const focusedISO = ref(toISO(getToday()))
+const gridHasFocus = ref(false)
+const WEEKDAY_LABELS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+
+function addDays(iso, n) {
+  const d = new Date(iso + 'T00:00:00')
+  d.setDate(d.getDate() + n)
+  return toISO(d)
+}
+function dayAriaLabel(cell) {
+  const d = new Date(cell.iso + 'T00:00:00')
+  return `${WEEKDAY_LABELS[d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+}
+
+function onGridKeydown(e) {
+  let delta = 0
+  switch (e.key) {
+    case 'ArrowLeft':  delta = -1; break
+    case 'ArrowRight': delta =  1; break
+    case 'ArrowUp':    delta = -7; break
+    case 'ArrowDown':  delta =  7; break
+    case 'PageUp':     prevStep(); e.preventDefault(); return
+    case 'PageDown':   nextStep(); e.preventDefault(); return
+    case 'Home':       focusedISO.value = toISO(new Date(viewYear.value, viewMonth.value, 1)); e.preventDefault(); return
+    case 'End': {
+      const last = new Date(viewYear.value, viewMonth.value + 1, 0)
+      focusedISO.value = toISO(last); e.preventDefault(); return
+    }
+    case 'Enter':
+    case ' ': {
+      const cell = cells.value.find(c => c.iso === focusedISO.value)
+      if (cell) selectDay(cell)
+      e.preventDefault()
+      return
+    }
+    default: return
+  }
+  e.preventDefault()
+  const next = addDays(focusedISO.value, delta)
+  focusedISO.value = next
+  viewYear.value  = parseYear(next)
+  viewMonth.value = parseMonth(next)
+}
 </script>
 
 <template>
@@ -221,6 +272,7 @@ watch(() => [props.from, props.to], ([f, t]) => {
       role="grid"
       :aria-label="headerLabel"
       @mouseleave="hoverISO = ''"
+      @keydown="onGridKeydown"
     >
       <button
         v-for="cell in cells"
@@ -228,15 +280,22 @@ watch(() => [props.from, props.to], ([f, t]) => {
         type="button"
         role="gridcell"
         :aria-selected="cell.isSelected || cell.inRange"
+        :aria-disabled="cell.disabled"
+        :aria-label="dayAriaLabel(cell)"
+        :tabindex="cell.iso === focusedISO ? 0 : -1"
+        :disabled="cell.disabled"
         :class="[
           'cal-day',
           !cell.inMonth   && 'cal-day--other',
           cell.isToday    && 'cal-day--today',
           cell.isSelected && 'cal-day--on',
           cell.inRange    && 'cal-day--in-range',
+          cell.disabled   && 'cal-day--disabled',
         ]"
         @click="selectDay(cell)"
         @mouseenter="onDayHover(cell)"
+        @focus="focusedISO = cell.iso; gridHasFocus = true"
+        @blur="gridHasFocus = false"
       >{{ cell.day }}</button>
     </div>
 
@@ -403,4 +462,10 @@ watch(() => [props.from, props.to], ([f, t]) => {
   color: #fff;
 }
 .cal-btn--primary:hover { background: var(--c-accent-h); }
+
+.cal-day--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 </style>

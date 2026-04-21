@@ -28,5 +28,10 @@ function onRange(v) {
       <p>From: <code>{{ fromV || '(empty)' }}</code> → To: <code>{{ toV || '(empty)' }}</code></p>
       <CalendarPanel mode="range" :from="fromV" :to="toV" @select="onRange" />
     </div>
+
+    <div>
+      <h3>Single with min/max (Apr 10 – Apr 25)</h3>
+      <CalendarPanel mode="single" min="2026-04-10" max="2026-04-25" :model-value="single" @select="onSingle" />
+    </div>
   </div>
 </template>

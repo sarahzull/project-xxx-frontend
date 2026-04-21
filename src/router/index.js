@@ -8,6 +8,7 @@ const routes = [
     component: () => import('../views/auth/LoginView.vue'),
     meta: { guest: true },
   },
+  { path: '/dev/datepicker', name: 'dev-datepicker', component: () => import('../views/_dev/DatePickerSandbox.vue') },
   {
     path: '/',
     component: () => import('../layouts/AppLayout.vue'),

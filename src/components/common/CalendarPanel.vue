@@ -56,16 +56,31 @@ const cells = computed(() => {
   return result
 })
 
-const headerLabel = computed(() => `${MONTH_NAMES[viewMonth.value]} ${viewYear.value}`)
+const viewMode = ref('days') // 'days' | 'months'
 
-function prevMonth() {
-  if (viewMonth.value === 0) { viewMonth.value = 11; viewYear.value-- }
-  else viewMonth.value--
+function prevStep() {
+  if (viewMode.value === 'months') { viewYear.value-- }
+  else if (viewMonth.value === 0) { viewMonth.value = 11; viewYear.value-- }
+  else { viewMonth.value-- }
 }
-function nextMonth() {
-  if (viewMonth.value === 11) { viewMonth.value = 0; viewYear.value++ }
-  else viewMonth.value++
+function nextStep() {
+  if (viewMode.value === 'months') { viewYear.value++ }
+  else if (viewMonth.value === 11) { viewMonth.value = 0; viewYear.value++ }
+  else { viewMonth.value++ }
 }
+function toggleHeader() {
+  viewMode.value = viewMode.value === 'days' ? 'months' : 'days'
+}
+function pickMonth(mIdx) {
+  viewMonth.value = mIdx
+  viewMode.value = 'days'
+}
+
+const headerLabel = computed(() =>
+  viewMode.value === 'months'
+    ? String(viewYear.value)
+    : `${MONTH_NAMES[viewMonth.value]} ${viewYear.value}`
+)
 
 function selectDay(cell) {
   if (!cell.inMonth) {
@@ -99,20 +114,25 @@ watch(() => props.modelValue, (v) => {
 <template>
   <div class="cal">
     <div class="cal-hdr">
-      <button type="button" class="cal-nav" aria-label="Previous month" @click="prevMonth">
+      <button type="button" class="cal-nav" aria-label="Previous" @click="prevStep">
         <ChevronLeftIcon :size="16" />
       </button>
-      <div class="cal-hdr-label">{{ headerLabel }}</div>
-      <button type="button" class="cal-nav" aria-label="Next month" @click="nextMonth">
+      <button
+        type="button"
+        class="cal-hdr-label"
+        :aria-label="viewMode === 'months' ? 'Switch to day view' : 'Switch to month view'"
+        @click="toggleHeader"
+      >{{ headerLabel }}</button>
+      <button type="button" class="cal-nav" aria-label="Next" @click="nextStep">
         <ChevronRightIcon :size="16" />
       </button>
     </div>
 
-    <div class="cal-wkrow">
+    <div v-if="viewMode === 'days'" class="cal-wkrow">
       <span v-for="w in WEEKDAYS" :key="w" class="cal-wk">{{ w }}</span>
     </div>
 
-    <div class="cal-grid" role="grid" :aria-label="headerLabel">
+    <div v-if="viewMode === 'days'" class="cal-grid" role="grid" :aria-label="headerLabel">
       <button
         v-for="cell in cells"
         :key="cell.iso"
@@ -127,6 +147,17 @@ watch(() => props.modelValue, (v) => {
         ]"
         @click="selectDay(cell)"
       >{{ cell.day }}</button>
+    </div>
+
+    <div v-else class="cal-months" role="grid" :aria-label="`Select month, ${viewYear}`">
+      <button
+        v-for="(name, i) in MONTH_NAMES"
+        :key="name"
+        type="button"
+        role="gridcell"
+        :class="['cal-month', i === viewMonth && 'cal-month--on']"
+        @click="pickMonth(i)"
+      >{{ name.slice(0, 3) }}</button>
     </div>
 
     <div class="cal-ftr">
@@ -155,9 +186,19 @@ watch(() => props.modelValue, (v) => {
   margin-bottom: 8px;
 }
 .cal-hdr-label {
+  flex: 1;
+  text-align: center;
   font-weight: 600;
   font-size: 0.875rem;
+  background: transparent;
+  border: none;
+  color: var(--c-text-1);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background var(--dur);
 }
+.cal-hdr-label:hover { background: var(--c-bg); }
 .cal-nav {
   background: transparent;
   border: none;
@@ -209,6 +250,30 @@ watch(() => props.modelValue, (v) => {
   box-shadow: inset 0 0 0 1.5px var(--c-accent);
 }
 .cal-day--on {
+  background: var(--c-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.cal-months {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 8px 0;
+  min-height: calc(32px * 6 + 2px * 5 + 6px * 2);
+}
+.cal-month {
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-md);
+  font-size: 0.8125rem;
+  color: var(--c-text-1);
+  cursor: pointer;
+  transition: background var(--dur), color var(--dur);
+}
+.cal-month:hover:not(.cal-month--on) { background: var(--c-bg); }
+.cal-month--on {
   background: var(--c-accent);
   color: #fff;
   font-weight: 600;

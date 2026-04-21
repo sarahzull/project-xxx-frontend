@@ -1,7 +1,8 @@
 <script setup>
 import { ref } from 'vue'
-import CalendarPanel from '../../components/common/CalendarPanel.vue'
-import DatePicker    from '../../components/common/DatePicker.vue'
+import CalendarPanel    from '../../components/common/CalendarPanel.vue'
+import DatePicker       from '../../components/common/DatePicker.vue'
+import DateRangePicker  from '../../components/common/DateRangePicker.vue'
 
 const single = ref('')
 const fromV  = ref('')
@@ -38,6 +39,16 @@ function onRange(v)  { if (v && typeof v === 'object') { fromV.value = v.from; t
       <h3>DatePicker — DOB with max=today</h3>
       <p>Value: <code>{{ dpDob || '(empty)' }}</code></p>
       <DatePicker v-model="dpDob" aria-label="Date of birth" max="2026-04-21" placeholder="DD/MM/YYYY" />
+    </div>
+    <div style="width: 100%;">
+      <h3>DateRangePicker — chip variant (default)</h3>
+      <p>From: <code>{{ fromV || '(empty)' }}</code> → To: <code>{{ toV || '(empty)' }}</code></p>
+      <DateRangePicker v-model:from="fromV" v-model:to="toV" />
+    </div>
+
+    <div style="width: 100%;">
+      <h3>DateRangePicker — input variant, no presets</h3>
+      <DateRangePicker v-model:from="fromV" v-model:to="toV" variant="input" :presets="[]" />
     </div>
   </div>
 </template>

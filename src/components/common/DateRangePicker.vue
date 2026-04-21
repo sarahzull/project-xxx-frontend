@@ -235,6 +235,8 @@ watch([() => props.from, () => props.to], ([f, t]) => {
   flex-direction: column;
   gap: 8px;
   padding: 8px;
+  width: 296px;
+  box-sizing: border-box;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--r-lg);
@@ -255,9 +257,9 @@ watch([() => props.from, () => props.to], ([f, t]) => {
   border-radius: var(--r-md);
 }
 .drp-preset {
-  flex: 1;
+  flex: 1 1 40%;
   min-width: 0;
-  padding: 6px 10px;
+  padding: 6px 8px;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -266,6 +268,8 @@ watch([() => props.from, () => props.to], ([f, t]) => {
   color: var(--c-text-2);
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: background var(--dur), color var(--dur);
 }
 .drp-preset:hover:not(.drp-preset--on) { background: var(--c-surface); color: var(--c-text-1); }

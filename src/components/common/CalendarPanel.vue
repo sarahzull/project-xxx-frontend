@@ -46,9 +46,10 @@ const cells = computed(() => {
     d.setDate(gridStart.getDate() + i)
     const iso = toISO(d)
 
-    const disabled =
+    const disabled = Boolean(
       (props.min && iso < props.min) ||
       (props.max && iso > props.max)
+    )
 
     const singleOn = props.mode === 'single' && iso === props.modelValue
 

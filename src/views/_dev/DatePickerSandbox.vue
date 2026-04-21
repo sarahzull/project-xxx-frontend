@@ -1,42 +1,43 @@
 <script setup>
 import { ref } from 'vue'
-import CalendarPanel     from '../../components/common/CalendarPanel.vue'
-import DatePickerPopover from '../../components/common/DatePickerPopover.vue'
+import CalendarPanel from '../../components/common/CalendarPanel.vue'
+import DatePicker    from '../../components/common/DatePicker.vue'
 
 const single = ref('')
 const fromV  = ref('')
 const toV    = ref('')
-const popOpen    = ref(false)
-const popTrigger = ref(null)
-const popValue   = ref('')
+const dpInput = ref('')
+const dpChip  = ref('')
+const dpDob   = ref('')
 
 function onSingle(v) { single.value = v }
 function onRange(v)  { if (v && typeof v === 'object') { fromV.value = v.from; toV.value = v.to } }
-function onPop(v)    { popValue.value = v; popOpen.value = false }
 </script>
 
 <template>
-  <div style="padding: 40px; display: flex; flex-direction: column; gap: 40px; align-items: flex-start;">
-    <div>
-      <h3>Single</h3>
+  <div style="padding: 40px; display: flex; flex-direction: column; gap: 40px; align-items: flex-start; max-width: 520px;">
+    <div style="width: 100%;">
+      <h3>Raw CalendarPanel — single</h3>
       <CalendarPanel mode="single" :model-value="single" @select="onSingle" />
     </div>
-    <div>
-      <h3>Range</h3>
+    <div style="width: 100%;">
+      <h3>Raw CalendarPanel — range</h3>
       <CalendarPanel mode="range" :from="fromV" :to="toV" @select="onRange" />
     </div>
-    <div>
-      <h3>Popover</h3>
-      <p>Value: <code>{{ popValue || '(empty)' }}</code></p>
-      <button
-        ref="popTrigger"
-        type="button"
-        @click="popOpen = !popOpen"
-        style="padding: 8px 14px; border: 1px solid #ccc; border-radius: 8px; background: white; cursor: pointer;"
-      >Open calendar</button>
-      <DatePickerPopover :open="popOpen" :trigger-el="popTrigger" @close="popOpen = false">
-        <CalendarPanel mode="single" :model-value="popValue" @select="onPop" />
-      </DatePickerPopover>
+    <div style="width: 100%;">
+      <h3>DatePicker — input variant</h3>
+      <p>Value: <code>{{ dpInput || '(empty)' }}</code></p>
+      <DatePicker v-model="dpInput" aria-label="Event date" />
+    </div>
+    <div style="width: 100%;">
+      <h3>DatePicker — chip variant</h3>
+      <p>Value: <code>{{ dpChip || '(empty)' }}</code></p>
+      <DatePicker v-model="dpChip" variant="chip" placeholder="Pick a date" />
+    </div>
+    <div style="width: 100%;">
+      <h3>DatePicker — DOB with max=today</h3>
+      <p>Value: <code>{{ dpDob || '(empty)' }}</code></p>
+      <DatePicker v-model="dpDob" aria-label="Date of birth" max="2026-04-21" placeholder="DD/MM/YYYY" />
     </div>
   </div>
 </template>

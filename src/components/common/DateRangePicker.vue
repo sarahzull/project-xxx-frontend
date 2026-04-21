@@ -273,9 +273,15 @@ watch(() => props.to, v => {
   transform: translateX(-8px);
 }
 
-/* Mobile: match Compensation/Payroll Batches compact filter style —
-   preset chips stay compact, only custom date inputs stack vertically */
+/* Mobile: chips stay compact (Compensation standard) but the pill group
+   is allowed to wrap to a second row — 5 presets don't fit on narrow viewports.
+   Softer border-radius keeps the wrapped shape looking intentional. */
 @media (max-width: 767px) {
+  .drp-seg {
+    flex-wrap: wrap;
+    border-radius: var(--r-lg);
+  }
+
   .drp-custom {
     flex-direction: column;
     align-items: stretch;

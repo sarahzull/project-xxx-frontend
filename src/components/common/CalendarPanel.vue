@@ -114,7 +114,12 @@ watch(() => props.modelValue, (v) => {
 <template>
   <div class="cal">
     <div class="cal-hdr">
-      <button type="button" class="cal-nav" aria-label="Previous" @click="prevStep">
+      <button
+        type="button"
+        class="cal-nav"
+        :aria-label="viewMode === 'months' ? 'Previous year' : 'Previous month'"
+        @click="prevStep"
+      >
         <ChevronLeftIcon :size="16" />
       </button>
       <button
@@ -123,7 +128,12 @@ watch(() => props.modelValue, (v) => {
         :aria-label="viewMode === 'months' ? 'Switch to day view' : 'Switch to month view'"
         @click="toggleHeader"
       >{{ headerLabel }}</button>
-      <button type="button" class="cal-nav" aria-label="Next" @click="nextStep">
+      <button
+        type="button"
+        class="cal-nav"
+        :aria-label="viewMode === 'months' ? 'Next year' : 'Next month'"
+        @click="nextStep"
+      >
         <ChevronRightIcon :size="16" />
       </button>
     </div>
@@ -155,6 +165,7 @@ watch(() => props.modelValue, (v) => {
         :key="name"
         type="button"
         role="gridcell"
+        :aria-selected="i === viewMonth"
         :class="['cal-month', i === viewMonth && 'cal-month--on']"
         @click="pickMonth(i)"
       >{{ name.slice(0, 3) }}</button>

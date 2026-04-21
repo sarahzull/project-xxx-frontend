@@ -19,8 +19,9 @@ const emit = defineEmits(['update:modelValue'])
 const open      = ref(false)
 const triggerEl = ref(null)
 
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
 const displayText = computed(() => {
-  if (!props.modelValue) return props.placeholder
+  if (!props.modelValue || !ISO_RE.test(props.modelValue)) return props.placeholder
   const [y, m, d] = props.modelValue.split('-')
   return `${d}/${m}/${y}`
 })

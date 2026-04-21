@@ -41,7 +41,8 @@ function toggle() {
 }
 function onSelect(iso) {
   emit('update:modelValue', iso)
-  open.value = false
+  // Keep the popover open on Clear (empty iso) so the user can pick a new date.
+  if (iso) open.value = false
 }
 </script>
 

@@ -97,7 +97,9 @@ function selectPreset(key) {
 }
 
 function onCalendarSelect(v) {
-  if (v && typeof v === 'object') {
+  // CalendarPanel also emits `select({from:'', to:''})` on Clear — let onCalendarClear
+  // handle that path so the popover stays open. Only react to genuine selections here.
+  if (v && typeof v === 'object' && v.from && v.to) {
     activePreset.value = 'custom'
     emit('update:from', v.from)
     emit('update:to',   v.to)
@@ -109,7 +111,7 @@ function onCalendarClear() {
   activePreset.value = null
   emit('update:from', '')
   emit('update:to', '')
-  open.value = false
+  // Keep the popover open — user likely wants to pick a new range next.
 }
 
 // Clear the active preset label when the parent resets both bounds (e.g. Clear Filters),

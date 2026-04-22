@@ -73,7 +73,7 @@ const displayText = computed(() => {
     if (props.from === props.to) return fmt(props.from)
     return `${fmt(props.from)} – ${fmt(props.to)}`
   }
-  return 'Date range'
+  return 'Date'
 })
 
 function toggle() {
@@ -131,7 +131,7 @@ watch([() => props.from, () => props.to], ([f, t]) => {
       :disabled="disabled"
       :aria-haspopup="'dialog'"
       :aria-expanded="open"
-      :aria-label="ariaLabel || 'Date range'"
+      :aria-label="ariaLabel || 'Date Range'"
       @click="toggle"
     >
       <CalendarIcon :size="14" aria-hidden="true" />
@@ -147,7 +147,7 @@ watch([() => props.from, () => props.to], ([f, t]) => {
       :disabled="disabled"
       :aria-haspopup="'dialog'"
       :aria-expanded="open"
-      :aria-label="ariaLabel || 'Date range'"
+      :aria-label="ariaLabel || 'Date Range'"
       @click="toggle"
     >
       <span class="drp-input-text">{{ displayText }}</span>
@@ -235,50 +235,88 @@ watch([() => props.from, () => props.to], ([f, t]) => {
 .drp-pop {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-  width: 296px;
+  gap: 0;
+  padding: 0;
+  width: 300px;
   box-sizing: border-box;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--r-lg);
   box-shadow: var(--sh-md);
+  overflow: hidden;
 }
 .drp-pop > :deep(.cal) {
   border: none;
   box-shadow: none;
-  padding: 4px;
+  border-radius: 0;
+  padding: 8px 10px 10px;
 }
 
+/* Mobile/narrow: single inline row of compact preset chips above the calendar */
 .drp-presets {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
-  padding: 4px;
-  background: var(--c-bg);
-  border-radius: var(--r-md);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface);
 }
 .drp-preset {
-  flex: 1 1 40%;
+  flex: 1 1 0;
   min-width: 0;
-  padding: 6px 8px;
+  padding: 5px 6px;
   background: transparent;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-full);
+  font-size: 0.6875rem;
   font-weight: 500;
   color: var(--c-text-2);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background var(--dur), color var(--dur);
+  transition: background var(--dur), color var(--dur), border-color var(--dur);
+  line-height: 1.2;
 }
-.drp-preset:hover:not(.drp-preset--on) { background: var(--c-surface); color: var(--c-text-1); }
-.drp-preset--on {
-  background: var(--c-surface);
+.drp-preset:hover:not(.drp-preset--on) {
+  background: var(--c-accent-tint, rgba(29,78,216,0.08));
   color: var(--c-accent);
+  border-color: color-mix(in srgb, var(--c-accent) 25%, transparent);
+}
+.drp-preset--on {
+  background: var(--c-accent-tint, rgba(29,78,216,0.08));
+  color: var(--c-accent);
+  border-color: var(--c-accent);
   font-weight: 600;
-  box-shadow: var(--sh-xs);
+}
+
+/* Desktop (≥ 560px viewport): classic left-sidebar presets + calendar layout */
+@media (min-width: 560px) {
+  .drp-pop {
+    flex-direction: row;
+    width: 460px;
+  }
+  .drp-presets {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding: 10px 8px;
+    border-bottom: none;
+    border-right: 1px solid var(--c-border);
+    background: var(--c-bg);
+    min-width: 128px;
+  }
+  .drp-preset {
+    flex: 0 0 auto;
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px;
+    font-size: 0.75rem;
+    border-radius: var(--r-md);
+  }
+  .drp-pop > :deep(.cal) {
+    flex: 1;
+    padding: 10px 12px 12px;
+  }
 }
 </style>

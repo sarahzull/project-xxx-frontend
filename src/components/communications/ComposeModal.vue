@@ -28,6 +28,7 @@ import { useToast }      from '../../composables/useToast'
 import {
   CloseIcon, SearchIcon, SendIcon, CheckCircleIcon, AlertIcon,
   BoldIcon, ItalicIcon, ListIcon, DriversIcon, CalendarIcon,
+  BellRingIcon,
 } from '../icons/index.js'
 
 const props = defineProps({ modelValue: { type: Boolean, required: true } })
@@ -116,6 +117,10 @@ const TEMPLATES = {
   warning: {
     subject: 'Official Warning Notice',
     content: `<p>Dear [Driver Name],</p><p>This communication serves as an official written warning regarding concerns that have been brought to management's attention.</p><p>The matter in question relates to: <strong>[describe the issue clearly]</strong></p><p>This behaviour is in breach of our company standards and policies and cannot be condoned. You are required to immediately address and rectify this matter.</p><p>Please be advised that failure to demonstrate improvement may result in further disciplinary action, up to and including termination of employment.</p><p>You are requested to acknowledge receipt of this notice and arrange a meeting with management within <strong>5 working days</strong>.</p><p>Regards,<br>Management</p>`,
+  },
+  announcement: {
+    subject: 'General Announcement',
+    content: `<p>Dear [Driver Name],</p><p>We would like to bring the following announcement to your attention:</p><p><strong>[Announcement details]</strong></p><p>Please take note of the above information and act accordingly where required. Should you have any questions or concerns, feel free to reach out to management.</p><p>Thank you for your continued cooperation.</p><p>Regards,<br>Management</p>`,
   },
 }
 
@@ -243,6 +248,7 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
                   >
                     <option value="reward">Reward Communication</option>
                     <option value="warning">Warning Communication</option>
+                    <option value="announcement">Announcement</option>
                   </select>
                 </div>
               </div>
@@ -348,9 +354,10 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
                     <span class="cm-letter-brand-name">Fleet Management</span>
                   </div>
                   <span :class="['cm-letter-type-badge', `cm-letter-type-badge--${form.type}`]">
-                    <CheckCircleIcon v-if="form.type === 'reward'" :size="11" />
-                    <AlertIcon       v-else                         :size="11" />
-                    {{ form.type === 'reward' ? 'Reward Communication' : 'Warning Communication' }}
+                    <CheckCircleIcon v-if="form.type === 'reward'"       :size="11" />
+                    <BellRingIcon    v-else-if="form.type === 'announcement'" :size="11" />
+                    <AlertIcon       v-else                                   :size="11" />
+                    {{ form.type === 'reward' ? 'Reward Communication' : form.type === 'announcement' ? 'Announcement' : 'Warning Communication' }}
                   </span>
                 </div>
 
@@ -663,8 +670,9 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
   background: var(--c-surface); border-radius: 12px;
   box-shadow: var(--sh-md); overflow: hidden;
 }
-.cm-letter--warning .cm-letter-head { background: rgba(245,158,11,0.06); }
-.cm-letter--reward  .cm-letter-head { background: rgba(22,163,74,0.06); }
+.cm-letter--warning      .cm-letter-head { background: rgba(245,158,11,0.06); }
+.cm-letter--reward       .cm-letter-head { background: rgba(22,163,74,0.06); }
+.cm-letter--announcement .cm-letter-head { background: rgba(124,58,237,0.06); }
 
 .cm-letter-head {
   display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -681,8 +689,9 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
   padding: 0.2rem 0.6rem; border-radius: 20px;
   font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
 }
-.cm-letter-type-badge--reward  { background: rgba(22,163,74,0.1); color: #16A34A; }
-.cm-letter-type-badge--warning { background: rgba(245,158,11,0.1); color: #D97706; }
+.cm-letter-type-badge--reward       { background: rgba(22,163,74,0.1);  color: #16A34A; }
+.cm-letter-type-badge--warning      { background: rgba(245,158,11,0.1); color: #D97706; }
+.cm-letter-type-badge--announcement { background: rgba(124,58,237,0.1); color: #7C3AED; }
 
 .cm-letter-divider { height: 1px; background: var(--c-border); margin: 0 1.1rem; }
 

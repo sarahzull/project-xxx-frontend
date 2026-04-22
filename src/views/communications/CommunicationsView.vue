@@ -10,11 +10,12 @@
   Layout: standard banner + data table, responsive at all breakpoints
 -->
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   CommunicationsIcon, CheckCircleIcon, AlertIcon, AddIcon,
   CloseIcon, CalendarIcon, ViewIcon, ResendIcon, FilterIcon,
+  BellRingIcon, ChevronDownIcon, CheckIcon,
 } from '../../components/icons/index.js'
 import communicationsApi from '../../api/communications'
 import { useAuthStore }  from '../../stores/auth'
@@ -24,6 +25,7 @@ import ComposeModal      from '../../components/communications/ComposeModal.vue'
 import ActionBtn         from '../../components/common/ActionBtn.vue'
 import SearchInput       from '../../components/common/SearchInput.vue'
 import AppPagination     from '../../components/common/AppPagination.vue'
+import DateRangePicker   from '../../components/common/DateRangePicker.vue'
 
 const auth  = useAuthStore()
 const toast = useToast()
@@ -37,8 +39,31 @@ const loading = ref(true)
 const error   = ref('')
 
 // Filters
-const typeFilter   = ref('')    // '' | 'reward' | 'warning'
+const typeFilter   = ref('')    // '' | 'reward' | 'warning' | 'announcement'
 const searchQuery  = ref('')
+const dateFrom     = ref('')    // ISO YYYY-MM-DD
+const dateTo       = ref('')    // ISO YYYY-MM-DD
+
+// Custom type-filter dropdown (mobile)
+const TYPE_OPTIONS = [
+  { value: '',             label: 'Type',         icon: null            },
+  { value: 'reward',       label: 'Reward',       icon: CheckCircleIcon },
+  { value: 'warning',      label: 'Warning',      icon: AlertIcon       },
+  { value: 'announcement', label: 'Announcement', icon: BellRingIcon    },
+]
+const showTypeDropdown = ref(false)
+const typeDdRef        = ref(null)
+const activeTypeOption = computed(() =>
+  TYPE_OPTIONS.find(o => o.value === typeFilter.value) || TYPE_OPTIONS[0]
+)
+function selectType(val) {
+  typeFilter.value       = val
+  showTypeDropdown.value = false
+}
+function onTypeDocClick(e) {
+  if (!showTypeDropdown.value) return
+  if (typeDdRef.value && !typeDdRef.value.contains(e.target)) showTypeDropdown.value = false
+}
 
 // ── Pagination (admin only) ───────────────────────────────────────────────────
 const page = ref(1)
@@ -86,12 +111,23 @@ function formatContent(content) {
 }
 
 // ── Computed ──────────────────────────────────────────────────────────────────
-// Admin: filtering is server-side. Driver: client-side (small dataset, no pagination).
-const filtered = computed(() => {
-  if (isAdmin.value) return items.value
+function itemDate(i) { return (i.date || i.created_at || '').slice(0, 10) }
+
+// Date-range-filtered pool. Banner stats + type/search filter all derive from this,
+// so updating the date range updates the Total / Rewards / Warnings / Announcements counts.
+const dateScoped = computed(() => {
   let list = items.value
+  if (dateFrom.value) list = list.filter(i => itemDate(i) >= dateFrom.value)
+  if (dateTo.value)   list = list.filter(i => itemDate(i) <= dateTo.value)
+  return list
+})
+
+// Admin pagination still happens server-side; search is server-side too.
+// Type + date-range are applied client-side to the current page so counts stay consistent.
+const filtered = computed(() => {
+  let list = dateScoped.value
   if (typeFilter.value)  list = list.filter(i => i.type === typeFilter.value)
-  if (searchQuery.value) {
+  if (!isAdmin.value && searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(i =>
       i.subject?.toLowerCase().includes(q) ||
@@ -103,8 +139,10 @@ const filtered = computed(() => {
   return list
 })
 
-const rewardCount  = computed(() => items.value.filter(i => i.type === 'reward').length)
-const warningCount = computed(() => items.value.filter(i => i.type === 'warning').length)
+const totalCount        = computed(() => dateScoped.value.length)
+const rewardCount       = computed(() => dateScoped.value.filter(i => i.type === 'reward').length)
+const warningCount      = computed(() => dateScoped.value.filter(i => i.type === 'warning').length)
+const announcementCount = computed(() => dateScoped.value.filter(i => i.type === 'announcement').length)
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchItems() {
@@ -115,6 +153,8 @@ async function fetchItems() {
       const { data } = await communicationsApi.list({
         type:   typeFilter.value  || undefined,
         search: searchQuery.value || undefined,
+        from:   dateFrom.value    || undefined,
+        to:     dateTo.value      || undefined,
         page:   page.value,
       })
       items.value = data.data || []
@@ -132,6 +172,7 @@ async function fetchItems() {
 
 // Admin: reset to page 1 and refetch when filters change
 watch(typeFilter, () => { if (isAdmin.value) { page.value = 1; fetchItems() } })
+watch([dateFrom, dateTo], () => { if (isAdmin.value) { page.value = 1; fetchItems() } })
 
 let searchTimer = null
 watch(searchQuery, () => {
@@ -147,6 +188,10 @@ onMounted(async () => {
     const found = items.value.find(i => String(i.id) === String(openId))
     if (found) openDetail(found)
   }
+  document.addEventListener('click', onTypeDocClick, true)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', onTypeDocClick, true)
 })
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -194,7 +239,7 @@ function onSent() { fetchItems() }
         <!-- Stats pills -->
         <div v-if="!loading && items.length" class="cv-banner-stats">
           <div class="cv-bstat">
-            <span class="cv-bstat-val">{{ items.length }}</span>
+            <span class="cv-bstat-val">{{ totalCount }}</span>
             <span class="cv-bstat-lbl">Total</span>
           </div>
           <div class="cv-bstat cv-bstat--green">
@@ -204,6 +249,10 @@ function onSent() { fetchItems() }
           <div class="cv-bstat cv-bstat--amber">
             <span class="cv-bstat-val">{{ warningCount }}</span>
             <span class="cv-bstat-lbl">Warnings</span>
+          </div>
+          <div class="cv-bstat cv-bstat--purple">
+            <span class="cv-bstat-val">{{ announcementCount }}</span>
+            <span class="cv-bstat-lbl">Announcement</span>
           </div>
         </div>
       </div>
@@ -230,7 +279,7 @@ function onSent() { fetchItems() }
             <p class="cv-card-title">Communications Log</p>
             <p class="cv-card-sub">
               {{ isAdmin ? (meta.total ?? filtered.length) : filtered.length }} record{{ (isAdmin ? (meta.total ?? filtered.length) : filtered.length) !== 1 ? 's' : '' }}
-              <span v-if="typeFilter || searchQuery" class="chip chip--filter">filtered</span>
+              <span v-if="typeFilter || searchQuery || dateFrom || dateTo" class="chip chip--filter">filtered</span>
             </p>
           </div>
           <div class="cv-card-hd-right">
@@ -261,9 +310,50 @@ function onSent() { fetchItems() }
             <button :class="['cv-seg-btn cv-seg-btn--warning', typeFilter === 'warning' && 'cv-seg-btn--on']" @click="typeFilter = 'warning'">
               <AlertIcon :size="11" /> Warning
             </button>
+            <button :class="['cv-seg-btn cv-seg-btn--announcement', typeFilter === 'announcement' && 'cv-seg-btn--on']" @click="typeFilter = 'announcement'">
+              <BellRingIcon :size="11" /> Announcement
+            </button>
           </div>
+
+          <!-- Mobile: custom dropdown (styled pill + panel) replaces the segmented control -->
+          <div class="cv-type-dd" ref="typeDdRef">
+            <button
+              type="button"
+              :class="['cv-type-dd-trigger', showTypeDropdown && 'cv-type-dd-trigger--open', typeFilter && `cv-type-dd-trigger--${typeFilter}`]"
+              :aria-haspopup="'listbox'"
+              :aria-expanded="showTypeDropdown"
+              @click="showTypeDropdown = !showTypeDropdown"
+            >
+              <component :is="activeTypeOption.icon" v-if="activeTypeOption.icon" :size="12" />
+              <span class="cv-type-dd-label">{{ activeTypeOption.label }}</span>
+              <ChevronDownIcon :size="12" :class="['cv-type-dd-caret', showTypeDropdown && 'cv-type-dd-caret--open']" />
+            </button>
+
+            <Transition name="cv-dd">
+              <div v-if="showTypeDropdown" class="cv-type-dd-panel" role="listbox" aria-label="Filter by type">
+                <button
+                  v-for="opt in TYPE_OPTIONS"
+                  :key="opt.value || 'all'"
+                  type="button"
+                  role="option"
+                  :aria-selected="typeFilter === opt.value"
+                  :class="['cv-type-dd-item', typeFilter === opt.value && 'cv-type-dd-item--on', opt.value && `cv-type-dd-item--${opt.value}`]"
+                  @click="selectType(opt.value)"
+                >
+                  <span class="cv-type-dd-item-icon">
+                    <component :is="opt.icon" v-if="opt.icon" :size="13" />
+                  </span>
+                  <span class="cv-type-dd-item-label">{{ opt.label }}</span>
+                  <CheckIcon v-if="typeFilter === opt.value" :size="13" class="cv-type-dd-item-check" />
+                </button>
+              </div>
+            </Transition>
+          </div>
+
+          <DateRangePicker v-model:from="dateFrom" v-model:to="dateTo" />
+
           <Transition name="cv-fade">
-            <button v-if="typeFilter" class="cv-clear-btn" @click="typeFilter = ''">
+            <button v-if="typeFilter || dateFrom || dateTo" class="cv-clear-btn" @click="typeFilter = ''; dateFrom = ''; dateTo = ''">
               <CloseIcon :size="10" :stroke-width="2.5" />
               Reset
             </button>
@@ -273,9 +363,9 @@ function onSent() { fetchItems() }
         <!-- ── Empty state ─────────────────────────────────────────────────── -->
         <div v-if="!filtered.length" class="cv-empty">
           <CommunicationsIcon :size="38" :stroke-width="1.2" />
-          <p class="cv-empty-title">{{ searchQuery || typeFilter ? 'No results found' : 'No communications yet' }}</p>
+          <p class="cv-empty-title">{{ searchQuery || typeFilter || dateFrom || dateTo ? 'No results found' : 'No communications yet' }}</p>
           <p class="cv-empty-sub">
-            {{ searchQuery || typeFilter
+            {{ searchQuery || typeFilter || dateFrom || dateTo
               ? 'Try adjusting your search or filter'
               : isAdmin ? 'Send the first communication using the button above.' : 'Communications from management will appear here.' }}
           </p>
@@ -304,9 +394,10 @@ function onSent() { fetchItems() }
                 <!-- Type -->
                 <td class="cv-td cv-td--type">
                   <span :class="['cv-type-badge', `cv-type-badge--${item.type}`]">
-                    <CheckCircleIcon v-if="item.type === 'reward'" :size="11" />
-                    <AlertIcon       v-else                         :size="11" />
-                    {{ item.type === 'reward' ? 'Reward' : 'Warning' }}
+                    <CheckCircleIcon v-if="item.type === 'reward'"       :size="11" />
+                    <BellRingIcon    v-else-if="item.type === 'announcement'" :size="11" />
+                    <AlertIcon       v-else                                   :size="11" />
+                    {{ item.type === 'reward' ? 'Reward' : item.type === 'announcement' ? 'Announcement' : 'Warning' }}
                   </span>
                 </td>
 
@@ -394,13 +485,14 @@ function onSent() { fetchItems() }
     <ModalSheet
       v-model="showDetail"
       :title="activeItem?.subject || 'Communication'"
-      :subtitle="activeItem ? `${activeItem.type === 'reward' ? 'Reward' : 'Warning'} Communication · ${formatDate(activeItem.date || activeItem.created_at)}` : ''"
+      :subtitle="activeItem ? `${activeItem.type === 'reward' ? 'Reward' : activeItem.type === 'announcement' ? 'Announcement' : 'Warning'} Communication · ${formatDate(activeItem.date || activeItem.created_at)}` : ''"
       max-width="600px"
     >
       <template #icon>
         <div :class="['cv-modal-icon', activeItem ? `cv-modal-icon--${activeItem.type}` : '']">
-          <CheckCircleIcon v-if="activeItem?.type === 'reward'" :size="17" />
-          <AlertIcon       v-else                               :size="17" />
+          <CheckCircleIcon v-if="activeItem?.type === 'reward'"       :size="17" />
+          <BellRingIcon    v-else-if="activeItem?.type === 'announcement'" :size="17" />
+          <AlertIcon       v-else                                         :size="17" />
         </div>
       </template>
 
@@ -420,9 +512,10 @@ function onSent() { fetchItems() }
         <!-- Type + date row -->
         <div class="cv-detail-meta-row">
           <span :class="['cv-detail-type', `cv-detail-type--${activeItem.type}`]">
-            <CheckCircleIcon v-if="activeItem.type === 'reward'" :size="12" />
-            <AlertIcon       v-else                               :size="12" />
-            {{ activeItem.type === 'reward' ? 'Reward Communication' : 'Warning Communication' }}
+            <CheckCircleIcon v-if="activeItem.type === 'reward'"       :size="12" />
+            <BellRingIcon    v-else-if="activeItem.type === 'announcement'" :size="12" />
+            <AlertIcon       v-else                                         :size="12" />
+            {{ activeItem.type === 'reward' ? 'Reward Communication' : activeItem.type === 'announcement' ? 'Announcement' : 'Warning Communication' }}
           </span>
           <span class="cv-detail-date">
             <CalendarIcon :size="12" />
@@ -501,8 +594,9 @@ function onSent() { fetchItems() }
   font-size: 0.5625rem; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.08em; color: var(--c-text-3); margin-top: 3px;
 }
-.cv-bstat--green .cv-bstat-val { color: var(--c-green, #16A34A); }
-.cv-bstat--amber .cv-bstat-val { color: var(--c-amber, #D97706); }
+.cv-bstat--green  .cv-bstat-val { color: var(--c-green, #16A34A); }
+.cv-bstat--amber  .cv-bstat-val { color: var(--c-amber, #D97706); }
+.cv-bstat--purple .cv-bstat-val { color: var(--c-purple, #7C3AED); }
 
 .cv-compose-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -586,6 +680,8 @@ function onSent() { fetchItems() }
 .cv-seg-btn--reward.cv-seg-btn--on { color: var(--c-green); }
 /* Warning — active: amber (semantic) */
 .cv-seg-btn--warning.cv-seg-btn--on { color: var(--c-amber); }
+/* Announcement — active: purple (semantic) */
+.cv-seg-btn--announcement.cv-seg-btn--on { color: var(--c-purple); }
 .cv-clear-btn {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 0.75rem; font-weight: 500; color: var(--c-text-3);
@@ -593,6 +689,20 @@ function onSent() { fetchItems() }
   border: 1px solid var(--c-border); background: var(--c-surface);
   cursor: pointer; transition: all var(--dur); flex-shrink: 0;
 }
+
+/* Match DateRangePicker trigger to the .cv-seg container dimensions exactly.
+   .cv-seg = 3px container padding + .cv-seg-btn 4px inner padding → 7px effective vertical,
+   12px + 3px → 15px effective horizontal. */
+.cv-filter-bar :deep(.drp-chip) {
+  padding: 7px 14px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--c-text-3);
+  line-height: 1;
+  background: var(--c-bg);
+}
+.cv-filter-bar :deep(.drp-chip:hover:not(:disabled)) { color: var(--c-text-1); }
+.cv-filter-bar :deep(.drp-chip--open) { color: var(--c-accent); font-weight: 600; }
 .cv-clear-btn:hover { border-color: var(--c-red); color: var(--c-red); background: var(--c-red-tint); }
 .cv-fade-enter-active, .cv-fade-leave-active { transition: opacity var(--dur); }
 .cv-fade-enter-from, .cv-fade-leave-to { opacity: 0; }
@@ -663,8 +773,9 @@ function onSent() { fetchItems() }
   font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   white-space: nowrap;
 }
-.cv-type-badge--reward  { border-color: var(--c-green); color: var(--c-green); background: var(--c-green-tint); }
-.cv-type-badge--warning { border-color: var(--c-amber); color: var(--c-amber); background: var(--c-amber-tint); }
+.cv-type-badge--reward       { border-color: var(--c-green);  color: var(--c-green);  background: var(--c-green-tint); }
+.cv-type-badge--warning      { border-color: var(--c-amber);  color: var(--c-amber);  background: var(--c-amber-tint); }
+.cv-type-badge--announcement { border-color: var(--c-purple); color: var(--c-purple); background: var(--c-purple-tint); }
 
 /* Driver cell */
 .cv-driver-cell { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
@@ -716,6 +827,90 @@ function onSent() { fetchItems() }
 
 .spinning { animation: spin 0.7s linear infinite; }
 
+/* ══ MOBILE TYPE DROPDOWN — custom pill + popover panel ════════════════════ */
+.cv-type-dd {
+  display: none;
+  position: relative;
+}
+.cv-type-dd-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-full);
+  color: var(--c-text-3);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--dur), color var(--dur), box-shadow var(--dur);
+  width: 100%;
+  min-width: 160px;
+  justify-content: flex-start;
+}
+.cv-type-dd-trigger:hover { color: var(--c-text-1); border-color: var(--c-text-3); }
+.cv-type-dd-trigger--open {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+  box-shadow: 0 0 0 3px var(--c-accent-ring);
+}
+.cv-type-dd-trigger--reward       { color: var(--c-green);  border-color: color-mix(in srgb, var(--c-green) 40%, transparent); }
+.cv-type-dd-trigger--warning      { color: var(--c-amber);  border-color: color-mix(in srgb, var(--c-amber) 40%, transparent); }
+.cv-type-dd-trigger--announcement { color: var(--c-purple); border-color: color-mix(in srgb, var(--c-purple) 40%, transparent); }
+
+.cv-type-dd-label { flex: 1; text-align: left; white-space: nowrap; }
+.cv-type-dd-caret { transition: transform var(--dur); flex-shrink: 0; }
+.cv-type-dd-caret--open { transform: rotate(180deg); }
+
+.cv-type-dd-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-md);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+}
+.cv-type-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--c-text-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur), color var(--dur);
+  line-height: 1.2;
+}
+.cv-type-dd-item:hover { background: var(--c-bg); color: var(--c-text-1); }
+.cv-type-dd-item--on { background: var(--c-accent-tint, rgba(29,78,216,0.08)); color: var(--c-accent); font-weight: 600; }
+.cv-type-dd-item--reward       .cv-type-dd-item-icon { color: var(--c-green); }
+.cv-type-dd-item--warning      .cv-type-dd-item-icon { color: var(--c-amber); }
+.cv-type-dd-item--announcement .cv-type-dd-item-icon { color: var(--c-purple); }
+.cv-type-dd-item-icon {
+  width: 16px; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--c-text-3);
+}
+.cv-type-dd-item-label { flex: 1; }
+.cv-type-dd-item-check { color: var(--c-accent); flex-shrink: 0; }
+
+.cv-dd-enter-active, .cv-dd-leave-active { transition: opacity 140ms ease, transform 140ms ease; }
+.cv-dd-enter-from, .cv-dd-leave-to { opacity: 0; transform: translateY(-4px); }
+
 /* ══ MOBILE — collapse to card-like rows ════════════════════════════════════ */
 /* Filter pills inherit compact desktop style (matches Compensation standard) */
 @media (max-width: 640px) {
@@ -727,7 +922,23 @@ function onSent() { fetchItems() }
   .cv-td--date { display: none; }
   .cv-subject { max-width: 180px; }
   .cv-preview { max-width: 180px; }
+
+  /* Filter bar: swap the segmented pill for a custom type dropdown on phones */
+  .cv-filter-bar { padding: 10px 14px; }
+  .cv-seg { display: none; }
+  .cv-type-dd { display: inline-block; flex: 1 1 160px; min-width: 0; }
+
+  /* Banner stats: let four pills wrap into a 2x2 grid on phones so "Announcement" isn't clipped */
+  .cv-banner-right { width: 100%; }
+  .cv-banner-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+  .cv-bstat { min-width: 0; padding: 8px 10px; }
 }
+
 
 @media (max-width: 360px) {
   .cv-subject,
@@ -741,8 +952,9 @@ function onSent() { fetchItems() }
   width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
   display: grid; place-items: center;
 }
-.cv-modal-icon--reward  { background: var(--c-green); color: #fff; }
-.cv-modal-icon--warning { background: var(--c-amber); color: #fff; }
+.cv-modal-icon--reward       { background: var(--c-green);  color: #fff; }
+.cv-modal-icon--warning      { background: var(--c-amber);  color: #fff; }
+.cv-modal-icon--announcement { background: var(--c-purple); color: #fff; }
 
 .cv-detail { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
 
@@ -766,8 +978,9 @@ function onSent() { fetchItems() }
   padding: 0.22rem 0.7rem; border-radius: 20px;
   font-size: 0.75rem; font-weight: 700;
 }
-.cv-detail-type--reward  { background: var(--c-green-tint); color: var(--c-green); }
-.cv-detail-type--warning { background: var(--c-amber-tint); color: var(--c-amber); }
+.cv-detail-type--reward       { background: var(--c-green-tint);  color: var(--c-green); }
+.cv-detail-type--warning      { background: var(--c-amber-tint);  color: var(--c-amber); }
+.cv-detail-type--announcement { background: var(--c-purple-tint); color: var(--c-purple); }
 .cv-detail-date {
   display: flex; align-items: center; gap: 0.3rem;
   font-size: 0.78rem; color: var(--c-text-2);

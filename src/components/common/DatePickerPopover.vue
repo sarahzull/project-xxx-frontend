@@ -24,9 +24,16 @@ async function position() {
   const flip = spaceBelow < p.height + margin && spaceAbove > spaceBelow
   placement.value = flip ? 'top' : 'bottom'
 
-  const top = flip
+  let top = flip
     ? t.top - p.height - margin + window.scrollY
     : t.bottom + margin + window.scrollY
+
+  // Clamp vertically so the popover never escapes the viewport
+  // (otherwise a tall popover flipped upward hides its top rows above the fold).
+  const minTop = window.scrollY + 8
+  const maxTop = window.scrollY + window.innerHeight - p.height - 8
+  if (top < minTop) top = minTop
+  if (maxTop >= minTop && top > maxTop) top = maxTop
 
   let left = t.left + window.scrollX
   const maxLeft = window.scrollX + window.innerWidth - p.width - 8

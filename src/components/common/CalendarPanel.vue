@@ -326,7 +326,8 @@ function onGridKeydown(e) {
       >{{ name.slice(0, 3) }}</button>
     </div>
 
-    <div class="cal-ftr">
+    <!-- Footer only in single-date mode; range mode relies on the preset rail + parent Reset -->
+    <div v-if="mode === 'single'" class="cal-ftr">
       <button type="button" class="cal-btn cal-btn--primary" @click="pickToday">Today</button>
       <button type="button" class="cal-btn" @click="pickClear">Clear</button>
     </div>

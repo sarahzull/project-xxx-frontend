@@ -3,14 +3,19 @@ import { ref, computed, onMounted } from 'vue'
 import {
   PayslipIcon, PayIcon, TruckIcon, RouteIcon,
   CloseIcon, ViewIcon, CheckCircleIcon, ClockIcon, ExportIcon,
+  FilterIcon,
 } from '../../components/icons/index.js'
 import driverMeApi from '../../api/driverMe'
 import ModalSheet from '../../components/common/ModalSheet.vue'
+import MonthYearPicker from '../../components/common/MonthYearPicker.vue'
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const payslips = ref([])
 const loading  = ref(true)
 const error    = ref('')
+
+// Filter: single month+year, 'YYYY-MM' or '' for all
+const filterPeriod = ref('')
 
 // Detail modal
 const showDetail = ref(false)
@@ -32,8 +37,22 @@ function periodLabel(p) {
 }
 
 // ── Computed ──────────────────────────────────────────────────────────────────
+// Derive a 'YYYY-MM' key for a payslip — falls back to the period_year/period_month composite.
+function payslipPeriod(p) {
+  if (p.batch_period) return String(p.batch_period).slice(0, 7)
+  if (p.period_year && p.period_month) {
+    return `${p.period_year}-${String(p.period_month).padStart(2, '0')}`
+  }
+  return ''
+}
+
+const filteredPayslips = computed(() => {
+  if (!filterPeriod.value) return payslips.value
+  return payslips.value.filter(p => payslipPeriod(p) === filterPeriod.value)
+})
+
 const totalPaid = computed(() =>
-  payslips.value
+  filteredPayslips.value
     .filter(p => p.status !== 'draft')
     .reduce((s, p) => s + (p.total_amount || 0), 0)
 )
@@ -93,7 +112,7 @@ async function openDetail(p) {
       <div v-if="payslips.length" class="ps-banner">
         <div class="ps-banner-item">
           <span class="ps-banner-lbl">Total Payslips</span>
-          <span class="ps-banner-val">{{ payslips.length }}</span>
+          <span class="ps-banner-val">{{ filteredPayslips.length }}</span>
         </div>
         <div class="ps-banner-item">
           <span class="ps-banner-lbl">Total Paid (confirmed)</span>
@@ -101,16 +120,35 @@ async function openDetail(p) {
         </div>
       </div>
 
+      <!-- Filter bar — mirrors the Communications filter bar pattern -->
+      <div v-if="payslips.length" class="ps-filter-bar">
+        <span class="ps-filter-lbl">
+          <FilterIcon :size="12" aria-hidden="true" />
+          Filter
+        </span>
+        <MonthYearPicker v-model="filterPeriod" aria-label="Filter payslips by period" />
+        <Transition name="ps-fade">
+          <button v-if="filterPeriod" class="ps-clear-btn" @click="filterPeriod = ''">
+            <CloseIcon :size="10" :stroke-width="2.5" />
+            Reset
+          </button>
+        </Transition>
+      </div>
+
       <!-- ── Empty ──────────────────────────────────────────────────────── -->
       <div v-if="!payslips.length" class="ps-empty">
         <PayslipIcon :size="36" :stroke-width="1.2" />
         <p>No payslips available yet</p>
       </div>
+      <div v-else-if="!filteredPayslips.length" class="ps-empty">
+        <PayslipIcon :size="36" :stroke-width="1.2" />
+        <p>No payslips for this period</p>
+      </div>
 
       <!-- ── Payslip cards ──────────────────────────────────────────────── -->
       <div v-else class="ps-list">
         <div
-          v-for="p in payslips"
+          v-for="p in filteredPayslips"
           :key="p.id"
           class="ps-card"
           @click="openDetail(p)"
@@ -285,6 +323,38 @@ async function openDetail(p) {
 .ps-banner-lbl  { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--c-text-2); }
 .ps-banner-val  { font-size: 1.1rem; font-weight: 700; color: var(--c-text); }
 .ps-banner-val.green { color: #16A34A; }
+
+/* Filter bar — matches the Communications filter bar pattern for consistency */
+.ps-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+}
+.ps-filter-lbl {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--c-text-3);
+  width: 100%;
+  margin-bottom: 4px;
+}
+.ps-clear-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.75rem; font-weight: 500; color: var(--c-text-3);
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--c-border); background: var(--c-surface);
+  cursor: pointer; transition: all var(--dur); flex-shrink: 0;
+}
+.ps-clear-btn:hover {
+  border-color: var(--c-red, #EF4444);
+  color: var(--c-red, #EF4444);
+}
+.ps-fade-enter-active, .ps-fade-leave-active { transition: opacity var(--dur); }
+.ps-fade-enter-from, .ps-fade-leave-to { opacity: 0; }
 
 /* Empty */
 .ps-empty {

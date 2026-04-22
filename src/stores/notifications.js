@@ -61,10 +61,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
       notifications.value = letters.map(l => ({
         id:                 l.id,
         type:               'communication',
-        communication_type: l.type,   // 'reward' | 'warning'
+        communication_type: l.type,   // 'reward' | 'warning' | 'announcement'
         title:              l.type === 'reward'
                               ? 'Reward Communication'
-                              : 'Warning Communication',
+                              : l.type === 'announcement'
+                                ? 'Announcement'
+                                : 'Warning Communication',
         subject:            l.subject,
         communication_id:   l.id,
         read_at:            readMap.get(String(l.id)) || null,

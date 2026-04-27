@@ -288,7 +288,7 @@ function userInitials(name) {
   gap: 0.625rem;
   cursor: not-allowed;
   opacity: 0.78;
-  font: inherit;
+  font-family: inherit;
   color: var(--sb-text);
 }
 .nav-item--soon:disabled { color: var(--sb-text); }
@@ -315,7 +315,7 @@ function userInitials(name) {
   gap: 0.625rem;
   cursor: not-allowed;
   opacity: 0.78;
-  font: inherit;
+  font-family: inherit;
   color: var(--c-text-2);
 }
 .bn-more-link--soon:disabled { color: var(--c-text-2); }

@@ -26,6 +26,7 @@ import ActionBtn         from '../../components/common/ActionBtn.vue'
 import SearchInput       from '../../components/common/SearchInput.vue'
 import AppPagination     from '../../components/common/AppPagination.vue'
 import DateRangePicker   from '../../components/common/DateRangePicker.vue'
+import Skeleton          from '../../components/common/Skeleton.vue'
 
 const auth  = useAuthStore()
 const toast = useToast()
@@ -236,22 +237,26 @@ function onSent() { fetchItems() }
       </div>
 
       <div class="cv-banner-right">
-        <!-- Stats pills -->
-        <div v-if="!loading && items.length" class="cv-banner-stats">
+        <!-- Stats pills (skeletons while loading, real values once loaded) -->
+        <div v-if="loading || items.length" class="cv-banner-stats">
           <div class="cv-bstat">
-            <span class="cv-bstat-val">{{ totalCount }}</span>
+            <Skeleton v-if="loading" width="36px" height="22px" rounded="md" />
+            <span v-else class="cv-bstat-val">{{ totalCount }}</span>
             <span class="cv-bstat-lbl">Total</span>
           </div>
           <div class="cv-bstat cv-bstat--green">
-            <span class="cv-bstat-val">{{ rewardCount }}</span>
+            <Skeleton v-if="loading" width="32px" height="22px" rounded="md" />
+            <span v-else class="cv-bstat-val">{{ rewardCount }}</span>
             <span class="cv-bstat-lbl">Rewards</span>
           </div>
           <div class="cv-bstat cv-bstat--amber">
-            <span class="cv-bstat-val">{{ warningCount }}</span>
+            <Skeleton v-if="loading" width="32px" height="22px" rounded="md" />
+            <span v-else class="cv-bstat-val">{{ warningCount }}</span>
             <span class="cv-bstat-lbl">Warnings</span>
           </div>
           <div class="cv-bstat cv-bstat--purple">
-            <span class="cv-bstat-val">{{ announcementCount }}</span>
+            <Skeleton v-if="loading" width="32px" height="22px" rounded="md" />
+            <span v-else class="cv-bstat-val">{{ announcementCount }}</span>
             <span class="cv-bstat-lbl">Announcement</span>
           </div>
         </div>
@@ -261,11 +266,6 @@ function onSent() { fetchItems() }
     <!-- ── Error ────────────────────────────────────────────────────────────── -->
     <div v-if="error" class="cv-error">
       <CloseIcon :size="15" />{{ error }}
-    </div>
-
-    <!-- ── Loading ──────────────────────────────────────────────────────────── -->
-    <div v-else-if="loading" class="cv-loading">
-      <div class="cv-spinner" /><span>Loading communications…</span>
     </div>
 
     <template v-else>
@@ -361,7 +361,7 @@ function onSent() { fetchItems() }
         </div>
 
         <!-- ── Empty state ─────────────────────────────────────────────────── -->
-        <div v-if="!filtered.length" class="cv-empty">
+        <div v-if="!loading && !filtered.length" class="cv-empty">
           <CommunicationsIcon :size="38" :stroke-width="1.2" />
           <p class="cv-empty-title">{{ searchQuery || typeFilter || dateFrom || dateTo ? 'No results found' : 'No communications yet' }}</p>
           <p class="cv-empty-sub">
@@ -385,6 +385,31 @@ function onSent() { fetchItems() }
               </tr>
             </thead>
             <tbody>
+              <!-- Skeleton rows during initial load -->
+              <template v-if="loading">
+                <tr v-for="n in 6" :key="`skel-${n}`" class="cv-tr cv-tr--skel">
+                  <td class="cv-td"><Skeleton width="76px" height="20px" rounded="full" /></td>
+                  <td v-if="isAdmin" class="cv-td">
+                    <div class="cv-driver-cell">
+                      <Skeleton width="32px" height="32px" rounded="full" />
+                      <div class="cv-driver-info" style="gap:6px;">
+                        <Skeleton width="110px" height="12px" />
+                        <Skeleton width="60px" height="10px" />
+                      </div>
+                    </div>
+                  </td>
+                  <td class="cv-td">
+                    <div class="cv-subject-cell" style="gap:6px;">
+                      <Skeleton width="220px" height="14px" />
+                      <Skeleton width="280px" height="10px" />
+                    </div>
+                  </td>
+                  <td class="cv-td"><Skeleton width="86px" height="12px" /></td>
+                  <td class="cv-td"><Skeleton width="56px" height="20px" rounded="full" /></td>
+                  <td class="cv-td"><Skeleton width="80px" height="26px" rounded="md" /></td>
+                </tr>
+              </template>
+
               <tr
                 v-for="item in filtered"
                 :key="item.id"
@@ -608,15 +633,8 @@ function onSent() { fetchItems() }
 .cv-compose-btn:hover { opacity: 0.88; }
 
 /* ══ LOADING / ERROR ═════════════════════════════════════════════════════════ */
-.cv-loading {
-  display: flex; align-items: center; justify-content: center; gap: 0.75rem;
-  padding: 3rem; color: var(--c-text-2); font-size: 0.875rem;
-  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px;
-}
-.cv-spinner {
-  width: 18px; height: 18px; border: 2px solid var(--c-border);
-  border-top-color: var(--c-accent); border-radius: 50%; animation: spin 0.7s linear infinite;
-}
+.cv-tr--skel { cursor: default; }
+.cv-tr--skel:hover { background: transparent; }
 .cv-error {
   display: flex; align-items: center; gap: 0.5rem;
   padding: 0.875rem 1rem; border-radius: 10px;

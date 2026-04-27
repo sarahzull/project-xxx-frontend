@@ -35,7 +35,13 @@ async function position() {
   if (top < minTop) top = minTop
   if (maxTop >= minTop && top > maxTop) top = maxTop
 
-  let left = t.left + window.scrollX
+  // If the trigger sits in the right half of the viewport, right-align the
+  // popover with the trigger's right edge so it opens leftward instead of
+  // hanging off the page.
+  const alignRight = t.right > window.innerWidth / 2
+  let left = alignRight
+    ? t.right + window.scrollX - p.width
+    : t.left + window.scrollX
   const maxLeft = window.scrollX + window.innerWidth - p.width - 8
   if (left > maxLeft) left = maxLeft
   if (left < window.scrollX + 8) left = window.scrollX + 8

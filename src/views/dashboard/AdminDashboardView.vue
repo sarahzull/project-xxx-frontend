@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import reportsApi   from '../../api/reports'
 import dashboardApi  from '../../api/dashboard'
@@ -7,12 +7,12 @@ import { useThemeStore } from '../../stores/theme'
 import StatCard        from '../../components/common/StatCard.vue'
 import ChartCard       from '../../components/common/ChartCard.vue'
 import ModalSheet      from '../../components/common/ModalSheet.vue'
+import DateRangePicker from '../../components/common/DateRangePicker.vue'
 import AlertsWidget    from '../../components/dashboard/AlertsWidget.vue'
 import ActivityFeed    from '../../components/dashboard/ActivityFeed.vue'
 import RiskDrivers     from '../../components/dashboard/RiskDrivers.vue'
 import BirthdayCard    from '../../components/dashboard/BirthdayCard.vue'
-import DriverLocationMap from '../../components/dashboard/DriverLocationMap.vue'
-import { DashboardIcon, AlertIcon, CheckCircleIcon } from '../../components/icons/index.js'
+import { AlertIcon, CheckCircleIcon, CalendarIcon } from '../../components/icons/index.js'
 
 const router = useRouter()
 const theme  = useThemeStore()
@@ -58,25 +58,51 @@ const birthdays          = ref([])
 const birthdaysLoading   = ref(true)
 const birthdaysError     = ref(false)
 
-// ── Time range selector ───────────────────────────────────────────────────────
-const timeRange = ref('today')
+// ── Date range filter (drives Operations stats) ─────────────────────────────
+function _toISO(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
+const _todayISO = _toISO(new Date())
+const dateFrom = ref(_todayISO)
+const dateTo   = ref(_todayISO)
 
-// ── Mock driver locations (prototype — replace with API later) ────────────────
-const mapLocations = computed(() => {
-  const allLocations = [
-    { driver_name: 'Ahmad Rizal', driver_id: 'DRV-012', location_name: 'Shah Alam, Selangor', lat: 3.0733, lng: 101.5185, trips_count: 3 },
-    { driver_name: 'Mohd Faisal', driver_id: 'DRV-008', location_name: 'Petaling Jaya, Selangor', lat: 3.1073, lng: 101.6067, trips_count: 2 },
-    { driver_name: 'Ismail Hassan', driver_id: 'DRV-003', location_name: 'Klang, Selangor', lat: 3.0449, lng: 101.4455, trips_count: 4 },
-    { driver_name: 'Razak Othman', driver_id: 'DRV-015', location_name: 'Subang Jaya, Selangor', lat: 3.0565, lng: 101.5856, trips_count: 1 },
-    { driver_name: 'Hafiz Kamal', driver_id: 'DRV-021', location_name: 'Puchong, Selangor', lat: 3.0044, lng: 101.6164, trips_count: 2 },
-    { driver_name: 'Zulkifli Amin', driver_id: 'DRV-007', location_name: 'Cyberjaya, Selangor', lat: 2.9188, lng: 101.6538, trips_count: 1 },
-    { driver_name: 'Kamal Arif', driver_id: 'DRV-019', location_name: 'Rawang, Selangor', lat: 3.3210, lng: 101.5769, trips_count: 3 },
-    { driver_name: 'Syed Nabil', driver_id: 'DRV-025', location_name: 'Port Klang, Selangor', lat: 3.0006, lng: 101.3926, trips_count: 5 },
-  ]
-  if (timeRange.value === 'today') return allLocations.slice(0, 5)
-  if (timeRange.value === 'week') return allLocations.slice(0, 7)
-  return allLocations
+// Dynamic label for the Operations zone — mirrors the active range
+const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+function _fmtShort(iso) {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-').map(Number)
+  return `${d} ${SHORT_MONTHS[m - 1]} ${y}`
+}
+const opsRangeLabel = computed(() => {
+  const f = dateFrom.value
+  const t = dateTo.value
+  if (!f || !t) return "Today's Operations"
+
+  if (f === t && f === _todayISO) return "Today's Operations"
+  if (f === t) return `Operations · ${_fmtShort(f)}`
+
+  // Compare against this-week / this-month / last-30 presets
+  const now = new Date()
+  const startOfWeek = new Date(now)
+  const day = startOfWeek.getDay()
+  startOfWeek.setDate(startOfWeek.getDate() - (day === 0 ? 6 : day - 1))
+  if (f === _toISO(startOfWeek) && t === _todayISO) return "This Week's Operations"
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  if (f === _toISO(startOfMonth) && t === _todayISO) return "This Month's Operations"
+
+  const last30 = new Date(now); last30.setDate(last30.getDate() - 29)
+  if (f === _toISO(last30) && t === _todayISO) return 'Last 30 Days · Operations'
+
+  return `Operations · ${_fmtShort(f)} – ${_fmtShort(t)}`
 })
+
+const totalTripsLabel = computed(() =>
+  (dateFrom.value === _todayISO && dateTo.value === _todayISO) ? 'Total Trips Today' : 'Total Trips'
+)
 
 // ── Date display ──────────────────────────────────────────────────────────────
 const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -375,11 +401,14 @@ function loadAlerts() {
 }
 function loadTripsToday() {
   tripsTodayLoading.value = true; tripsTodayError.value = false
-  dashboardApi.getTripsToday()
+  dashboardApi.getTripsToday({ from: dateFrom.value, to: dateTo.value })
     .then(r  => { tripsToday.value         = r.data.data })
     .catch(() => { tripsTodayError.value   = true })
     .finally(() => { tripsTodayLoading.value = false })
 }
+
+// Re-fetch trip aggregates whenever the date range changes
+watch([dateFrom, dateTo], () => { loadTripsToday() })
 function loadDriverAvail() {
   driverAvailLoading.value = true; driverAvailError.value = false
   dashboardApi.getDriverAvailability()
@@ -435,18 +464,11 @@ function loadBirthdays() {
         </div>
       </div>
       <div class="adash-banner-right">
-        <!-- Time range toggle -->
-        <div class="adash-range-toggle">
-          <button
-            v-for="opt in [{ key: 'today', label: 'Today' }, { key: 'week', label: 'Week' }, { key: 'month', label: 'Month' }]"
-            :key="opt.key"
-            :class="['adash-range-btn', timeRange === opt.key && 'adash-range-btn--active']"
-            @click="timeRange = opt.key"
-          >{{ opt.label }}</button>
-        </div>
-        <div class="adash-banner-date">
-          <span class="adash-date-value">{{ todayFormatted }}</span>
-        </div>
+        <span class="adash-today-pill" :title="todayFormatted">
+          <CalendarIcon :size="14" aria-hidden="true" />
+          <span class="adash-today-pill-text">{{ todayFormatted }}</span>
+        </span>
+        <DateRangePicker v-model:from="dateFrom" v-model:to="dateTo" />
       </div>
     </div>
 
@@ -460,45 +482,38 @@ function loadBirthdays() {
       </div>
       <AlertsWidget v-else :data="alertsData" :loading="alertsLoading" />
 
-      <!-- ── Hero: Map + Operations side-by-side ───────────── -->
-      <div class="adash-hero-row">
-        <DriverLocationMap
-          :locations="mapLocations"
-          :loading="false"
-          :period="timeRange"
-          class="adash-hero-map"
-        />
-        <div class="adash-hero-ops">
-          <div class="adash-ops-zone adash-ops-zone--compact">
-            <p class="adash-section-lbl adash-section-lbl--ops">Today's Operations</p>
-            <div v-if="tripsTodayLoading" class="adash-stats-grid adash-stats-grid--2 adash-skel-grid">
-              <div v-for="i in 4" :key="i" class="adash-skel-card"></div>
-            </div>
-            <div v-else class="adash-stats-grid adash-stats-grid--2">
-              <StatCard title="Total Trips Today" :value="tripsToday?.total     || 0" color="blue"   />
-              <StatCard title="Completed"         :value="tripsToday?.completed || 0" color="green"  />
-              <StatCard title="Ongoing"           :value="tripsToday?.ongoing   || 0" color="yellow" />
-              <StatCard title="Cancelled"         :value="tripsToday?.cancelled || 0" color="red"    />
-            </div>
-            <!-- Completion rate bar -->
-            <div v-if="!tripsTodayLoading && tripsToday?.total > 0" class="adash-completion-wrap">
-              <div class="adash-completion-meta">
-                <span class="adash-completion-lbl">Completion rate</span>
-                <span class="adash-completion-pct">{{ Math.round((tripsToday?.completed || 0) / (tripsToday?.total || 1) * 100) }}%</span>
-              </div>
-              <div class="adash-completion-track">
-                <div
-                  class="adash-completion-fill"
-                  :style="{ transform: `scaleX(${(tripsToday?.completed || 0) / (tripsToday?.total || 1)})` }"
-                ></div>
-              </div>
-            </div>
+      <!-- ── Operations (full-width) ─────────────────────────── -->
+      <div class="adash-ops-zone">
+        <p class="adash-section-lbl adash-section-lbl--ops">{{ opsRangeLabel }}</p>
+        <div v-if="tripsTodayLoading" class="adash-stats-grid adash-skel-grid">
+          <div v-for="i in 4" :key="i" class="adash-skel-card"></div>
+        </div>
+        <div v-else class="adash-stats-grid">
+          <StatCard :title="totalTripsLabel"  :value="tripsToday?.total     || 0" color="blue"   />
+          <StatCard title="Completed"         :value="tripsToday?.completed || 0" color="green"  />
+          <StatCard title="Ongoing"           :value="tripsToday?.ongoing   || 0" color="yellow" />
+          <StatCard title="Cancelled"         :value="tripsToday?.cancelled || 0" color="red"    />
+        </div>
+        <!-- Completion rate bar -->
+        <div v-if="!tripsTodayLoading && tripsToday?.total > 0" class="adash-completion-wrap">
+          <div class="adash-completion-meta">
+            <span class="adash-completion-lbl">Completion rate</span>
+            <span class="adash-completion-pct">{{ Math.round((tripsToday?.completed || 0) / (tripsToday?.total || 1) * 100) }}%</span>
+          </div>
+          <div class="adash-completion-track">
+            <div
+              class="adash-completion-fill"
+              :style="{ transform: `scaleX(${(tripsToday?.completed || 0) / (tripsToday?.total || 1)})` }"
+            ></div>
           </div>
         </div>
       </div>
 
       <!-- ── Driver Availability + Fleet Headcount (merged) ──── -->
-      <p class="adash-section-lbl">Driver Availability</p>
+      <p class="adash-section-lbl">
+        Driver Availability
+        <span v-if="dateFrom !== _todayISO || dateTo !== _todayISO" class="adash-section-hint">· live, as of today</span>
+      </p>
       <div v-if="driverAvailLoading" class="adash-avail-grid adash-skel-grid">
         <div v-for="i in 3" :key="i" class="adash-skel-card"></div>
       </div>
@@ -539,7 +554,10 @@ function loadBirthdays() {
       </template>
 
       <!-- ── Fleet Headcount ──────────────────────────────── -->
-      <p class="adash-section-lbl">Fleet Headcount</p>
+      <p class="adash-section-lbl">
+        Fleet Headcount
+        <span v-if="dateFrom !== _todayISO || dateTo !== _todayISO" class="adash-section-hint">· live, as of today</span>
+      </p>
       <div v-if="driverStatsError" class="adash-widget-err">
         Failed to load fleet headcount.
         <button class="adash-retry-btn" @click="loadDriverStats">Retry</button>
@@ -820,22 +838,40 @@ function loadBirthdays() {
   font-size: 1.875rem; font-weight: 800; margin: 0 0 0.5rem;
   letter-spacing: -0.04em; color: var(--c-text-1); line-height: 1.05;
 }
-.adash-banner-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
-.adash-banner-date  { display: flex; flex-direction: column; align-items: flex-end; }
-.adash-date-value { font-size: 0.8125rem; font-weight: 500; color: var(--c-text-3); }
+.adash-banner-right {
+  display: flex; align-items: center; gap: 0.625rem;
+}
 
-/* Time range toggle */
-.adash-range-toggle {
-  display: inline-flex; background: var(--c-bg); border: 1px solid var(--c-border);
-  border-radius: 8px; padding: 3px; gap: 2px;
+/* "Today is" pill — pops out the current date next to the date-range picker */
+.adash-today-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(29,78,216,0.08), rgba(124,58,237,0.08));
+  border: 1px solid color-mix(in srgb, var(--c-accent) 22%, transparent);
+  border-radius: var(--r-full);
+  color: var(--c-accent);
+  font-size: 0.8125rem; font-weight: 600;
+  line-height: 1; white-space: nowrap;
+  box-shadow: var(--sh-xs);
 }
-.adash-range-btn {
-  padding: 5px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;
-  color: var(--c-text-3); transition: all 0.15s ease;
+.adash-today-pill svg { flex-shrink: 0; }
+.adash-today-pill-text { letter-spacing: -0.01em; }
+
+/* Force the date-range chip to use the white surface (instead of the page bg
+   color which blends into the dashboard background). */
+.adash-banner-right :deep(.drp-chip) {
+  background: var(--c-surface);
 }
-.adash-range-btn:hover { color: var(--c-text-1); }
-.adash-range-btn--active {
-  background: var(--c-surface); color: var(--c-accent); box-shadow: var(--sh-xs);
+
+/* Section label hint (e.g. "live · as of today") */
+.adash-section-hint {
+  margin-left: 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--c-text-3);
+  opacity: 0.85;
 }
 
 /* Live status chips in banner */
@@ -869,17 +905,6 @@ function loadBirthdays() {
   transform-origin: left; transform: scaleX(0);
   transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-/* ── Hero row: Map + Operations ─────────────────────────────────────────────── */
-.adash-hero-row {
-  display: grid; grid-template-columns: 1.4fr 1fr; gap: 1rem;
-  margin-top: 0.5rem;
-}
-.adash-hero-map { min-width: 0; }
-.adash-hero-ops { display: flex; flex-direction: column; }
-.adash-ops-zone--compact { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-.adash-ops-zone--compact .adash-section-lbl { margin-top: 0; }
-.adash-stats-grid--2 { grid-template-columns: repeat(2, 1fr) !important; }
 
 /* ── Analytics zone ────────────────────────────────────────────────────────── */
 .adash-analytics-zone {
@@ -1095,7 +1120,6 @@ function loadBirthdays() {
 
 /* ── Responsive ──────────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
-  .adash-hero-row        { grid-template-columns: 1fr; }
   .adash-charts-grid     { grid-template-columns: 1fr 1fr; }
   .adash-headcount       { grid-template-columns: 1fr; }
 }
@@ -1111,8 +1135,6 @@ function loadBirthdays() {
   .adash-charts-grid     { grid-template-columns: 1fr; }
   .adash-charts-grid--2  { grid-template-columns: 1fr; }
   .adash-intel-grid      { grid-template-columns: 1fr; }
-  .adash-hero-ops        { order: -1; }
-  .adash-ops-zone--compact { padding: 0.75rem; }
   .adash-analytics-zone  { padding: 1rem; }
 }
 @media (max-width: 640px) {
@@ -1123,8 +1145,6 @@ function loadBirthdays() {
   .adash-avail-grid      { grid-template-columns: 1fr 1fr 1fr; }
   .adash-banner-date     { display: none; }
   .adash-trip-strip      { flex-wrap: wrap; gap: 0.75rem 1.5rem; }
-  .adash-range-btn       { padding: 5px 10px; font-size: 0.7rem; }
-  .adash-hero-ops        { order: 0; }
   .adash-section-lbl     { margin: 1.5rem 0 0.6rem; }
 }
 @media (max-width: 360px) {
@@ -1132,8 +1152,6 @@ function loadBirthdays() {
   .adash-avail-grid {
     grid-template-columns: 1fr 1fr;
   }
-  .adash-range-toggle    { width: 100%; }
-  .adash-range-btn       { flex: 1; text-align: center; }
   .adash-trip-strip-val  { font-size: 1.1rem; }
   .adash-banner-chips    { gap: 0.35rem; }
   .adash-chip            { padding: 4px 8px; font-size: 0.72rem; }

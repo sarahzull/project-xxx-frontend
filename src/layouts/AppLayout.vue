@@ -8,6 +8,7 @@ import {
   DashboardIcon, DriversIcon, TruckIcon, PayIcon, ReportsIcon,
   RatesIcon, UserManagementIcon, MoreIcon, MenuIcon, ChevronRightIcon, LogoutIcon,
   EarningsIcon, PayslipIcon, CommunicationsIcon,
+  SafetyIcon, AuditLogIcon,
 } from '../components/icons/index.js'
 import NotificationBell from '../components/common/NotificationBell.vue'
 
@@ -37,6 +38,9 @@ const allNavigation = [
   { name: 'Payslips',     path: '/payslips',     icon: PayslipIcon,        roles: ['driver'] },
   // All roles
   { name: 'Communications', path: '/communications', icon: CommunicationsIcon, roles: null },
+  // Coming soon (visual placeholders, no route yet)
+  { name: 'Safety Driving', path: null, icon: SafetyIcon,   roles: ['admin'], comingSoon: true },
+  { name: 'Audit Logs',     path: null, icon: AuditLogIcon, roles: ['admin'], comingSoon: true },
 ]
 
 const navigation = computed(() =>
@@ -101,16 +105,29 @@ function userInitials(name) {
       </div>
 
       <nav class="sidebar-nav">
-        <router-link
-          v-for="item in navigation"
-          :key="item.path"
-          :to="item.path"
-          :class="['nav-item', isActive(item.path) && 'active']"
-          @click="sidebarOpen = false"
-        >
-          <component :is="item.icon" class="nav-icon" />
-          {{ item.name }}
-        </router-link>
+        <template v-for="item in navigation" :key="item.name">
+          <router-link
+            v-if="!item.comingSoon"
+            :to="item.path"
+            :class="['nav-item', isActive(item.path) && 'active']"
+            @click="sidebarOpen = false"
+          >
+            <component :is="item.icon" class="nav-icon" />
+            {{ item.name }}
+          </router-link>
+          <button
+            v-else
+            type="button"
+            class="nav-item nav-item--soon"
+            disabled
+            :aria-disabled="true"
+            :title="`${item.name} — coming soon`"
+          >
+            <component :is="item.icon" class="nav-icon" />
+            <span class="nav-item-label">{{ item.name }}</span>
+            <span class="nav-soon-pill">Soon</span>
+          </button>
+        </template>
       </nav>
 
       <div class="sidebar-footer">
@@ -175,16 +192,32 @@ function userInitials(name) {
       <!-- More menu popup -->
       <div v-if="showMoreMenu" class="bn-more-menu">
         <div class="bn-more-handle" />
-        <router-link
-          v-for="item in navigation.filter(n => !bottomNav.some(b => b.path === n.path))"
-          :key="item.path"
-          :to="item.path"
-          :class="['bn-more-link', isActive(item.path) && 'active']"
-          @click="showMoreMenu = false"
+        <template
+          v-for="item in navigation.filter(n => !bottomNav.some(b => b.path && b.path === n.path))"
+          :key="item.name"
         >
-          <component :is="item.icon" :size="18" class="bn-more-link-icon" />
-          {{ item.name }}
-        </router-link>
+          <router-link
+            v-if="!item.comingSoon"
+            :to="item.path"
+            :class="['bn-more-link', isActive(item.path) && 'active']"
+            @click="showMoreMenu = false"
+          >
+            <component :is="item.icon" :size="18" class="bn-more-link-icon" />
+            {{ item.name }}
+          </router-link>
+          <button
+            v-else
+            type="button"
+            class="bn-more-link bn-more-link--soon"
+            disabled
+            :aria-disabled="true"
+            :title="`${item.name} — coming soon`"
+          >
+            <component :is="item.icon" :size="18" class="bn-more-link-icon" />
+            <span>{{ item.name }}</span>
+            <span class="nav-soon-pill">Soon</span>
+          </button>
+        </template>
         <div class="bn-more-divider" />
         <button class="bn-more-logout" @click="handleLogout">
           <LogoutIcon :size="18" class="bn-more-link-icon" />
@@ -243,4 +276,48 @@ function userInitials(name) {
 
 /* Avatar photo support */
 .sidebar-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* "Coming soon" placeholder menu items — render like a nav-item but inert */
+.nav-item--soon {
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: not-allowed;
+  opacity: 0.78;
+  font: inherit;
+  color: var(--sb-text);
+}
+.nav-item--soon:disabled { color: var(--sb-text); }
+.nav-item--soon:hover { background: transparent; opacity: 0.85; }
+.nav-item-label { flex: 1; min-width: 0; }
+.nav-soon-pill {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  background: rgba(148,163,184,0.22);
+  color: #E2E8F0;
+}
+.bn-more-link--soon {
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: not-allowed;
+  opacity: 0.78;
+  font: inherit;
+  color: var(--c-text-2);
+}
+.bn-more-link--soon:disabled { color: var(--c-text-2); }
+.bn-more-link--soon:hover { background: transparent; }
 </style>

@@ -69,6 +69,8 @@ import {
   Cake,
   ArrowRight,
   ShieldAlert,
+  Shield,
+  History,
   Wifi,
   WifiOff,
   // Earnings / payslips / letters / communications
@@ -190,6 +192,8 @@ export const CakeIcon         = makeIcon(Cake,           'CakeIcon')
 export const ArrowRightIcon   = makeIcon(ArrowRight,     'ArrowRightIcon')
 /** Risk / security warning */
 export const ShieldAlertIcon  = makeIcon(ShieldAlert,    'ShieldAlertIcon')
+export const SafetyIcon       = makeIcon(Shield,         'SafetyIcon')
+export const AuditLogIcon     = makeIcon(History,        'AuditLogIcon')
 /** Online / available status */
 export const OnlineIcon       = makeIcon(Wifi,           'OnlineIcon')
 /** Offline / unavailable status */
@@ -271,6 +275,8 @@ export const ICON_REGISTRY = {
   cake:            CakeIcon,
   'arrow-right':   ArrowRightIcon,
   'shield-alert':  ShieldAlertIcon,
+  safety:          SafetyIcon,
+  'audit-log':     AuditLogIcon,
   online:          OnlineIcon,
   offline:         OfflineIcon,
   earnings:        EarningsIcon,

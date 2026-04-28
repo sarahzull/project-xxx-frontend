@@ -27,11 +27,10 @@ const statsLoading = ref(true)
 
 // ── Table columns ─────────────────────────────────────────────────────────────
 const columns = [
-  { key: 'driver_id',      label: 'Driver ID' },
-  { key: 'name',           label: 'Name',           sortable: true },
+  { key: 'name',           label: 'Driver',           sortable: true },
   { key: 'road_tanker_id', label: 'Road Tanker' },
   { key: 'license_type',   label: 'License' },
-  { key: 'license_expiry', label: 'License Expiry',  sortable: true },
+  { key: 'license_expiry', label: 'License Expiry',   sortable: true },
   { key: 'ranking',        label: 'Ranking',          sortable: true },
   { key: 'status',         label: 'Status',           sortable: true },
   { key: 'actions',        label: '' },
@@ -280,7 +279,10 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
         @sort="toggleSort"
       >
         <template #cell-name="{ row }">
-          <button class="link-btn" @click="viewDriver(row)">{{ row.name }}</button>
+          <button class="dv-driver-cell" @click="viewDriver(row)">
+            <span class="dv-driver-name">{{ row.name }}</span>
+            <span class="dv-driver-id">{{ row.driver_id }}</span>
+          </button>
         </template>
         <template #cell-status="{ value }">
           <StatusBadge :status="value" />
@@ -319,6 +321,31 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 <style scoped>
 /* ── Root ─────────────────────────────────────────────────────── */
 .dv { min-width: 0; overflow: hidden; }
+
+/* Combined Driver column (name + driver_id stacked) */
+.dv-driver-cell {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+.dv-driver-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--c-accent);
+}
+.dv-driver-cell:hover .dv-driver-name { text-decoration: underline; }
+.dv-driver-id {
+  font-size: 0.75rem;
+  color: var(--c-text-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.01em;
+}
 .mb-section { margin-bottom: 20px; }
 @media (min-width: 640px) { .mb-section { margin-bottom: 24px; } }
 

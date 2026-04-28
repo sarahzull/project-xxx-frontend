@@ -352,8 +352,8 @@ function clearFilters() {
         >
           <template #cell-driver_id="{ row, value }">
             <div class="tv-driver-cell">
-              <span class="tv-driver-id mono">{{ value || '—' }}</span>
               <span v-if="row.driver_name" class="tv-driver-name">{{ row.driver_name }}</span>
+              <span class="tv-driver-id">{{ value || '—' }}</span>
             </div>
           </template>
           <template #cell-date="{ value }">
@@ -463,10 +463,20 @@ function clearFilters() {
 .tv-driver-cell {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 2px;
 }
-.tv-driver-id { color: var(--c-text-1); }
-.tv-driver-name { color: var(--c-text-3); font-size: 0.75rem; }
+.tv-driver-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--c-accent);
+}
+.tv-driver-id {
+  font-size: 0.75rem;
+  color: var(--c-text-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.01em;
+}
 
 
 /* ── Filter bar ──────────────────────────────────────────────── */

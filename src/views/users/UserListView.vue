@@ -6,6 +6,7 @@ import {
 import ActionBtn from '../../components/common/ActionBtn.vue'
 import usersApi from '../../api/users'
 import rolesApi from '../../api/roles'
+import tripsApi from '../../api/trips'
 import { useAuthStore } from '../../stores/auth'
 import DataTable from '../../components/common/DataTable.vue'
 import StatusBadge from '../../components/common/StatusBadge.vue'
@@ -84,6 +85,66 @@ const pwClass = computed(() => {
   if (!form.value.password) return ''
   return passwordStrength.value <= 1 ? 'pw-weak' : passwordStrength.value <= 3 ? 'pw-fair' : 'pw-strong'
 })
+
+// Auto-calculated driver ranking. Placeholder rule until the client confirms
+// the formal calculation — based on trips completed in the previous full month:
+//   >= 30 trips → A (high performer)
+//   >= 15 trips → B (regular)
+//   <  15 trips → C (entry / low activity)
+// New drivers (no driver_id yet, or no trips data loaded) default to C.
+const monthlyTripsCount = ref(null)   // null = unknown, number = count
+const monthlyTripsLoading = ref(false)
+
+const computedRanking = computed(() => {
+  if (monthlyTripsCount.value === null) return null
+  if (monthlyTripsCount.value >= 30) return 'A'
+  if (monthlyTripsCount.value >= 15) return 'B'
+  return 'C'
+})
+
+const rankingLabel = computed(() => {
+  if (monthlyTripsLoading.value) return 'Calculating from trips…'
+  if (monthlyTripsCount.value === null) {
+    return form.value.driver_id
+      ? 'No trips yet — will recalculate next month'
+      : 'Assign a Driver ID to calculate'
+  }
+  const trips = monthlyTripsCount.value
+  const tag = trips === 1 ? 'trip' : 'trips'
+  switch (computedRanking.value) {
+    case 'A': return `A · High performer (${trips} ${tag} last month)`
+    case 'B': return `B · Regular (${trips} ${tag} last month)`
+    case 'C': return `C · Entry (${trips} ${tag} last month)`
+    default:  return `${trips} ${tag} last month`
+  }
+})
+
+// Fetch the driver's previous-month trip count to drive the ranking.
+async function loadMonthlyTrips(driverId) {
+  if (!driverId) {
+    monthlyTripsCount.value = null
+    return
+  }
+  monthlyTripsLoading.value = true
+  try {
+    const now = new Date()
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const y = prev.getFullYear()
+    const m = String(prev.getMonth() + 1).padStart(2, '0')
+    const last = String(new Date(y, prev.getMonth() + 1, 0).getDate()).padStart(2, '0')
+    const { data } = await tripsApi.list({
+      driver_id: driverId,
+      from:      `${y}-${m}-01`,
+      to:        `${y}-${m}-${last}`,
+    })
+    const monthPrefix = `${y}-${m}`
+    monthlyTripsCount.value = (data.data || []).filter(t => (t.date || '').startsWith(monthPrefix)).length
+  } catch {
+    monthlyTripsCount.value = null
+  } finally {
+    monthlyTripsLoading.value = false
+  }
+}
 
 function validateEmail() {
   if (!fieldTouched.value.email) return
@@ -171,6 +232,8 @@ function openCreate() {
   formError.value = ''
   fieldErrors.value  = { email: '', phone: '' }
   fieldTouched.value = { email: false, phone: false }
+  monthlyTripsCount.value   = null
+  monthlyTripsLoading.value = false
   showModal.value = true
 }
 
@@ -199,8 +262,15 @@ function openEdit(user) {
   formError.value = ''
   fieldErrors.value  = { email: '', phone: '' }
   fieldTouched.value = { email: false, phone: false }
+  monthlyTripsCount.value = null
   showModal.value = true
+  loadMonthlyTrips(form.value.driver_id)
 }
+
+// Recalculate ranking whenever the admin edits the Driver ID.
+watch(() => form.value.driver_id, (id) => {
+  if (showModal.value) loadMonthlyTrips(id)
+})
 
 async function saveUser() {
   formError.value = ''
@@ -228,7 +298,7 @@ async function saveUser() {
       license_type:   form.value.license_type    || null,
       license_expiry: form.value.license_expiry  || null,
       gdl_expiry:     form.value.gdl_expiry      || null,
-      ranking:        form.value.ranking         || null,
+      ranking:        computedRanking.value      || null,
       oil_company:    form.value.oil_company     || null,
     }
     if (!editingUser.value) {
@@ -582,20 +652,21 @@ async function confirmDeleteUser() {
               <input v-model="form.date_joined" class="uv-input" type="date" />
             </div>
 
-            <!-- License Type + Ranking — side by side -->
+            <!-- License Type + Ranking (auto) — side by side -->
             <div class="uv-field-row">
               <div class="uv-field">
                 <label class="uv-label">License Type</label>
                 <input v-model="form.license_type" class="uv-input uv-input--mono" type="text" placeholder="e.g. D or E" maxlength="10" />
               </div>
               <div class="uv-field">
-                <label class="uv-label">Ranking</label>
-                <select v-model="form.ranking" class="uv-input">
-                  <option value="">— None —</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                </select>
+                <label class="uv-label">
+                  Ranking
+                  <span class="uv-label-hint">auto</span>
+                </label>
+                <div class="uv-ranking-display" :class="computedRanking && `uv-ranking-display--${computedRanking.toLowerCase()}`">
+                  <span v-if="computedRanking" class="uv-ranking-badge">{{ computedRanking }}</span>
+                  <span class="uv-ranking-text">{{ rankingLabel }}</span>
+                </div>
               </div>
             </div>
 
@@ -840,6 +911,29 @@ async function confirmDeleteUser() {
 .uv-input--error { border-color: var(--c-red) !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
 .uv-input--valid { border-color: #16A34A; }
 .uv-field-err { font-size: 0.75rem; color: var(--c-red); margin-top: 1px; }
+
+.uv-label-hint {
+  margin-left: 6px; padding: 1px 7px; border-radius: var(--r-full);
+  background: var(--c-bg); color: var(--c-text-3);
+  font-size: 0.625rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.uv-ranking-display {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 12px; border: 1px dashed var(--c-border);
+  border-radius: 8px; background: var(--c-bg); box-sizing: border-box;
+  min-height: 38px;
+}
+.uv-ranking-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: var(--r-full);
+  font-size: 0.8125rem; font-weight: 800;
+  background: var(--c-text-3); color: #fff;
+}
+.uv-ranking-text { font-size: 0.8125rem; color: var(--c-text-2); }
+.uv-ranking-display--a .uv-ranking-badge { background: var(--c-green); }
+.uv-ranking-display--b .uv-ranking-badge { background: var(--c-accent); }
+.uv-ranking-display--c .uv-ranking-badge { background: var(--c-amber); }
 
 /* Password strength meter */
 .uv-pw-strength { display: flex; align-items: center; gap: 8px; margin-top: 2px; }

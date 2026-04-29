@@ -14,11 +14,16 @@ const toast   = useToast()
 const batches = ref([])
 const loading = ref(true)
 const statusFilter = ref('')
+const yearFilter   = ref('')
+const search       = ref('')
 
 // ── Pagination state ──────────────────────────────────────────────────────────
 const page  = ref(1)
 const meta  = ref({})
 const stats = ref({})
+
+const availableYears = computed(() => stats.value.years ?? [])
+const hasFilter = computed(() => statusFilter.value || yearFilter.value || search.value)
 
 // Create modal
 const showCreate = ref(false)
@@ -50,8 +55,10 @@ async function fetchBatches() {
   loading.value = true
   try {
     const { data } = await compensationApi.listBatches({
-      status: statusFilter.value || undefined,
-      page:   page.value,
+      status:      statusFilter.value || undefined,
+      period_year: yearFilter.value   || undefined,
+      q:           search.value.trim() || undefined,
+      page:        page.value,
     })
     batches.value = (data.data || []).map(b => ({
       ...b,
@@ -66,7 +73,24 @@ async function fetchBatches() {
   }
 }
 
-watch(statusFilter, () => { page.value = 1; fetchBatches() })
+watch([statusFilter, yearFilter], () => { page.value = 1; fetchBatches() })
+
+// Debounce server-side search so we don't hammer the API on every keystroke
+let searchDebounce = null
+watch(search, () => {
+  clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => {
+    page.value = 1
+    fetchBatches()
+  }, 300)
+})
+
+function clearFilters() {
+  statusFilter.value = ''
+  yearFilter.value   = ''
+  search.value       = ''
+  page.value         = 1
+}
 
 async function createBatch() {
   createErr.value = ''
@@ -140,13 +164,18 @@ onMounted(fetchBatches)
           <p class="bv-card-title">Payroll Batches</p>
           <p class="bv-card-sub">
             <span>{{ loading ? '…' : (meta.total ?? batches.length) }} batch{{ (meta.total ?? batches.length) !== 1 ? 'es' : '' }}</span>
-            <span v-if="statusFilter" class="chip chip--filter">filtered</span>
+            <span v-if="hasFilter" class="chip chip--filter">filtered</span>
           </p>
         </div>
-        <button class="bv-new-btn" @click="openCreate">
-          <AddIcon :size="16" :stroke-width="2.5" />
-          New Batch
-        </button>
+        <div class="bv-card-actions">
+          <div class="bv-card-search">
+            <SearchInput v-model="search" placeholder="Search batch # or notes…" />
+          </div>
+          <button class="bv-new-btn" @click="openCreate">
+            <AddIcon :size="16" :stroke-width="2.5" />
+            New Batch
+          </button>
+        </div>
       </div>
 
       <!-- Filter bar -->
@@ -161,8 +190,24 @@ onMounted(fetchBatches)
           <button :class="['bv-seg-btn', statusFilter === 'confirmed' && 'bv-seg-btn--on']"   @click="statusFilter = 'confirmed'">Confirmed</button>
           <button :class="['bv-seg-btn', statusFilter === 'exported' && 'bv-seg-btn--on']"    @click="statusFilter = 'exported'">Exported</button>
         </div>
+
+        <div v-if="availableYears.length" class="bv-sep" />
+
+        <div v-if="availableYears.length" class="bv-seg" role="group" aria-label="Filter by year">
+          <button :class="['bv-seg-btn', yearFilter === '' && 'bv-seg-btn--on']" @click="yearFilter = ''">All Years</button>
+          <button
+            v-for="y in availableYears" :key="y"
+            :class="['bv-seg-btn', String(yearFilter) === String(y) && 'bv-seg-btn--on']"
+            @click="yearFilter = y"
+          >{{ y }}</button>
+        </div>
+
+        <div class="bv-mobile-search">
+          <SearchInput v-model="search" placeholder="Search batch # or notes…" />
+        </div>
+
         <Transition name="bv-fade">
-          <button v-if="statusFilter" class="bv-reset-btn" @click="statusFilter = ''">
+          <button v-if="hasFilter" class="bv-reset-btn" @click="clearFilters">
             <CloseIcon :size="10" :stroke-width="2.5" />
             Reset
           </button>
@@ -202,14 +247,15 @@ onMounted(fetchBatches)
         </table>
       </div>
 
-      <!-- Pagination (desktop) -->
+      <!-- Pagination -->
       <AppPagination
-        v-if="meta.last_page > 1"
+        v-if="!loading && batches.length"
         :current-page="meta.current_page ?? 1"
         :last-page="meta.last_page ?? 1"
         :total="meta.total ?? 0"
         :from="meta.from ?? 0"
         :to="meta.to ?? 0"
+        always
         @change="p => { page = p; fetchBatches() }"
       />
 
@@ -345,6 +391,18 @@ onMounted(fetchBatches)
 }
 .bv-new-btn svg { width: 14px; height: 14px; }
 .bv-new-btn:hover { opacity: 0.88; }
+
+.bv-card-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.bv-card-search  { width: 220px; }
+@media (max-width: 767px) { .bv-card-search { display: none; } }
+
+.bv-mobile-search { display: none; }
+@media (max-width: 767px) {
+  .bv-mobile-search { display: block; width: 100%; margin-top: 4px; }
+}
+
+.bv-sep { width: 1px; height: 24px; background: var(--c-border); flex-shrink: 0; margin: 0 2px; }
+@media (max-width: 640px) { .bv-sep { display: none; } }
 
 /* Filter bar */
 .bv-filter-bar {

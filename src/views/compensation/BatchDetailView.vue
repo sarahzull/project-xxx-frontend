@@ -1,10 +1,13 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import compensationApi from '../../api/compensation'
+import tripsApi        from '../../api/trips'
 import { useToast } from '../../composables/useToast'
-import StatusBadge from '../../components/common/StatusBadge.vue'
-import ActionBtn   from '../../components/common/ActionBtn.vue'
+import StatusBadge   from '../../components/common/StatusBadge.vue'
+import ActionBtn     from '../../components/common/ActionBtn.vue'
+import SearchInput   from '../../components/common/SearchInput.vue'
+import AppPagination from '../../components/common/AppPagination.vue'
 import {
   ChevronLeftIcon, BatchIcon, CheckIcon, ExportIcon, CloseIcon, EditIcon,
 } from '../../components/icons/index.js'
@@ -20,6 +23,27 @@ const actionLoading = ref(false)
 const editingRecord = ref(null)
 const editForm      = ref({ hardship_allowance: 0, remarks: '' })
 
+// Allowance breakdown drives the dedicated Allowance column + modal. Adding a
+// new allowance type later means appending a row here.
+const ALLOWANCE_FIELDS = [
+  { key: 'diversion_allowance', label: 'Diversion' },
+  { key: 'ron97_allowance',     label: 'RON97' },
+  { key: 'others_allowance',    label: 'Others' },
+  { key: 'hardship_allowance',  label: 'Hardship' },
+]
+
+function allowanceTotal(record) {
+  return ALLOWANCE_FIELDS.reduce((s, f) => s + (Number(record?.[f.key]) || 0), 0)
+}
+function allowanceItems(record) {
+  return ALLOWANCE_FIELDS.map(f => ({
+    label:    f.label,
+    key:      f.key,
+    amount:   Number(record?.[f.key]) || 0,
+    editable: f.key === 'hardship_allowance',
+  }))
+}
+
 // ── Computed totals ───────────────────────────────────────────────────────────
 const totalDrivers      = computed(() => records.value.length)
 const totalTrips        = computed(() => records.value.reduce((s, r) => s + (Number(r.total_trips) || 0), 0))
@@ -27,18 +51,131 @@ const totalKm           = computed(() => records.value.reduce((s, r) => s + (Num
 const totalCompensation = computed(() => records.value.reduce((s, r) => s + (Number(r.total_compensation) || 0), 0))
 
 const columns = [
-  { key: 'driver_id',              label: 'Driver ID' },
-  { key: 'driver_name',            label: 'Name' },
+  { key: 'driver',                 label: 'Driver' },
   { key: 'total_trips',            label: 'Trips' },
   { key: 'total_km_driven',        label: 'KM' },
   { key: 'base_trip_compensation', label: 'Base (RM)' },
-  { key: 'diversion_allowance',    label: 'Div. (RM)' },
-  { key: 'ron97_allowance',        label: 'Ron97 (RM)' },
-  { key: 'others_allowance',       label: 'Others (RM)' },
-  { key: 'hardship_allowance',     label: 'Hardship (RM)' },
+  { key: 'allowance',              label: 'Allowance (RM)' },
   { key: 'total_compensation',     label: 'Total (RM)' },
   { key: 'actions',                label: '' },
 ]
+
+// ── Search + pagination on the records table ─────────────────────────────────
+const recordSearch = ref('')
+const recordPage   = ref(1)
+const PER_PAGE     = 15
+
+const filteredRecords = computed(() => {
+  const q = recordSearch.value.trim().toLowerCase()
+  if (!q) return records.value
+  return records.value.filter(r =>
+    String(r.driver_id || '').toLowerCase().includes(q) ||
+    String(r.driver_name || '').toLowerCase().includes(q)
+  )
+})
+const lastPage = computed(() => Math.max(1, Math.ceil(filteredRecords.value.length / PER_PAGE)))
+const pagedRecords = computed(() => {
+  const start = (recordPage.value - 1) * PER_PAGE
+  return filteredRecords.value.slice(start, start + PER_PAGE)
+})
+const pageFrom = computed(() => filteredRecords.value.length === 0 ? 0 : (recordPage.value - 1) * PER_PAGE + 1)
+const pageTo   = computed(() => Math.min(recordPage.value * PER_PAGE, filteredRecords.value.length))
+watch(recordSearch, () => { recordPage.value = 1 })
+
+// ── Trips modal (driver × payroll month) ────────────────────────────────────
+const tripsModalRecord  = ref(null)
+const tripsModalTrips   = ref([])
+const tripsModalLoading = ref(false)
+const tripsModalSearch  = ref('')
+const tripsModalPage    = ref(1)
+const TRIPS_MODAL_PER_PAGE = 10
+
+const tripsModalPeriod = computed(() => {
+  if (!batch.value) return ''
+  return `${String(batch.value.period_month).padStart(2, '0')}/${batch.value.period_year}`
+})
+
+const tripsModalFiltered = computed(() => {
+  const q = tripsModalSearch.value.trim().toLowerCase()
+  if (!q) return tripsModalTrips.value
+  return tripsModalTrips.value.filter(t =>
+    String(t.delivery_note || '').toLowerCase().includes(q) ||
+    String(t.road_tanker_id || '').toLowerCase().includes(q) ||
+    String(t.location || '').toLowerCase().includes(q) ||
+    String(t.ship_to_party_name || '').toLowerCase().includes(q) ||
+    String(t.material || '').toLowerCase().includes(q) ||
+    String(t.oil_company || '').toLowerCase().includes(q)
+  )
+})
+const tripsModalLastPage = computed(() => Math.max(1, Math.ceil(tripsModalFiltered.value.length / TRIPS_MODAL_PER_PAGE)))
+const tripsModalPaged = computed(() => {
+  const start = (tripsModalPage.value - 1) * TRIPS_MODAL_PER_PAGE
+  return tripsModalFiltered.value.slice(start, start + TRIPS_MODAL_PER_PAGE)
+})
+const tripsModalFrom = computed(() =>
+  tripsModalFiltered.value.length === 0 ? 0 : (tripsModalPage.value - 1) * TRIPS_MODAL_PER_PAGE + 1
+)
+const tripsModalTo = computed(() =>
+  Math.min(tripsModalPage.value * TRIPS_MODAL_PER_PAGE, tripsModalFiltered.value.length)
+)
+watch(tripsModalSearch, () => { tripsModalPage.value = 1 })
+
+function formatTripDate(s) {
+  if (!s) return '—'
+  const p = s.split('-')
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s
+}
+function capitalize(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s
+}
+
+async function openTripsModal(record) {
+  if (!batch.value) return
+  tripsModalRecord.value  = record
+  tripsModalSearch.value  = ''
+  tripsModalPage.value    = 1
+  tripsModalTrips.value   = []
+  tripsModalLoading.value = true
+  try {
+    const y = batch.value.period_year
+    const m = String(batch.value.period_month).padStart(2, '0')
+    const last = String(new Date(y, batch.value.period_month, 0).getDate()).padStart(2, '0')
+    const { data } = await tripsApi.list({
+      driver_id: record.driver_id,
+      from:      `${y}-${m}-01`,
+      to:        `${y}-${m}-${last}`,
+    })
+    // Backend may not enforce date range yet; clip client-side as a safety net.
+    const monthPrefix = `${y}-${m}`
+    tripsModalTrips.value = (data.data || []).filter(t => (t.date || '').startsWith(monthPrefix))
+  } catch (e) {
+    toast.error(e.response?.data?.message || 'Failed to load trips for this driver.', { title: 'Load Failed' })
+  } finally {
+    tripsModalLoading.value = false
+  }
+}
+function closeTripsModal() {
+  tripsModalRecord.value = null
+  tripsModalTrips.value  = []
+}
+
+// ── Allowance breakdown modal ────────────────────────────────────────────────
+const allowanceModalRecord = ref(null)
+function openAllowanceModal(record) { allowanceModalRecord.value = record }
+function closeAllowanceModal() {
+  allowanceModalRecord.value = null
+  editingRecord.value = null
+}
+
+async function saveModalEdit() {
+  const id = allowanceModalRecord.value?.id
+  if (!id) return
+  await saveEdit(id)
+  // Re-resolve modal record from the refreshed list so the displayed total
+  // updates without closing the modal.
+  allowanceModalRecord.value = records.value.find(r => r.id === id) || null
+  editingRecord.value = null
+}
 
 async function fetchData() {
   loading.value = true
@@ -177,8 +314,18 @@ onMounted(fetchData)
       <!-- ── Records table ──────────────────────────────────── -->
       <div class="bd-table-card">
         <div class="bd-table-hd">
-          <p class="bd-table-title">Driver Compensation Records</p>
-          <p class="bd-table-sub">{{ records.length }} driver{{ records.length !== 1 ? 's' : '' }}</p>
+          <div>
+            <p class="bd-table-title">Driver Compensation Records</p>
+            <p class="bd-table-sub">
+              {{ filteredRecords.length }} driver{{ filteredRecords.length !== 1 ? 's' : '' }}
+              <span v-if="recordSearch && filteredRecords.length !== records.length" class="bd-table-meta">
+                · {{ records.length }} total
+              </span>
+            </p>
+          </div>
+          <div class="bd-table-search">
+            <SearchInput v-model="recordSearch" placeholder="Search driver…" />
+          </div>
         </div>
 
         <!-- Desktop table -->
@@ -190,40 +337,42 @@ onMounted(fetchData)
               </tr>
             </thead>
             <tbody>
-              <tr v-if="records.length === 0">
-                <td :colspan="columns.length" class="bd-empty">No records in this batch.</td>
+              <tr v-if="filteredRecords.length === 0">
+                <td :colspan="columns.length" class="bd-empty">
+                  {{ recordSearch ? 'No drivers match your search.' : 'No records in this batch.' }}
+                </td>
               </tr>
-              <tr v-for="row in records" :key="row.id">
-                <td class="bd-cell-id">{{ row.driver_id }}</td>
-                <td class="bd-cell-name">{{ row.driver_name }}</td>
-                <td class="bd-cell-num">{{ row.total_trips }}</td>
+              <tr v-for="row in pagedRecords" :key="row.id">
+                <td class="bd-cell-driver">
+                  <span class="bd-driver-name">{{ row.driver_name }}</span>
+                  <span class="bd-driver-id">{{ row.driver_id }}</span>
+                </td>
+                <td class="bd-cell-num">
+                  <button
+                    v-if="Number(row.total_trips) > 0"
+                    class="bd-trips-btn"
+                    type="button"
+                    :title="`View ${row.driver_name}'s ${row.total_trips} trip${row.total_trips !== 1 ? 's' : ''} for ${tripsModalPeriod}`"
+                    @click="openTripsModal(row)"
+                  >{{ row.total_trips }}</button>
+                  <span v-else class="bd-trips-zero">{{ row.total_trips }}</span>
+                </td>
                 <td class="bd-cell-num">{{ Number(row.total_km_driven).toLocaleString() }}</td>
                 <td class="bd-cell-rm">{{ Number(row.base_trip_compensation).toFixed(2) }}</td>
-                <td class="bd-cell-rm">{{ Number(row.diversion_allowance).toFixed(2) }}</td>
-                <td class="bd-cell-rm">{{ Number(row.ron97_allowance).toFixed(2) }}</td>
-                <td class="bd-cell-rm">{{ Number(row.others_allowance).toFixed(2) }}</td>
-                <td class="bd-cell-hardship">
-                  <input
-                    v-if="editingRecord === row.id"
-                    v-model.number="editForm.hardship_allowance"
-                    type="number" step="0.01" min="0"
-                    class="bd-edit-input"
-                    @click.stop
-                  />
-                  <span v-else>{{ Number(row.hardship_allowance).toFixed(2) }}</span>
+                <td class="bd-cell-allowance">
+                  <button
+                    class="bd-allowance-btn"
+                    :class="allowanceTotal(row) === 0 && 'bd-allowance-btn--zero'"
+                    type="button"
+                    @click="openAllowanceModal(row)"
+                  >
+                    {{ allowanceTotal(row).toFixed(2) }}
+                  </button>
                 </td>
                 <td class="bd-cell-total">{{ Number(row.total_compensation).toFixed(2) }}</td>
                 <td>
                   <template v-if="batch.status === 'draft'">
-                    <div v-if="editingRecord === row.id" class="bd-act-group">
-                      <ActionBtn tooltip="Save" variant="save" @click="saveEdit(row.id)">
-                        <CheckIcon :size="14" :stroke-width="2.5" />
-                      </ActionBtn>
-                      <ActionBtn tooltip="Cancel" variant="cancel" @click="editingRecord = null">
-                        <CloseIcon :size="14" :stroke-width="2.5" />
-                      </ActionBtn>
-                    </div>
-                    <ActionBtn v-else tooltip="Edit Hardship" variant="edit" @click="startEdit(row)">
+                    <ActionBtn tooltip="Edit Allowances" variant="edit" @click="openAllowanceModal(row)">
                       <EditIcon :size="14" />
                     </ActionBtn>
                   </template>
@@ -233,34 +382,212 @@ onMounted(fetchData)
           </table>
         </div>
 
+        <AppPagination
+          v-if="!loading && filteredRecords.length"
+          :current-page="recordPage"
+          :last-page="lastPage"
+          :total="filteredRecords.length"
+          :from="pageFrom"
+          :to="pageTo"
+          always
+          @change="p => { recordPage = p }"
+        />
+
         <!-- Mobile cards -->
         <div class="bd-rec-cards">
-          <div v-if="records.length === 0" class="bd-empty">No records in this batch.</div>
-          <div v-for="row in records" :key="row.id" class="bd-rec-card">
+          <div v-if="filteredRecords.length === 0" class="bd-empty">
+            {{ recordSearch ? 'No drivers match your search.' : 'No records in this batch.' }}
+          </div>
+          <div v-for="row in pagedRecords" :key="row.id" class="bd-rec-card">
             <div class="bd-rec-top">
               <span class="bd-rec-name">{{ row.driver_name }}</span>
               <span class="bd-rec-total">RM {{ Number(row.total_compensation).toFixed(2) }}</span>
             </div>
             <div class="bd-rec-id">{{ row.driver_id }}</div>
             <div class="bd-rec-grid">
-              <span><span class="bd-rk">Trips</span>{{ row.total_trips }}</span>
+              <span>
+                <span class="bd-rk">Trips</span>
+                <button
+                  v-if="Number(row.total_trips) > 0"
+                  class="bd-trips-btn"
+                  type="button"
+                  @click="openTripsModal(row)"
+                >{{ row.total_trips }}</button>
+                <span v-else>{{ row.total_trips }}</span>
+              </span>
               <span><span class="bd-rk">KM</span>{{ Number(row.total_km_driven).toLocaleString() }}</span>
               <span><span class="bd-rk">Base</span>RM {{ Number(row.base_trip_compensation).toFixed(2) }}</span>
-              <span><span class="bd-rk">Hardship</span>RM {{ Number(row.hardship_allowance).toFixed(2) }}</span>
+              <span><span class="bd-rk">Allowance</span>RM {{ allowanceTotal(row).toFixed(2) }}</span>
             </div>
-            <div v-if="batch.status === 'draft'" class="bd-rec-actions">
-              <template v-if="editingRecord === row.id">
-                <input v-model.number="editForm.hardship_allowance" type="number" step="0.01" min="0" class="bd-edit-input" placeholder="Hardship amount" />
-                <button class="bd-save-btn" @click="saveEdit(row.id)">Save</button>
-                <button class="bd-cancel-btn" @click="editingRecord = null">Cancel</button>
-              </template>
-              <button v-else class="bd-edit-btn" @click="startEdit(row)">Edit Hardship</button>
+            <div class="bd-rec-actions">
+              <button class="bd-edit-btn" @click="openAllowanceModal(row)">
+                {{ batch.status === 'draft' ? 'Manage Allowance' : 'View Allowance' }}
+              </button>
             </div>
           </div>
         </div>
 
       </div>
     </template>
+
+    <!-- ── Trips modal (driver × payroll month) ─────────────── -->
+    <Teleport to="body">
+      <div v-if="tripsModalRecord" class="bd-overlay" @click.self="closeTripsModal">
+        <div class="bd-modal bd-modal--wide">
+          <div class="bd-modal-hd">
+            <div class="bd-modal-hd-left">
+              <h2 class="bd-modal-title">Trip Records</h2>
+              <p class="bd-modal-sub">
+                {{ tripsModalRecord.driver_name }} · {{ tripsModalRecord.driver_id }} · {{ tripsModalPeriod }}
+              </p>
+            </div>
+            <div class="bd-modal-search">
+              <SearchInput v-model="tripsModalSearch" placeholder="Search D/Note, tanker, location…" />
+            </div>
+            <button class="bd-modal-close" @click="closeTripsModal">✕</button>
+          </div>
+
+          <div class="bd-modal-body bd-modal-body--table">
+            <div v-if="tripsModalLoading" class="bd-empty">Loading trips…</div>
+            <template v-else>
+              <div class="bd-trips-tbl-wrap">
+                <table class="bd-trips-tbl">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Tanker</th>
+                      <th>D/Note</th>
+                      <th>Type</th>
+                      <th>Ship To</th>
+                      <th>Location</th>
+                      <th>Material</th>
+                      <th>Oil Co.</th>
+                      <th class="ta-r">Load (Ltr)</th>
+                      <th class="ta-r">KM</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="tripsModalFiltered.length === 0">
+                      <td colspan="10" class="bd-empty">
+                        {{ tripsModalSearch ? 'No trips match your search.' : 'No trips for this driver in this period.' }}
+                      </td>
+                    </tr>
+                    <tr v-for="trip in tripsModalPaged" :key="trip.id">
+                      <td class="mono">{{ formatTripDate(trip.date) }}</td>
+                      <td>{{ trip.road_tanker_id || '—' }}</td>
+                      <td>{{ trip.delivery_note || '—' }}</td>
+                      <td>
+                        <span :class="['type-tag', trip.type === 'RE' ? 'type-tag--re' : 'type-tag--cb']">
+                          {{ trip.type || '—' }}
+                        </span>
+                      </td>
+                      <td>{{ trip.ship_to_party_name || '—' }}</td>
+                      <td>{{ trip.location || '—' }}</td>
+                      <td>{{ trip.material || '—' }}</td>
+                      <td>{{ trip.oil_company ? capitalize(trip.oil_company) : '—' }}</td>
+                      <td class="mono ta-r">{{ Number(trip.load_size || 0).toLocaleString() }}</td>
+                      <td class="mono ta-r">{{ trip.km_driven ?? '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Mobile stacked cards for narrow screens -->
+              <div class="bd-trips-cards">
+                <div v-if="tripsModalFiltered.length === 0" class="bd-empty">
+                  {{ tripsModalSearch ? 'No trips match your search.' : 'No trips for this driver in this period.' }}
+                </div>
+                <div v-for="trip in tripsModalPaged" :key="trip.id" class="bd-trips-card">
+                  <div class="bd-trips-card-top">
+                    <span class="mono">{{ formatTripDate(trip.date) }}</span>
+                    <span :class="['type-tag', trip.type === 'RE' ? 'type-tag--re' : 'type-tag--cb']">
+                      {{ trip.type || '—' }}
+                    </span>
+                  </div>
+                  <div class="bd-trips-card-grid">
+                    <span><span class="bd-rk">Tanker</span>{{ trip.road_tanker_id || '—' }}</span>
+                    <span><span class="bd-rk">D/Note</span>{{ trip.delivery_note || '—' }}</span>
+                    <span><span class="bd-rk">Ship To</span>{{ trip.ship_to_party_name || '—' }}</span>
+                    <span><span class="bd-rk">Location</span>{{ trip.location || '—' }}</span>
+                    <span><span class="bd-rk">Material</span>{{ trip.material || '—' }}</span>
+                    <span><span class="bd-rk">Oil Co.</span>{{ trip.oil_company ? capitalize(trip.oil_company) : '—' }}</span>
+                    <span><span class="bd-rk">Load</span>{{ Number(trip.load_size || 0).toLocaleString() }} L</span>
+                    <span><span class="bd-rk">KM</span>{{ trip.km_driven ?? '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <AppPagination
+                v-if="tripsModalFiltered.length"
+                :current-page="tripsModalPage"
+                :last-page="tripsModalLastPage"
+                :total="tripsModalFiltered.length"
+                :from="tripsModalFrom"
+                :to="tripsModalTo"
+                always
+                @change="p => { tripsModalPage = p }"
+              />
+            </template>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ── Allowance breakdown / edit modal ─────────────────── -->
+    <Teleport to="body">
+      <div v-if="allowanceModalRecord" class="bd-overlay" @click.self="closeAllowanceModal">
+        <div class="bd-modal">
+          <div class="bd-modal-hd">
+            <div>
+              <h2 class="bd-modal-title">Allowance Breakdown</h2>
+              <p class="bd-modal-sub">
+                {{ allowanceModalRecord.driver_name }} · {{ allowanceModalRecord.driver_id }}
+              </p>
+            </div>
+            <button class="bd-modal-close" @click="closeAllowanceModal">✕</button>
+          </div>
+          <div class="bd-modal-body">
+            <p v-if="batch && batch.status !== 'draft'" class="bd-modal-locked">
+              This batch is {{ batch.status }} — values are read-only.
+            </p>
+            <ul class="bd-allowance-list">
+              <li v-for="item in allowanceItems(allowanceModalRecord)" :key="item.key">
+                <span class="bd-allowance-label">{{ item.label }}</span>
+                <span v-if="item.editable && batch && batch.status === 'draft' && editingRecord === allowanceModalRecord.id">
+                  <input
+                    v-model.number="editForm.hardship_allowance"
+                    type="number" step="0.01" min="0"
+                    class="bd-edit-input"
+                  />
+                </span>
+                <span v-else class="bd-allowance-amt">RM {{ item.amount.toFixed(2) }}</span>
+              </li>
+              <li class="bd-allowance-total-row">
+                <span class="bd-allowance-label">Total</span>
+                <span class="bd-allowance-amt bd-allowance-amt--total">
+                  RM {{ allowanceTotal(allowanceModalRecord).toFixed(2) }}
+                </span>
+              </li>
+            </ul>
+            <div class="bd-modal-foot">
+              <template v-if="batch && batch.status === 'draft'">
+                <template v-if="editingRecord === allowanceModalRecord.id">
+                  <button class="bd-cancel-btn" @click="editingRecord = null">Cancel</button>
+                  <button class="bd-save-btn" @click="saveModalEdit">Save</button>
+                </template>
+                <template v-else>
+                  <button class="bd-cancel-btn" @click="closeAllowanceModal">Close</button>
+                  <button class="bd-edit-btn bd-edit-btn--solid" @click="startEdit(allowanceModalRecord)">
+                    Amend Hardship
+                  </button>
+                </template>
+              </template>
+              <button v-else class="bd-cancel-btn" @click="closeAllowanceModal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
   </div>
 </template>
@@ -351,9 +678,18 @@ onMounted(fetchData)
   background: var(--c-surface); border: 1px solid var(--c-border);
   border-radius: var(--r-xl); box-shadow: var(--sh-sm); overflow: hidden;
 }
-.bd-table-hd { padding: 14px 20px; border-bottom: 1px solid var(--c-border-light); }
+.bd-table-hd {
+  padding: 14px 20px; border-bottom: 1px solid var(--c-border-light);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
 .bd-table-title { font-size: 0.9375rem; font-weight: 600; color: var(--c-text-1); }
 .bd-table-sub { font-size: 0.75rem; color: var(--c-text-3); margin-top: 2px; }
+.bd-table-meta { color: var(--c-text-3); }
+.bd-table-search { width: 220px; flex-shrink: 0; }
+@media (max-width: 767px) {
+  .bd-table-hd { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px; }
+  .bd-table-search { width: 100%; }
+}
 
 .bd-tbl-wrap { overflow-x: auto; }
 @media (max-width: 767px) { .bd-tbl-wrap { display: none; } }
@@ -369,11 +705,36 @@ onMounted(fetchData)
 .bd-tbl tbody tr:hover td { background: var(--c-bg); }
 .bd-empty { padding: 40px 12px; text-align: center; color: var(--c-text-3); font-size: 0.875rem; }
 
-.bd-cell-id   { font-weight: 500; color: var(--c-text-2); }
-.bd-cell-name { font-weight: 600; color: var(--c-text-1); }
+.bd-cell-driver { display: flex; flex-direction: column; gap: 2px; min-width: 140px; }
+.bd-driver-name { font-weight: 600; color: var(--c-text-1); font-size: 0.875rem; }
+.bd-driver-id   {
+  font-size: 0.75rem; color: var(--c-text-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.01em;
+}
 .bd-cell-num  { font-variant-numeric: tabular-nums; color: var(--c-text-2); }
+.bd-trips-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 32px; padding: 2px 8px; border-radius: var(--r-full);
+  background: var(--c-accent-tint); border: 1px solid transparent;
+  color: var(--c-accent); font-size: 0.875rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; cursor: pointer; transition: all var(--dur);
+}
+.bd-trips-btn:hover { border-color: var(--c-accent); background: var(--c-accent); color: #fff; }
+.bd-trips-zero { color: var(--c-text-3); font-variant-numeric: tabular-nums; }
 .bd-cell-rm   { font-variant-numeric: tabular-nums; color: var(--c-text-2); }
-.bd-cell-hardship { font-variant-numeric: tabular-nums; }
+.bd-cell-allowance { font-variant-numeric: tabular-nums; }
+.bd-allowance-btn {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: var(--r-full);
+  background: var(--c-accent-tint); border: 1px solid transparent;
+  color: var(--c-accent); font-size: 0.8125rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; cursor: pointer; transition: all var(--dur);
+}
+.bd-allowance-btn:hover { border-color: var(--c-accent); background: var(--c-accent); color: #fff; }
+.bd-allowance-btn--zero {
+  background: var(--c-bg); color: var(--c-text-3); font-weight: 500;
+}
+.bd-allowance-btn--zero:hover { background: var(--c-border-light); color: var(--c-text-2); border-color: var(--c-border); }
 .bd-cell-total { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--c-green); }
 
 .bd-edit-input {
@@ -413,5 +774,146 @@ onMounted(fetchData)
     width: 100%;
     min-height: 44px;
   }
+}
+
+/* ── Modals (overlay shared between trips + allowance modals) ── */
+.bd-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.45); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.bd-modal {
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: 18px; width: 100%; max-width: 420px;
+  box-shadow: var(--sh-xl); overflow: hidden;
+  display: flex; flex-direction: column;
+  max-height: calc(100vh - 32px);
+}
+.bd-modal--wide {
+  max-width: 1100px;
+}
+@media (max-width: 1180px) {
+  .bd-modal--wide { max-width: 95vw; }
+}
+@media (max-width: 640px) {
+  .bd-overlay { padding: 8px; }
+  .bd-modal--wide { max-width: 100vw; max-height: calc(100vh - 16px); border-radius: 14px; }
+}
+.bd-modal-hd {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 18px 20px 14px; border-bottom: 1px solid var(--c-border-light);
+}
+.bd-modal-title { font-size: 1rem; font-weight: 700; color: var(--c-text-1); }
+.bd-modal-sub { font-size: 0.8125rem; color: var(--c-text-3); margin-top: 1px; }
+.bd-modal-close {
+  margin-left: auto; flex-shrink: 0; background: none; border: none;
+  cursor: pointer; color: var(--c-text-3); font-size: 1rem; padding: 4px;
+  transition: color var(--dur);
+}
+.bd-modal-close:hover { color: var(--c-text-1); }
+.bd-modal-body { padding: 18px 20px; }
+.bd-modal-locked {
+  font-size: 0.75rem; color: var(--c-amber); background: var(--c-amber-tint);
+  padding: 8px 12px; border-radius: 8px; margin-bottom: 12px;
+}
+.bd-allowance-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.bd-allowance-list li {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 8px;
+}
+.bd-allowance-list li:nth-child(odd) { background: var(--c-bg); }
+.bd-allowance-label { font-size: 0.875rem; color: var(--c-text-2); font-weight: 500; }
+.bd-allowance-amt {
+  font-variant-numeric: tabular-nums; font-weight: 600;
+  color: var(--c-text-1); font-size: 0.875rem;
+}
+.bd-allowance-total-row {
+  margin-top: 6px; border-top: 1px solid var(--c-border-light); padding-top: 12px !important;
+  background: transparent !important;
+}
+.bd-allowance-total-row .bd-allowance-label { font-weight: 700; color: var(--c-text-1); }
+.bd-allowance-amt--total { color: var(--c-green); font-weight: 800; font-size: 1rem; }
+
+.bd-modal-foot {
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;
+}
+.bd-edit-btn--solid {
+  background: var(--c-accent); color: #fff; border: none;
+}
+.bd-edit-btn--solid:hover { opacity: 0.88; }
+
+/* ── Trips modal ───────────────────────────────────────────── */
+.bd-modal-hd-left { min-width: 0; flex: 1; }
+.bd-modal-search { width: 240px; flex-shrink: 0; }
+@media (max-width: 767px) {
+  .bd-modal-hd { flex-wrap: wrap; }
+  .bd-modal-search { order: 3; width: 100%; margin-top: 4px; }
+}
+
+.bd-modal-body--table {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.bd-trips-tbl-wrap {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+@media (max-width: 767px) { .bd-trips-tbl-wrap { display: none; } }
+
+.bd-trips-tbl { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.bd-trips-tbl thead { position: sticky; top: 0; background: var(--c-surface); z-index: 1; }
+.bd-trips-tbl thead tr { border-bottom: 1px solid var(--c-border); }
+.bd-trips-tbl th {
+  padding: 10px 12px; text-align: left;
+  font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--c-text-3); white-space: nowrap;
+  background: var(--c-bg);
+}
+.bd-trips-tbl td {
+  padding: 10px 12px; border-bottom: 1px solid var(--c-border-light);
+  vertical-align: middle; color: var(--c-text-2); white-space: nowrap;
+}
+.bd-trips-tbl tbody tr:last-child td { border-bottom: none; }
+.bd-trips-tbl tbody tr:hover td { background: var(--c-bg); }
+.bd-trips-tbl .ta-r { text-align: right; }
+.bd-trips-tbl .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.bd-trips-tbl .type-tag {
+  display: inline-flex; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em;
+}
+.bd-trips-tbl .type-tag--re { background: var(--c-accent-tint); color: var(--c-accent); }
+.bd-trips-tbl .type-tag--cb { background: var(--c-purple-tint); color: var(--c-purple); }
+
+/* Mobile cards version */
+.bd-trips-cards { display: none; padding: 12px; gap: 10px; flex-direction: column; overflow-y: auto; min-height: 0; flex: 1; }
+@media (max-width: 767px) { .bd-trips-cards { display: flex; } }
+.bd-trips-card {
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  border-radius: var(--r-lg); padding: 12px;
+}
+.bd-trips-card-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.bd-trips-card-top .mono {
+  font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600; color: var(--c-text-1);
+}
+.bd-trips-card-top .type-tag {
+  display: inline-flex; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em;
+}
+.bd-trips-card-top .type-tag--re { background: var(--c-accent-tint); color: var(--c-accent); }
+.bd-trips-card-top .type-tag--cb { background: var(--c-purple-tint); color: var(--c-purple); }
+.bd-trips-card-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px;
+  font-size: 0.8125rem; color: var(--c-text-2);
 }
 </style>

@@ -7,15 +7,35 @@ import {
 } from '../../components/icons/index.js'
 import driverMeApi from '../../api/driverMe'
 import ModalSheet from '../../components/common/ModalSheet.vue'
-import MonthYearPicker from '../../components/common/MonthYearPicker.vue'
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const payslips = ref([])
 const loading  = ref(true)
 const error    = ref('')
 
-// Filter: single month+year, 'YYYY-MM' or '' for all
-const filterPeriod = ref('')
+// Filters: year and month are independent so drivers can scope to a year,
+// a single month across all years, or both at once. Default to the current
+// year so drivers land on a focused, recent view.
+const filterYear  = ref(String(new Date().getFullYear()))
+const filterMonth = ref('')   // '' | '01' | … | '12'
+
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+]
+
+// Driver-facing status labels — friendlier than the internal admin terms.
+//   draft     → Pending  (still being calculated)
+//   confirmed → Approved (final amount confirmed by management)
+//   exported  → Paid     (sent to payroll for disbursement)
+function statusLabel(status) {
+  switch (status) {
+    case 'draft':     return 'Pending'
+    case 'confirmed': return 'Approved'
+    case 'exported':  return 'Paid'
+    default:          return status || '—'
+  }
+}
 
 // Detail modal
 const showDetail = ref(false)
@@ -37,19 +57,34 @@ function periodLabel(p) {
 }
 
 // ── Computed ──────────────────────────────────────────────────────────────────
-// Derive a 'YYYY-MM' key for a payslip — falls back to the period_year/period_month composite.
-function payslipPeriod(p) {
-  if (p.batch_period) return String(p.batch_period).slice(0, 7)
-  if (p.period_year && p.period_month) {
-    return `${p.period_year}-${String(p.period_month).padStart(2, '0')}`
-  }
+function payslipYear(p) {
+  if (p.period_year) return String(p.period_year)
+  if (p.batch_period) return String(p.batch_period).slice(0, 4)
+  return ''
+}
+function payslipMonth(p) {
+  if (p.period_month) return String(p.period_month).padStart(2, '0')
+  if (p.batch_period) return String(p.batch_period).slice(5, 7)
   return ''
 }
 
-const filteredPayslips = computed(() => {
-  if (!filterPeriod.value) return payslips.value
-  return payslips.value.filter(p => payslipPeriod(p) === filterPeriod.value)
+const availableYears = computed(() => {
+  const years = new Set(payslips.value.map(payslipYear).filter(Boolean))
+  return [...years].sort((a, b) => Number(b) - Number(a))
 })
+
+const filteredPayslips = computed(() => {
+  let list = payslips.value
+  if (filterYear.value)  list = list.filter(p => payslipYear(p)  === filterYear.value)
+  if (filterMonth.value) list = list.filter(p => payslipMonth(p) === filterMonth.value)
+  return list
+})
+
+const hasFilter = computed(() => Boolean(filterYear.value || filterMonth.value))
+function clearFilters() {
+  filterYear.value  = ''
+  filterMonth.value = ''
+}
 
 const totalPaid = computed(() =>
   filteredPayslips.value
@@ -115,20 +150,33 @@ async function openDetail(p) {
           <span class="ps-banner-val">{{ filteredPayslips.length }}</span>
         </div>
         <div class="ps-banner-item">
-          <span class="ps-banner-lbl">Total Paid (confirmed)</span>
+          <span class="ps-banner-lbl">Total Earned (Approved + Paid)</span>
           <span class="ps-banner-val green">{{ formatRM(totalPaid) }}</span>
         </div>
       </div>
 
-      <!-- Filter bar — mirrors the Communications filter bar pattern -->
+      <!-- Filter bar — independent year and month dropdowns -->
       <div v-if="payslips.length" class="ps-filter-bar">
         <span class="ps-filter-lbl">
           <FilterIcon :size="12" aria-hidden="true" />
           Filter
         </span>
-        <MonthYearPicker v-model="filterPeriod" aria-label="Filter payslips by period" />
+        <label class="ps-select-wrap" aria-label="Filter by year">
+          <select v-model="filterYear" class="ps-select">
+            <option value="">All years</option>
+            <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
+          </select>
+        </label>
+        <label class="ps-select-wrap" aria-label="Filter by month">
+          <select v-model="filterMonth" class="ps-select">
+            <option value="">All months</option>
+            <option v-for="(name, i) in MONTH_NAMES" :key="name" :value="String(i + 1).padStart(2, '0')">
+              {{ name }}
+            </option>
+          </select>
+        </label>
         <Transition name="ps-fade">
-          <button v-if="filterPeriod" class="ps-clear-btn" @click="filterPeriod = ''">
+          <button v-if="hasFilter" class="ps-clear-btn" @click="clearFilters">
             <CloseIcon :size="10" :stroke-width="2.5" />
             Reset
           </button>
@@ -163,7 +211,7 @@ async function openDetail(p) {
               <CheckCircleIcon v-if="p.status === 'exported'" :size="12" />
               <CheckCircleIcon v-else-if="p.status === 'confirmed'" :size="12" />
               <ClockIcon v-else :size="12" />
-              {{ p.status }}
+              {{ statusLabel(p.status) }}
             </div>
           </div>
 
@@ -233,7 +281,7 @@ async function openDetail(p) {
             <div :class="['ps-badge', `ps-badge--${detail.status}`]">
               <CheckCircleIcon v-if="detail.status !== 'draft'" :size="13" />
               <ClockIcon v-else :size="13" />
-              {{ detail.status }}
+              {{ statusLabel(detail.status) }}
             </div>
           </div>
 
@@ -342,6 +390,39 @@ async function openDetail(p) {
   width: 100%;
   margin-bottom: 4px;
 }
+.ps-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.ps-select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 6px; height: 6px;
+  border-right: 1.5px solid var(--c-text-3);
+  border-bottom: 1.5px solid var(--c-text-3);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+.ps-select {
+  appearance: none;
+  padding: 6px 28px 6px 12px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-full);
+  color: var(--c-text-1);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--dur), box-shadow var(--dur);
+  line-height: 1;
+}
+.ps-select:hover  { border-color: var(--c-text-3); }
+.ps-select:focus  { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-ring); }
+
 .ps-clear-btn {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 0.75rem; font-weight: 500; color: var(--c-text-3);

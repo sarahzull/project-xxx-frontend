@@ -8,6 +8,9 @@ const props = defineProps({
   total:       { type: Number, default: 0 },
   from:        { type: Number, default: 0 },
   to:          { type: Number, default: 0 },
+  // When true, render the footer (with results info) even on a single page;
+  // page controls still hide when there's nothing to navigate.
+  always:      { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['change'])
@@ -41,7 +44,7 @@ function go(page) {
 </script>
 
 <template>
-  <div v-if="lastPage > 1" class="apg">
+  <div v-if="lastPage > 1 || always" class="apg">
     <!-- Results info -->
     <p class="apg-info">
       <template v-if="from && to">
@@ -53,7 +56,7 @@ function go(page) {
     </p>
 
     <!-- Controls -->
-    <div class="apg-controls" role="navigation" aria-label="Pagination">
+    <div v-if="lastPage > 1" class="apg-controls" role="navigation" aria-label="Pagination">
       <button
         class="apg-btn apg-btn--nav"
         :disabled="currentPage <= 1"

@@ -11,16 +11,22 @@ import {
 } from '../../components/icons/index.js'
 
 const auth = useAuthStore()
+const isAdmin = computed(() => auth.hasRole('admin'))
 
 const trips   = ref([])
 const loading = ref(true)
+
+// In production builds, default the date range to today so deployed users land
+// on fresh data. Local dev keeps it open so seeded historical mock data is visible.
+const todayISO = new Date().toISOString().slice(0, 10)
+const defaultDate = import.meta.env.PROD ? todayISO : ''
 
 // ── Filter state ──────────────────────────────────────────────────────────────
 const search     = ref('')
 const typeFilter = ref('')
 const oilFilter  = ref('')
-const dateFrom   = ref('')
-const dateTo     = ref('')
+const dateFrom   = ref(defaultDate)
+const dateTo     = ref(defaultDate)
 
 // ── Oil dropdown state ────────────────────────────────────────────────────────
 const showOilDrop  = ref(false)
@@ -43,8 +49,21 @@ function capitalize(s) {
 }
 
 // ── Computed stats ────────────────────────────────────────────────────────────
-const totalKm      = computed(() => trips.value.reduce((s, t) => s + (Number(t.km_driven) || 0), 0))
-const uniqueDrivers = computed(() => new Set(trips.value.map(t => t.driver_id)).size)
+// Banner stats reflect the currently filtered list so the headline numbers
+// stay in sync with the filter bar. `uniqueTypes` stays on the unfiltered
+// list because it powers the type filter pills themselves.
+const totalKm       = computed(() => filteredTrips.value.reduce((s, t) => s + (Number(t.km_driven) || 0), 0))
+const uniqueDrivers = computed(() => new Set(filteredTrips.value.map(t => t.driver_id)).size)
+const filteredOilCos = computed(() => {
+  const seen = new Map()
+  filteredTrips.value.forEach(t => {
+    if (t.oil_company) {
+      const key = t.oil_company.toLowerCase()
+      if (!seen.has(key)) seen.set(key, capitalize(t.oil_company))
+    }
+  })
+  return [...seen.values()]
+})
 const uniqueTypes  = computed(() => [...new Set(trips.value.map(t => t.type).filter(Boolean))].sort())
 
 // Deduplicate by normalizing casing
@@ -125,8 +144,11 @@ const pageTo   = computed(() => Math.min(page.value * ITEMS_PER_PAGE, filteredTr
 watch([search, typeFilter, oilFilter, dateFrom, dateTo], () => { page.value = 1 })
 
 // ── Columns ───────────────────────────────────────────────────────────────────
-const columns = [
-  { key: 'driver_id',          label: 'Driver',      sortable: true  },
+// Driver column is admin-only; drivers viewing their own trips don't need it.
+const columns = computed(() => [
+  ...(isAdmin.value
+    ? [{ key: 'driver_id', label: 'Driver', sortable: true }]
+    : []),
   { key: 'date',               label: 'Date',        sortable: true  },
   { key: 'road_tanker_id',     label: 'Tanker',      sortable: false },
   { key: 'delivery_note',      label: 'D/Note',      sortable: false },
@@ -138,7 +160,7 @@ const columns = [
   { key: 'load_size',          label: 'Load (Ltr)',  sortable: true  },
   { key: 'km_driven',          label: 'KM',          sortable: true  },
   { key: 'special_notes',      label: 'Notes',       sortable: false },
-]
+])
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 onMounted(async () => {
@@ -206,19 +228,19 @@ function clearFilters() {
       </div>
       <div class="tv-banner-stats">
         <div class="tv-bstat">
-          <span class="tv-bstat-val">{{ loading ? '—' : trips.length }}</span>
+          <span class="tv-bstat-val">{{ loading ? '—' : filteredTrips.length }}</span>
           <span class="tv-bstat-lbl">Total</span>
         </div>
         <div class="tv-bstat tv-bstat--blue">
           <span class="tv-bstat-val">{{ loading ? '—' : totalKm.toLocaleString() }}</span>
           <span class="tv-bstat-lbl">KM</span>
         </div>
-        <div class="tv-bstat tv-bstat--green">
+        <div v-if="isAdmin" class="tv-bstat tv-bstat--green">
           <span class="tv-bstat-val">{{ loading ? '—' : uniqueDrivers }}</span>
           <span class="tv-bstat-lbl">Drivers</span>
         </div>
         <div class="tv-bstat tv-bstat--purple">
-          <span class="tv-bstat-val">{{ loading ? '—' : uniqueOilCos.length }}</span>
+          <span class="tv-bstat-val">{{ loading ? '—' : filteredOilCos.length }}</span>
           <span class="tv-bstat-lbl">Oil Cos.</span>
         </div>
       </div>
@@ -237,6 +259,10 @@ function clearFilters() {
             <span class="chip chip--sort">
               {{ columns.find(c => c.key === sortKey)?.label || sortKey }}
               {{ sortDir === 'asc' ? '↑' : '↓' }}
+            </span>
+            <span v-if="dateFrom || dateTo" class="chip chip--filter">
+              {{ dateFrom && dateTo && dateFrom === dateTo ? formatDate(dateFrom) :
+                 `${dateFrom ? formatDate(dateFrom) : '…'} – ${dateTo ? formatDate(dateTo) : '…'}` }}
             </span>
           </p>
         </div>
@@ -383,12 +409,13 @@ function clearFilters() {
         </DataTable>
 
         <AppPagination
-          v-if="lastPage > 1"
+          v-if="!loading && filteredTrips.length"
           :current-page="page"
           :last-page="lastPage"
           :total="filteredTrips.length"
           :from="pageFrom"
           :to="pageTo"
+          always
           @change="p => { page = p }"
         />
       </div>

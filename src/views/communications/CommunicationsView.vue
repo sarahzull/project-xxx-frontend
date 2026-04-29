@@ -114,8 +114,9 @@ function formatContent(content) {
 // ── Computed ──────────────────────────────────────────────────────────────────
 function itemDate(i) { return (i.date || i.created_at || '').slice(0, 10) }
 
-// Date-range-filtered pool. Banner stats + type/search filter all derive from this,
-// so updating the date range updates the Total / Rewards / Warnings / Announcements counts.
+// Date-range-filtered pool. The driver-side `filtered` view layers type +
+// search on top; banner stats reflect search + date so per-type counts
+// stay meaningful even after the user narrows the view.
 const dateScoped = computed(() => {
   let list = items.value
   if (dateFrom.value) list = list.filter(i => itemDate(i) >= dateFrom.value)
@@ -140,10 +141,50 @@ const filtered = computed(() => {
   return list
 })
 
-const totalCount        = computed(() => dateScoped.value.length)
-const rewardCount       = computed(() => dateScoped.value.filter(i => i.type === 'reward').length)
-const warningCount      = computed(() => dateScoped.value.filter(i => i.type === 'warning').length)
-const announcementCount = computed(() => dateScoped.value.filter(i => i.type === 'announcement').length)
+// Banner stats reflect everything except the type pill, so the per-type
+// counts stay meaningful (e.g. "Rewards: 3 · Warnings: 2") even when the
+// user has narrowed the date range or searched.
+const bannerScoped = computed(() => {
+  let list = dateScoped.value
+  if (!isAdmin.value && searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    list = list.filter(i =>
+      i.subject?.toLowerCase().includes(q) ||
+      i.body?.toLowerCase().includes(q)
+    )
+  }
+  return list
+})
+
+const totalCount        = computed(() => bannerScoped.value.length)
+const rewardCount       = computed(() => bannerScoped.value.filter(i => i.type === 'reward').length)
+const warningCount      = computed(() => bannerScoped.value.filter(i => i.type === 'warning').length)
+const announcementCount = computed(() => bannerScoped.value.filter(i => i.type === 'announcement').length)
+
+// ── Driver-side client pagination ───────────────────────────────────────────
+const DRIVER_PER_PAGE = 15
+const driverPage = ref(1)
+const driverLastPage = computed(() =>
+  Math.max(1, Math.ceil(filtered.value.length / DRIVER_PER_PAGE))
+)
+const driverPagedItems = computed(() => {
+  const start = (driverPage.value - 1) * DRIVER_PER_PAGE
+  return filtered.value.slice(start, start + DRIVER_PER_PAGE)
+})
+const driverPageFrom = computed(() =>
+  filtered.value.length === 0 ? 0 : (driverPage.value - 1) * DRIVER_PER_PAGE + 1
+)
+const driverPageTo = computed(() =>
+  Math.min(driverPage.value * DRIVER_PER_PAGE, filtered.value.length)
+)
+watch([typeFilter, searchQuery, dateFrom, dateTo], () => {
+  if (!isAdmin.value) driverPage.value = 1
+})
+
+// Rows actually rendered — page-sliced for drivers, full filtered set for admin.
+const visibleRows = computed(() =>
+  isAdmin.value ? filtered.value : driverPagedItems.value
+)
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchItems() {
@@ -411,7 +452,7 @@ function onSent() { fetchItems() }
               </template>
 
               <tr
-                v-for="item in filtered"
+                v-for="item in visibleRows"
                 :key="item.id"
                 :class="['cv-tr', !isAdmin && isViewed(item.id) && 'cv-tr--read']"
                 @click="openDetail(item)"
@@ -491,15 +532,26 @@ function onSent() { fetchItems() }
           </table>
         </div>
 
-        <!-- Pagination (admin only) -->
+        <!-- Pagination — admin uses server-side meta, driver uses client-side -->
         <AppPagination
-          v-if="isAdmin && meta.last_page > 1"
+          v-if="isAdmin && !loading && filtered.length"
           :current-page="meta.current_page ?? 1"
           :last-page="meta.last_page ?? 1"
           :total="meta.total ?? 0"
           :from="meta.from ?? 0"
           :to="meta.to ?? 0"
+          always
           @change="p => { page = p; fetchItems() }"
+        />
+        <AppPagination
+          v-else-if="!isAdmin && !loading && filtered.length"
+          :current-page="driverPage"
+          :last-page="driverLastPage"
+          :total="filtered.length"
+          :from="driverPageFrom"
+          :to="driverPageTo"
+          always
+          @change="p => { driverPage = p }"
         />
 
       </div>

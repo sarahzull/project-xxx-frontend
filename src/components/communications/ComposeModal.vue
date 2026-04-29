@@ -109,7 +109,7 @@ function replaceDriverName(from, to) {
 function onDriverBlur() { setTimeout(() => { showDriverDrop.value = false }, 180) }
 
 // ── Templates ─────────────────────────────────────────────────────────────────
-const TEMPLATES = {
+const BUILTIN_TEMPLATES = {
   reward: {
     subject: 'Recognition of Outstanding Performance',
     content: `<p>Dear [Driver Name],</p><p>We are delighted to formally recognise your exceptional performance and dedication to our operations.</p><p>Your commitment to excellence, professional conduct, and consistent delivery of results have set a commendable standard for your peers. This communication serves as an official acknowledgement of your contribution.</p><p>We encourage you to continue demonstrating this level of professionalism and look forward to your continued success within the organisation.</p><p>Congratulations on this well-deserved recognition.</p><p>Warm regards,<br>Management</p>`,
@@ -124,17 +124,154 @@ const TEMPLATES = {
   },
 }
 
-function applyTemplate(type) {
-  const tpl = TEMPLATES[type]
-  if (!tpl) return
-  form.value.type    = type
-  form.value.subject = tpl.subject
-  // If a driver is already selected, immediately swap in their name
-  const content = selectedDriver.value
-    ? tpl.content.replaceAll('[Driver Name]', selectedDriver.value.name)
-    : tpl.content
-  form.value.content = content
-  editor.value?.commands.setContent(content)
+// Persist admin-saved templates locally for now. When the backend exposes a
+// templates endpoint, swap the localStorage layer for an API call.
+const CUSTOM_TPL_KEY = 'cv_custom_templates'
+const customTemplates = ref([])
+
+function loadCustomTemplates() {
+  try {
+    customTemplates.value = JSON.parse(localStorage.getItem(CUSTOM_TPL_KEY) || '[]')
+  } catch {
+    customTemplates.value = []
+  }
+}
+function persistCustomTemplates() {
+  localStorage.setItem(CUSTOM_TPL_KEY, JSON.stringify(customTemplates.value))
+}
+
+// Tracks which slot is selected in the template picker.
+// Values: 'blank' | 'reward' | 'warning' | 'announcement' | `custom:<id>`.
+const selectedTemplate = ref('reward')
+
+function applyTemplate(value) {
+  selectedTemplate.value = value
+
+  // Blank — clear subject/content; type stays whatever the admin picked above.
+  if (value === 'blank') {
+    form.value.subject = ''
+    form.value.content = ''
+    editor.value?.commands.setContent('')
+    return
+  }
+
+  // Built-in templates only pre-fill subject/content. Type is chosen
+  // independently in the Type selector above so the two concerns don't fight.
+  const builtin = BUILTIN_TEMPLATES[value]
+  if (builtin) {
+    form.value.subject = builtin.subject
+    const content = selectedDriver.value
+      ? builtin.content.replaceAll('[Driver Name]', selectedDriver.value.name)
+      : builtin.content
+    form.value.content = content
+    editor.value?.commands.setContent(content)
+    return
+  }
+
+  // Saved custom template — restore its captured type so the badge matches
+  // what the admin originally picked when saving.
+  if (value.startsWith('custom:')) {
+    const id  = value.slice('custom:'.length)
+    const tpl = customTemplates.value.find(t => String(t.id) === id)
+    if (!tpl) return
+    if (tpl.type) form.value.type = tpl.type
+    form.value.subject = tpl.subject || ''
+    const content = selectedDriver.value
+      ? (tpl.content || '').replaceAll('[Driver Name]', selectedDriver.value.name)
+      : (tpl.content || '')
+    form.value.content = content
+    editor.value?.commands.setContent(content)
+  }
+}
+
+const TYPE_OPTIONS = [
+  { value: 'reward',       label: 'Reward'       },
+  { value: 'warning',      label: 'Warning'      },
+  { value: 'announcement', label: 'Announcement' },
+]
+
+// In-form save flow — shows an inline name field so admins can label templates
+// without a native prompt() dialog.
+const showSaveForm = ref(false)
+const saveNameInput = ref('')
+
+function openSaveTemplateForm() {
+  const subject = form.value.subject.trim()
+  const content = form.value.content
+  if (!subject || !content || content === '<p></p>') {
+    toast.error('Add a subject and content before saving as a template.', { title: 'Cannot Save' })
+    return
+  }
+  saveNameInput.value = subject
+  showSaveForm.value  = true
+}
+
+function cancelSaveTemplate() {
+  showSaveForm.value  = false
+  saveNameInput.value = ''
+}
+
+function confirmSaveTemplate() {
+  const name = saveNameInput.value.trim()
+  if (!name) {
+    toast.error('Template name cannot be empty.', { title: 'Cannot Save' })
+    return
+  }
+
+  // Stash the placeholder so saved templates work for any future driver.
+  let stored = form.value.content
+  if (selectedDriver.value?.name) {
+    stored = stored.replaceAll(selectedDriver.value.name, '[Driver Name]')
+  }
+
+  const tpl = {
+    id:      String(Date.now()),
+    name,
+    type:    form.value.type,
+    subject: form.value.subject.trim(),
+    content: stored,
+  }
+  customTemplates.value = [...customTemplates.value, tpl]
+  persistCustomTemplates()
+  selectedTemplate.value = `custom:${tpl.id}`
+  showSaveForm.value  = false
+  saveNameInput.value = ''
+  toast.success(`Saved "${tpl.name}" to your templates.`, { title: 'Template Saved' })
+}
+
+// Rename flow for an existing custom template.
+const renamingTemplateId = ref(null)
+const renameInput = ref('')
+
+function startRenameTemplate(tpl) {
+  renamingTemplateId.value = tpl.id
+  renameInput.value = tpl.name
+}
+function cancelRenameTemplate() {
+  renamingTemplateId.value = null
+  renameInput.value = ''
+}
+function confirmRenameTemplate() {
+  const id   = renamingTemplateId.value
+  const name = renameInput.value.trim()
+  if (!id) return
+  if (!name) {
+    toast.error('Template name cannot be empty.', { title: 'Cannot Rename' })
+    return
+  }
+  customTemplates.value = customTemplates.value.map(t =>
+    String(t.id) === String(id) ? { ...t, name } : t
+  )
+  persistCustomTemplates()
+  renamingTemplateId.value = null
+  renameInput.value = ''
+}
+
+function removeCustomTemplate(id) {
+  customTemplates.value = customTemplates.value.filter(t => String(t.id) !== String(id))
+  persistCustomTemplates()
+  if (selectedTemplate.value === `custom:${id}`) selectedTemplate.value = 'blank'
+  if (renamingTemplateId.value === id) cancelRenameTemplate()
 }
 
 // ── Tiptap editor ─────────────────────────────────────────────────────────────
@@ -169,6 +306,7 @@ watch(() => props.modelValue, (open) => {
     form.value    = { driver_id: '', type: 'reward', subject: '', content: '', date: new Date().toISOString().split('T')[0] }
     composeErr.value = ''
     activeTab.value  = 'form'
+    loadCustomTemplates()
     clearDriver()
     applyTemplate('reward')
   }
@@ -237,19 +375,107 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
                 <CloseIcon :size="14" />{{ composeErr }}
               </div>
 
+              <!-- Type selector -->
+              <div class="cm-section">
+                <p class="cm-section-label">Type</p>
+                <div class="cm-type-seg" role="group" aria-label="Communication type">
+                  <button
+                    v-for="opt in TYPE_OPTIONS"
+                    :key="opt.value"
+                    type="button"
+                    :class="['cm-type-seg-btn', `cm-type-seg-btn--${opt.value}`, form.type === opt.value && 'cm-type-seg-btn--on']"
+                    @click="form.type = opt.value"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
+              </div>
+
               <!-- Template selector -->
               <div class="cm-section">
-                <p class="cm-section-label">Template</p>
+                <div class="cm-section-row">
+                  <p class="cm-section-label">Template</p>
+                  <button
+                    type="button"
+                    class="cm-tpl-save"
+                    :disabled="showSaveForm"
+                    @click="openSaveTemplateForm"
+                    title="Save the current subject and content as a reusable template"
+                  >
+                    + Save as template
+                  </button>
+                </div>
                 <div class="cm-template-select-wrap">
                   <select
-                    :value="form.type"
+                    :value="selectedTemplate"
                     class="cm-template-select"
                     @change="applyTemplate($event.target.value)"
                   >
-                    <option value="reward">Reward Communication</option>
-                    <option value="warning">Warning Communication</option>
-                    <option value="announcement">Announcement</option>
+                    <option value="blank">Blank — write from scratch</option>
+                    <optgroup label="Built-in templates">
+                      <option value="reward">Recognition / reward template</option>
+                      <option value="warning">Disciplinary warning template</option>
+                      <option value="announcement">General announcement template</option>
+                    </optgroup>
+                    <optgroup v-if="customTemplates.length" label="Saved templates">
+                      <option
+                        v-for="tpl in customTemplates"
+                        :key="tpl.id"
+                        :value="`custom:${tpl.id}`"
+                      >{{ tpl.name }}</option>
+                    </optgroup>
                   </select>
+                </div>
+
+                <!-- Save-as-template inline form (shown after clicking + Save as template) -->
+                <Transition name="cm-fade">
+                  <div v-if="showSaveForm" class="cm-tpl-save-form">
+                    <label class="cm-tpl-save-lbl">Template name</label>
+                    <div class="cm-tpl-save-row">
+                      <input
+                        v-model="saveNameInput"
+                        type="text"
+                        class="cm-input cm-tpl-save-input"
+                        placeholder="e.g. Vehicle Maintenance Reminder"
+                        @keyup.enter="confirmSaveTemplate"
+                        @keyup.esc="cancelSaveTemplate"
+                      />
+                      <button type="button" class="cm-tpl-save-btn" @click="confirmSaveTemplate">Save</button>
+                      <button type="button" class="cm-tpl-cancel-btn" @click="cancelSaveTemplate">Cancel</button>
+                    </div>
+                  </div>
+                </Transition>
+
+                <!-- Inline rename / remove for the currently selected custom template -->
+                <div
+                  v-if="selectedTemplate.startsWith('custom:')"
+                  class="cm-tpl-actions"
+                >
+                  <template v-if="renamingTemplateId === selectedTemplate.slice('custom:'.length)">
+                    <input
+                      v-model="renameInput"
+                      type="text"
+                      class="cm-input cm-tpl-save-input"
+                      placeholder="Template name"
+                      @keyup.enter="confirmRenameTemplate"
+                      @keyup.esc="cancelRenameTemplate"
+                    />
+                    <button type="button" class="cm-tpl-save-btn" @click="confirmRenameTemplate">Save</button>
+                    <button type="button" class="cm-tpl-cancel-btn" @click="cancelRenameTemplate">Cancel</button>
+                  </template>
+                  <template v-else>
+                    <button
+                      type="button"
+                      class="cm-tpl-link"
+                      @click="startRenameTemplate(customTemplates.find(t => String(t.id) === selectedTemplate.slice('custom:'.length)))"
+                    >Rename</button>
+                    <span class="cm-tpl-link-sep">·</span>
+                    <button
+                      type="button"
+                      class="cm-tpl-link cm-tpl-link--danger"
+                      @click="removeCustomTemplate(selectedTemplate.slice('custom:'.length))"
+                    >Remove</button>
+                  </template>
                 </div>
               </div>
 
@@ -476,7 +702,8 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 
 /* ── Body layout ────────────────────────────────────────────────────────────── */
 .cm-body {
-  flex: 1; overflow: hidden;
+  flex: 1 1 auto; min-height: 0;
+  overflow: hidden;
   display: flex; flex-direction: column;
 }
 @media (min-width: 768px) {
@@ -486,16 +713,25 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 /* ── Columns ─────────────────────────────────────────────────────────────────── */
 .cm-col-form,
 .cm-col-preview {
-  flex: 1; overflow-y: auto; padding: 1.25rem;
+  /* min-height: 0 lets the flex child shrink below its content size so
+     `overflow-y: auto` can actually scroll instead of pushing past the footer. */
+  flex: 1 1 0; min-height: 0; min-width: 0;
+  overflow-y: auto; padding: 1.25rem;
 }
 .cm-col-preview {
   background: var(--c-bg);
   border-top: 1px solid var(--c-border);
+  /* Extra bottom space so the letter's foot section ("OFFICIAL DRIVER COMMUNICATION")
+     is fully reachable on shorter viewports without bumping into the modal footer. */
+  padding-bottom: 2rem;
 }
 @media (min-width: 768px) {
   .cm-col-form    { flex: 0 0 50%; border-right: 1px solid var(--c-border); }
   .cm-col-preview { flex: 0 0 50%; border-top: none; }
-  .cm-col--hidden { display: flex !important; } /* Both always visible on desktop */
+  /* On desktop both columns are always visible — undo the mobile-tab "hidden"
+     state. Using `display: block` keeps the column a normal block flow so the
+     letter card can grow naturally and the column scrolls when needed. */
+  .cm-col--hidden { display: block !important; }
 }
 /* Mobile: hide inactive tab */
 @media (max-width: 767px) {
@@ -511,6 +747,94 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 }
 .cm-section       { margin-bottom: 0.875rem; }
 .cm-section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--c-text-2); margin-bottom: 0.4rem; }
+.cm-section-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 0.4rem;
+}
+.cm-section-row .cm-section-label { margin-bottom: 0; }
+.cm-tpl-save {
+  font-size: 0.72rem; font-weight: 600; color: #7C3AED;
+  background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.2);
+  padding: 3px 9px; border-radius: var(--r-full);
+  transition: background var(--dur), border-color var(--dur);
+}
+.cm-tpl-save:hover { background: rgba(124,58,237,0.16); border-color: rgba(124,58,237,0.4); }
+.cm-tpl-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Inline name-template form */
+.cm-tpl-save-form {
+  margin-top: 8px;
+  padding: 10px;
+  background: rgba(124,58,237,0.05);
+  border: 1px solid rgba(124,58,237,0.2);
+  border-radius: 9px;
+}
+.cm-tpl-save-lbl {
+  display: block; font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--c-text-2); margin-bottom: 6px;
+}
+.cm-tpl-save-row {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.cm-tpl-save-input { flex: 1 1 160px; min-width: 0; padding: 0.45rem 0.75rem; }
+.cm-tpl-save-btn,
+.cm-tpl-cancel-btn {
+  padding: 0.4rem 0.85rem; border-radius: 7px; font-size: 0.78rem; font-weight: 600;
+  flex-shrink: 0;
+}
+.cm-tpl-save-btn   { background: #7C3AED; color: #fff; border: none; }
+.cm-tpl-save-btn:hover   { background: #6D28D9; }
+.cm-tpl-cancel-btn {
+  background: transparent; color: var(--c-text-2);
+  border: 1px solid var(--c-border);
+}
+.cm-tpl-cancel-btn:hover { background: var(--c-bg); color: var(--c-text-1); }
+
+/* Saved-template inline actions (rename / remove) */
+.cm-tpl-actions {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 6px; font-size: 0.75rem;
+}
+.cm-tpl-link {
+  background: transparent; border: none; padding: 2px 0;
+  font-size: 0.75rem; font-weight: 500; color: #7C3AED;
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.cm-tpl-link:hover { color: #6D28D9; }
+.cm-tpl-link--danger { color: #EF4444; }
+.cm-tpl-link--danger:hover { color: #B91C1C; }
+.cm-tpl-link-sep { color: var(--c-text-3); }
+
+/* Smooth show/hide for the inline save form */
+.cm-fade-enter-active, .cm-fade-leave-active {
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.cm-fade-enter-from, .cm-fade-leave-to {
+  opacity: 0; transform: translateY(-4px);
+}
+
+/* Type segmented control */
+.cm-type-seg {
+  display: inline-flex; gap: 4px;
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  padding: 3px; border-radius: var(--r-full);
+}
+.cm-type-seg-btn {
+  flex: 1;
+  padding: 6px 14px; border-radius: var(--r-full); border: none;
+  background: transparent; color: var(--c-text-3);
+  font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+  transition: background var(--dur), color var(--dur), box-shadow var(--dur);
+  white-space: nowrap;
+}
+.cm-type-seg-btn:hover:not(.cm-type-seg-btn--on) {
+  background: var(--c-surface); color: var(--c-text-1);
+}
+.cm-type-seg-btn--on { background: var(--c-surface); box-shadow: var(--sh-xs); }
+.cm-type-seg-btn--reward.cm-type-seg-btn--on       { color: #16A34A; }
+.cm-type-seg-btn--warning.cm-type-seg-btn--on      { color: #D97706; }
+.cm-type-seg-btn--announcement.cm-type-seg-btn--on { color: #7C3AED; }
 .cm-field         { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.875rem; }
 .cm-label         { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--c-text-2); }
 .cm-req           { color: #EF4444; }

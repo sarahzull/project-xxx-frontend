@@ -25,6 +25,7 @@ const routes = [
       { path: 'reports',       name: 'reports',      component: () => import('../views/reports/ReportsView.vue'),                meta: { roles: ['admin'] } },
       { path: 'rates',         name: 'rates',        component: () => import('../views/rates/RateManagementView.vue'),           meta: { roles: ['admin'] } },
       { path: 'users',         name: 'users',        component: () => import('../views/users/UserListView.vue'),                 meta: { roles: ['admin'] } },
+      { path: 'audit-logs',    name: 'audit-logs',   component: () => import('../views/audit/AuditLogsView.vue'),                meta: { roles: ['admin'] } },
 
       // Driver-only routes
       { path: 'earnings',  name: 'earnings',  component: () => import('../views/earnings/EarningsView.vue'),   meta: { roles: ['driver'] } },

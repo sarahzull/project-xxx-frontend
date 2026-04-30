@@ -40,7 +40,7 @@ const allNavigation = [
   { name: 'Communications', path: '/communications', icon: CommunicationsIcon, roles: null },
   // Coming soon (visual placeholders, no route yet)
   { name: 'Safety Driving', path: null, icon: SafetyIcon,   roles: ['admin'], comingSoon: true },
-  { name: 'Audit Logs',     path: null, icon: AuditLogIcon, roles: ['admin'], comingSoon: true },
+  { name: 'Audit Logs',     path: '/audit-logs', icon: AuditLogIcon, roles: ['admin'] },
 ]
 
 const navigation = computed(() =>

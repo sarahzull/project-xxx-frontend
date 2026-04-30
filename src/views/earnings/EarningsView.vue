@@ -4,18 +4,30 @@ import {
   EarningsIcon, TruckIcon, RouteIcon, PayIcon,
   CalendarIcon, CloseIcon, FilterIcon,
 } from '../../components/icons/index.js'
-import driverMeApi from '../../api/driverMe'
+import driverMeApi      from '../../api/driverMe'
+import DateRangePicker  from '../../components/common/DateRangePicker.vue'
+import AppPagination    from '../../components/common/AppPagination.vue'
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const earnings = ref([])
 const loading  = ref(true)
 const error    = ref('')
 
-function currentMonthStr() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+// Default the filter to the current calendar month so drivers land on a focused
+// view, while still letting them widen or narrow with the same DateRangePicker
+// used on Trips/Communications.
+function isoDay(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-const selectedMonth = ref(currentMonthStr())
+function defaultRange() {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  return { from: isoDay(start), to: isoDay(end) }
+}
+const initialRange = defaultRange()
+const dateFrom = ref(initialRange.from)
+const dateTo   = ref(initialRange.to)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(s) {
@@ -28,25 +40,26 @@ function formatRM(v) {
   return `RM ${(v || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function monthLabel(str) {
-  if (!str) return ''
-  const [y, m] = str.split('-')
-  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return `${names[parseInt(m, 10) - 1]} ${y}`
-}
-
-// Build list of last 12 months for the month picker
-const monthOptions = computed(() => {
-  const opts = []
-  const d = new Date()
-  for (let i = 0; i < 12; i++) {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    opts.push({ value: `${y}-${m}`, label: monthLabel(`${y}-${m}`) })
-    d.setMonth(d.getMonth() - 1)
+const rangeLabel = computed(() => {
+  if (dateFrom.value && dateTo.value && dateFrom.value === dateTo.value) {
+    return formatDate(dateFrom.value)
   }
-  return opts
+  if (dateFrom.value && dateTo.value) {
+    return `${formatDate(dateFrom.value)} – ${formatDate(dateTo.value)}`
+  }
+  if (dateFrom.value) return `from ${formatDate(dateFrom.value)}`
+  if (dateTo.value)   return `until ${formatDate(dateTo.value)}`
+  return 'all time'
 })
+
+const hasFilter = computed(() =>
+  dateFrom.value !== initialRange.from || dateTo.value !== initialRange.to
+)
+
+function resetFilters() {
+  dateFrom.value = initialRange.from
+  dateTo.value   = initialRange.to
+}
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 const totalEarnings = computed(() =>
@@ -57,7 +70,7 @@ const totalKm    = computed(() =>
   earnings.value.reduce((s, t) => s + (t.km_driven || 0), 0)
 )
 
-// Group trips by date, newest first
+// Group trips by date, newest first.
 const byDate = computed(() => {
   const groups = {}
   for (const t of earnings.value) {
@@ -69,13 +82,30 @@ const byDate = computed(() => {
   return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date))
 })
 
+// ── Pagination — paginate by day group so each page renders complete days ────
+const PER_PAGE = 7
+const page = ref(1)
+const lastPage = computed(() => Math.max(1, Math.ceil(byDate.value.length / PER_PAGE)))
+const pagedDayGroups = computed(() => {
+  const start = (page.value - 1) * PER_PAGE
+  return byDate.value.slice(start, start + PER_PAGE)
+})
+const pageFrom = computed(() =>
+  byDate.value.length === 0 ? 0 : (page.value - 1) * PER_PAGE + 1
+)
+const pageTo = computed(() => Math.min(page.value * PER_PAGE, byDate.value.length))
+
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchEarnings() {
   loading.value = true
   error.value   = ''
   try {
-    const res = await driverMeApi.earnings({ month: selectedMonth.value })
+    const params = {}
+    if (dateFrom.value) params.from = dateFrom.value
+    if (dateTo.value)   params.to   = dateTo.value
+    const res = await driverMeApi.earnings(params)
     earnings.value = res.data.data || []
+    page.value = 1
   } catch (e) {
     error.value = e.response?.data?.message || 'Failed to load earnings.'
   } finally {
@@ -83,7 +113,7 @@ async function fetchEarnings() {
   }
 }
 
-watch(selectedMonth, fetchEarnings)
+watch([dateFrom, dateTo], fetchEarnings)
 onMounted(fetchEarnings)
 </script>
 
@@ -101,14 +131,21 @@ onMounted(fetchEarnings)
           <p class="earn-sub">Daily trip earnings based on trip rate matrix</p>
         </div>
       </div>
+    </div>
 
-      <!-- Month selector -->
-      <div class="earn-month-wrap">
-        <CalendarIcon :size="15" class="earn-month-icon" />
-        <select v-model="selectedMonth" class="earn-month-select">
-          <option v-for="o in monthOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
-        </select>
-      </div>
+    <!-- ── Filter bar (matches Trips / Communications pattern) ──────────── -->
+    <div class="earn-filter-bar">
+      <span class="earn-filter-lbl">
+        <FilterIcon :size="12" aria-hidden="true" />
+        Filter
+      </span>
+      <DateRangePicker v-model:from="dateFrom" v-model:to="dateTo" />
+      <Transition name="earn-fade">
+        <button v-if="hasFilter" class="earn-clear-btn" @click="resetFilters">
+          <CloseIcon :size="10" :stroke-width="2.5" />
+          Reset
+        </button>
+      </Transition>
     </div>
 
     <!-- ── Error ───────────────────────────────────────────────────────────── -->
@@ -131,7 +168,7 @@ onMounted(fetchEarnings)
           <div class="earn-stat-icon"><PayIcon :size="20" /></div>
           <div class="earn-stat-body">
             <div class="earn-stat-val">{{ formatRM(totalEarnings) }}</div>
-            <div class="earn-stat-lbl">Total Earned · {{ monthLabel(selectedMonth) }}</div>
+            <div class="earn-stat-lbl">Total Earned · {{ rangeLabel }}</div>
           </div>
         </div>
         <div class="earn-stat earn-stat--blue">
@@ -153,12 +190,12 @@ onMounted(fetchEarnings)
       <!-- ── Empty state ───────────────────────────────────────────────────── -->
       <div v-if="!byDate.length" class="earn-empty">
         <EarningsIcon :size="36" :stroke-width="1.2" />
-        <p>No trips recorded for {{ monthLabel(selectedMonth) }}</p>
+        <p>No trips recorded for {{ rangeLabel }}</p>
       </div>
 
       <!-- ── Daily groups ──────────────────────────────────────────────────── -->
       <template v-else>
-        <div v-for="group in byDate" :key="group.date" class="earn-day-group">
+        <div v-for="group in pagedDayGroups" :key="group.date" class="earn-day-group">
 
           <!-- Day header -->
           <div class="earn-day-hdr">
@@ -231,6 +268,19 @@ onMounted(fetchEarnings)
           </div>
 
         </div>
+
+        <!-- Pagination — paginate by day group -->
+        <AppPagination
+          v-if="byDate.length"
+          class="earn-pagination"
+          :current-page="page"
+          :last-page="lastPage"
+          :total="byDate.length"
+          :from="pageFrom"
+          :to="pageTo"
+          always
+          @change="p => { page = p }"
+        />
       </template>
 
     </template>
@@ -254,16 +304,37 @@ onMounted(fetchEarnings)
 .earn-title { font-size: 1.125rem; font-weight: 700; color: var(--c-text); margin: 0 0 2px; }
 .earn-sub   { font-size: 0.78rem; color: var(--c-text-2); margin: 0; }
 
-/* Month select */
-.earn-month-wrap {
-  display: flex; align-items: center; gap: 0.4rem;
-  background: var(--c-surface); border: 1px solid var(--c-border);
-  border-radius: 10px; padding: 0.35rem 0.75rem;
+/* Filter bar — matches Trips / Communications pattern */
+.earn-filter-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 10px 14px; background: var(--c-surface);
+  border: 1px solid var(--c-border); border-radius: 12px;
 }
-.earn-month-icon { color: var(--c-text-2); flex-shrink: 0; }
-.earn-month-select {
-  background: transparent; border: none; outline: none;
-  font-size: 0.84rem; color: var(--c-text); font-weight: 500; cursor: pointer;
+.earn-filter-lbl {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--c-text-3);
+  width: 100%; margin-bottom: 4px;
+}
+.earn-clear-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.75rem; font-weight: 500; color: var(--c-text-3);
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--c-border); background: var(--c-surface);
+  cursor: pointer; transition: all var(--dur); flex-shrink: 0;
+}
+.earn-clear-btn:hover {
+  border-color: var(--c-red, #EF4444);
+  color: var(--c-red, #EF4444);
+}
+.earn-fade-enter-active, .earn-fade-leave-active { transition: opacity var(--dur), transform var(--dur); }
+.earn-fade-enter-from, .earn-fade-leave-to { opacity: 0; transform: scale(0.85); }
+
+/* Pagination wrapper */
+.earn-pagination {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
 }
 
 /* ── Loading / Error ─────────────────────────────────────────────────────────── */

@@ -114,14 +114,40 @@ function resetFilters() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-function formatDateTime(s) {
+const KL_TZ = 'Asia/Kuala_Lumpur'
+
+// Field names we never want to surface in the audit feed — either sensitive
+// (credentials/tokens) or already redundant elsewhere on the page.
+const SENSITIVE_FIELDS = new Set([
+  'password',
+  'password_hash',
+  'remember_token',
+  'api_token',
+  'two_factor_secret',
+  'two_factor_recovery_codes',
+])
+
+function formatDate(s) {
   if (!s) return '—'
   const d = new Date(s)
   if (Number.isNaN(d.getTime())) return s
-  return d.toLocaleString('en-GB', {
+  return d.toLocaleDateString('en-GB', {
+    timeZone: KL_TZ,
     day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
+}
+function formatTime(s) {
+  if (!s) return ''
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return s
+  return d.toLocaleTimeString('en-GB', {
+    timeZone: KL_TZ,
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  })
+}
+function formatDateTime(s) {
+  return `${formatDate(s)} ${formatTime(s)}`.trim()
 }
 
 function actionLabel(a) {
@@ -151,24 +177,123 @@ function tableLabel(t) {
 // After migration 003 each audit row holds ONE column-level change in
 // scalar text, so the table can show the diff inline without an expander.
 const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/
+
 function formatValue(v) {
   if (v === null || v === undefined || v === '') return '—'
   const s = String(v)
-  // Detect ISO-ish datetime strings and render as dd/mm/yyyy HH:mm:ss
+  // Detect ISO-ish datetime strings and render as dd/mm/yyyy HH:mm:ss in KL time
   if (ISO_DATETIME_RE.test(s.trim())) {
     const d = new Date(s)
     if (!Number.isNaN(d.getTime())) {
-      const pad = n => String(n).padStart(2, '0')
-      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} `
-        + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: KL_TZ,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+      }).formatToParts(d).reduce((acc, p) => { acc[p.type] = p.value; return acc }, {})
+      // en-GB format: dd/mm/yyyy with comma — rebuild as dd/mm/yyyy HH:mm:ss
+      return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}:${parts.second}`
     }
   }
   return s.length > 80 ? s.slice(0, 80) + '…' : s
 }
+
+// Field-aware human label so audit entries read like the admin UI.
+// e.g. is_active=true → "Active", read_at=null → "—".
+const FIELD_VALUE_LABELS = {
+  is_active: { true: 'Active', false: 'Blocked', 1: 'Active', 0: 'Blocked' },
+  status:    { draft: 'Pending', confirmed: 'Approved', exported: 'Paid' },
+}
+const BOOLEAN_LIKE = new Set(['true', 'false', '1', '0', 't', 'f'])
+function asBoolLabel(v) {
+  switch (String(v).toLowerCase()) {
+    case 'true':
+    case '1':
+    case 't':  return 'Yes'
+    case 'false':
+    case '0':
+    case 'f':  return 'No'
+    default:   return v
+  }
+}
+
+function displayValue(field, raw) {
+  if (raw === null || raw === undefined || raw === '') return '—'
+  const map = FIELD_VALUE_LABELS[String(field || '').toLowerCase()]
+  if (map && map[String(raw).toLowerCase()] !== undefined) {
+    return map[String(raw).toLowerCase()]
+  }
+  // Generic boolean translation when no field-specific mapping is defined.
+  if (BOOLEAN_LIKE.has(String(raw).toLowerCase())) {
+    return asBoolLabel(raw)
+  }
+  return formatValue(raw)
+}
+
 function fieldLabel(name) {
   if (!name) return '—'
   return String(name).replaceAll('_', ' ')
 }
+
+// Per-group expansion state for the "show more / show less" toggle.
+const expandedGroups = ref(new Set())
+function toggleExpand(key) {
+  const s = new Set(expandedGroups.value)
+  if (s.has(key)) s.delete(key)
+  else s.add(key)
+  expandedGroups.value = s
+}
+
+// Pick the most "human" field to show first when a group has many changes.
+// Falls back to the first change in the group.
+const PRIMARY_FIELD_PRIORITY = [
+  'name', 'driver_name', 'subject', 'batch_number',
+  'email', 'phone', 'status', 'is_active',
+]
+function primaryChange(group) {
+  if (!group.changes.length) return null
+  for (const f of PRIMARY_FIELD_PRIORITY) {
+    const found = group.changes.find(c => String(c.field || '').toLowerCase() === f)
+    if (found) return found
+  }
+  return group.changes[0]
+}
+function secondaryChanges(group) {
+  const primary = primaryChange(group)
+  if (!primary) return []
+  return group.changes.filter(c => c !== primary)
+}
+
+// Group rows that came from the same record-level write so a single row
+// appears in the table even though the trigger emitted one DB row per
+// changed column. Grouping key: table + row_id + action + created_at.
+const groupedLogs = computed(() => {
+  const visible = logs.value.filter(l =>
+    !SENSITIVE_FIELDS.has(String(l.changed_fields || '').toLowerCase())
+  )
+  const map = new Map()
+  for (const l of visible) {
+    const key = [l.table_name, l.row_id, l.action, l.created_at].join('|')
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        id:           l.id,
+        created_at:   l.created_at,
+        user:         l.user,
+        action:       l.action,
+        table_name:   l.table_name,
+        row_id:       l.row_id,
+        changes:      [],
+      })
+    }
+    map.get(key).changes.push({
+      field:      l.changed_fields,
+      old_values: l.old_values,
+      new_values: l.new_values,
+    })
+  }
+  return [...map.values()]
+})
 
 // ── Fetch ──────────────────────────────────────────────────────────────────────
 async function fetchLogs() {
@@ -438,48 +563,68 @@ onBeforeUnmount(() => {
               <th class="al-th--time">When</th>
               <th class="al-th--user">User</th>
               <th class="al-th--action">Action</th>
-              <th class="al-th--table">Table</th>
-              <th class="al-th--field">Field</th>
               <th class="al-th--change">Change</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="6" class="al-empty">Loading audit logs…</td>
+              <td colspan="4" class="al-empty">Loading audit logs…</td>
             </tr>
-            <tr v-else-if="!logs.length">
-              <td colspan="6" class="al-empty">
+            <tr v-else-if="!groupedLogs.length">
+              <td colspan="4" class="al-empty">
                 {{ hasFilter ? 'No audit logs match these filters.' : 'No audit activity recorded for today yet.' }}
               </td>
             </tr>
-            <tr v-for="log in logs" :key="log.id" class="al-row">
-              <td class="al-cell-time mono">{{ formatDateTime(log.created_at) }}</td>
+            <tr v-for="g in groupedLogs" :key="g.key" class="al-row">
+              <td class="al-cell-time">
+                <div class="al-when">
+                  <span class="al-when-date">{{ formatDate(g.created_at) }}</span>
+                  <span class="al-when-time mono">{{ formatTime(g.created_at) }}</span>
+                </div>
+              </td>
               <td class="al-cell-user">
-                <span v-if="log.user" class="al-user-name">{{ log.user.name }}</span>
+                <span v-if="g.user" class="al-user-name">{{ g.user.name }}</span>
                 <span v-else class="al-user-system">System</span>
+                <span v-if="g.user?.email" class="al-cell-user-meta">{{ g.user.email }}</span>
               </td>
               <td>
-                <span :class="['al-action', `al-action--${String(log.action || '').toLowerCase()}`]">
-                  {{ actionLabel(log.action) }}
+                <span :class="['al-action', `al-action--${String(g.action || '').toLowerCase()}`]">
+                  {{ actionLabel(g.action) }}
                 </span>
               </td>
-              <td class="al-cell-table">{{ tableLabel(log.table_name) }}</td>
-              <td class="al-cell-field">
-                <code v-if="log.changed_fields" class="al-field-tag">{{ fieldLabel(log.changed_fields) }}</code>
-                <span v-else class="al-changes-na">—</span>
-              </td>
               <td class="al-cell-change">
-                <template v-if="String(log.action).toUpperCase() === 'INSERT'">
-                  <span class="al-val al-val--new">+ {{ formatValue(log.new_values) }}</span>
-                </template>
-                <template v-else-if="String(log.action).toUpperCase() === 'DELETE'">
-                  <span class="al-val al-val--old">− {{ formatValue(log.old_values) }}</span>
-                </template>
-                <template v-else>
-                  <span class="al-val al-val--old">{{ formatValue(log.old_values) }}</span>
-                  <span class="al-arrow">→</span>
-                  <span class="al-val al-val--new">{{ formatValue(log.new_values) }}</span>
-                </template>
+                <ul class="al-change-list">
+                  <li v-for="c in (expandedGroups.has(g.key) ? g.changes : [primaryChange(g)])" :key="c.field" class="al-change-row">
+                    <span class="al-field-tag">{{ fieldLabel(c.field) }}</span>
+                    <template v-if="String(g.action).toUpperCase() === 'INSERT'">
+                      <span class="al-val al-val--new">+ {{ displayValue(c.field, c.new_values) }}</span>
+                    </template>
+                    <template v-else-if="String(g.action).toUpperCase() === 'DELETE'">
+                      <span class="al-val al-val--old">− {{ displayValue(c.field, c.old_values) }}</span>
+                    </template>
+                    <template v-else>
+                      <span class="al-val al-val--old">{{ displayValue(c.field, c.old_values) }}</span>
+                      <span class="al-arrow">→</span>
+                      <span class="al-val al-val--new">{{ displayValue(c.field, c.new_values) }}</span>
+                    </template>
+                  </li>
+                </ul>
+                <button
+                  v-if="g.changes.length > 1"
+                  type="button"
+                  class="al-expand-btn"
+                  :title="expandedGroups.has(g.key) ? 'Show less' : `Show ${g.changes.length - 1} more`"
+                  :aria-label="expandedGroups.has(g.key) ? 'Show less' : `Show ${g.changes.length - 1} more`"
+                  :aria-expanded="expandedGroups.has(g.key)"
+                  @click="toggleExpand(g.key)"
+                >
+                  <span v-if="!expandedGroups.has(g.key)" class="al-expand-count">+{{ g.changes.length - 1 }}</span>
+                  <ChevronDownIcon
+                    :size="14"
+                    :stroke-width="2"
+                    :class="['al-expand-caret', expandedGroups.has(g.key) && 'al-expand-caret--open']"
+                  />
+                </button>
               </td>
             </tr>
           </tbody>
@@ -688,6 +833,11 @@ onBeforeUnmount(() => {
 .al-cell-changes { min-width: 220px; }
 .al-user-name   { font-weight: 600; color: var(--c-text-1); }
 .al-user-system { color: var(--c-text-3); font-style: italic; }
+.al-cell-user-meta {
+  display: block; margin-top: 2px;
+  font-size: 0.7rem; color: var(--c-text-3);
+}
+.al-cell-user { white-space: normal; }
 
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
 
@@ -712,10 +862,34 @@ onBeforeUnmount(() => {
   border: 1px solid var(--c-border-light);
 }
 
-.al-cell-change {
+.al-when { display: flex; flex-direction: column; gap: 2px; }
+.al-when-date { font-size: 0.8125rem; color: var(--c-text-1); font-weight: 500; }
+.al-when-time { font-size: 0.7rem; color: var(--c-text-3); }
+
+.al-cell-change { min-width: 280px; }
+.al-change-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.al-change-row {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  min-width: 280px;
 }
+.al-expand-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 8px; padding: 3px 9px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border-light);
+  border-radius: var(--r-full);
+  cursor: pointer;
+  font-size: 0.7rem; font-weight: 700; color: var(--c-purple);
+  letter-spacing: 0.02em;
+  transition: background var(--dur), border-color var(--dur), color var(--dur);
+}
+.al-expand-btn:hover {
+  background: rgba(124,58,237,0.08);
+  border-color: rgba(124,58,237,0.3);
+  color: #6D28D9;
+}
+.al-expand-count { font-variant-numeric: tabular-nums; }
+.al-expand-caret { transition: transform var(--dur); }
+.al-expand-caret--open { transform: rotate(180deg); }
 .al-val {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8125rem; line-height: 1.3;

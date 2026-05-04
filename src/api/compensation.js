@@ -22,6 +22,9 @@ export default {
   updateRecord(recordId, data) {
     return http.put(`/compensation/records/${recordId}`, data)
   },
+  recordHistory(recordId) {
+    return http.get(`/compensation/records/${recordId}/history`)
+  },
   confirmBatch(id) {
     return http.post(`/compensation/batches/${id}/confirm`)
   },

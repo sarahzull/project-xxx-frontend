@@ -256,10 +256,76 @@ function closeTripsModal() {
 
 // ── Allowance breakdown modal ────────────────────────────────────────────────
 const allowanceModalRecord = ref(null)
-function openAllowanceModal(record) { allowanceModalRecord.value = record }
+const recordHistory   = ref([])
+const historyLoading  = ref(false)
+
+const HISTORY_FIELD_LABELS = {
+  hardship_allowance: 'Hardship',
+  diversion_allowance: 'Diversion',
+  ron97_allowance: 'RON97',
+  others_allowance: 'Others',
+  base_trip_compensation: 'Base',
+  total_compensation: 'Total',
+  remarks: 'Remark',
+  total_trips: 'Trips',
+  total_km_driven: 'KM',
+}
+
+function formatFieldName(field) {
+  if (!field) return ''
+  return HISTORY_FIELD_LABELS[field] || field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+const ALLOWANCE_FIELD_KEYS = new Set([
+  'hardship_allowance','diversion_allowance','ron97_allowance','others_allowance',
+  'base_trip_compensation','total_compensation',
+])
+
+function formatHistoryValue(field, value) {
+  if (value === null || value === undefined || value === '') return '—'
+  if (ALLOWANCE_FIELD_KEYS.has(field)) {
+    const n = Number(value)
+    return Number.isFinite(n) ? `RM ${n.toFixed(2)}` : value
+  }
+  return String(value)
+}
+
+function formatHistoryTimestamp(s) {
+  if (!s) return ''
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return s
+  return d.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+}
+
+async function loadRecordHistory(recordId) {
+  historyLoading.value = true
+  recordHistory.value = []
+  try {
+    const { data } = await compensationApi.recordHistory(recordId)
+    // Filter to changes that matter for the audit display: only UPDATE rows on
+    // user-relevant fields (skip auto-bookkeeping fields like updated_at).
+    recordHistory.value = (data.data || []).filter(log =>
+      log.action === 'UPDATE' && log.changed_fields && log.changed_fields !== 'updated_at'
+    )
+  } catch (e) {
+    // Quiet failure — modal still works, just no history. Surface only on console.
+    console.warn('Failed to load record history:', e)
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function openAllowanceModal(record) {
+  allowanceModalRecord.value = record
+  loadRecordHistory(record.id)
+}
 function closeAllowanceModal() {
   allowanceModalRecord.value = null
   editingRecord.value = null
+  recordHistory.value = []
 }
 
 async function saveModalEdit() {
@@ -270,6 +336,8 @@ async function saveModalEdit() {
   // updates without closing the modal.
   allowanceModalRecord.value = records.value.find(r => r.id === id) || null
   editingRecord.value = null
+  // Re-pull history so the just-made change appears at the top.
+  if (allowanceModalRecord.value) loadRecordHistory(id)
 }
 
 async function fetchData() {
@@ -775,6 +843,36 @@ onMounted(fetchData)
               </p>
             </div>
 
+            <!-- Changes history -->
+            <div class="bd-history-block">
+              <div class="bd-history-hd">
+                <label class="bd-allowance-label">Changes History</label>
+                <span v-if="!historyLoading && recordHistory.length" class="bd-history-count">
+                  {{ recordHistory.length }} change{{ recordHistory.length !== 1 ? 's' : '' }}
+                </span>
+              </div>
+              <p v-if="historyLoading" class="bd-history-empty">Loading…</p>
+              <p v-else-if="recordHistory.length === 0" class="bd-history-empty">
+                No changes recorded yet.
+              </p>
+              <ul v-else class="bd-history-list">
+                <li v-for="log in recordHistory" :key="log.id" class="bd-history-row">
+                  <div class="bd-history-meta">
+                    <span class="bd-history-field">{{ formatFieldName(log.changed_fields) }}</span>
+                    <span class="bd-history-when">
+                      {{ formatHistoryTimestamp(log.created_at) }}
+                      <span v-if="log.user?.name" class="bd-history-by"> · {{ log.user.name }}</span>
+                    </span>
+                  </div>
+                  <div class="bd-history-diff">
+                    <span class="bd-history-old">{{ formatHistoryValue(log.changed_fields, log.old_values) }}</span>
+                    <span class="bd-history-arrow">→</span>
+                    <span class="bd-history-new">{{ formatHistoryValue(log.changed_fields, log.new_values) }}</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
             <div class="bd-modal-foot">
               <template v-if="canEdit">
                 <template v-if="editingRecord === allowanceModalRecord.id">
@@ -983,6 +1081,51 @@ onMounted(fetchData)
   border-radius: 8px; background: var(--c-bg); color: var(--c-text-2);
   font-size: 0.8125rem; line-height: 1.4; min-height: 36px;
 }
+
+/* ── Changes history ─────────────────────────────────────────── */
+.bd-history-block { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.bd-history-hd {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.bd-history-count {
+  font-size: 0.6875rem; font-weight: 600; color: var(--c-text-3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.bd-history-empty {
+  margin: 0; padding: 10px 12px; border: 1px dashed var(--c-border);
+  border-radius: 8px; background: var(--c-bg);
+  font-size: 0.8125rem; color: var(--c-text-3); text-align: center;
+}
+.bd-history-list {
+  list-style: none; padding: 0; margin: 0;
+  max-height: 260px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.bd-history-row {
+  padding: 8px 10px; border: 1px solid var(--c-border-light);
+  border-radius: 8px; background: var(--c-bg);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.bd-history-meta {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; font-size: 0.75rem;
+}
+.bd-history-field {
+  font-weight: 700; color: var(--c-text-1);
+  font-size: 0.8125rem; letter-spacing: -0.01em;
+}
+.bd-history-when { color: var(--c-text-3); font-variant-numeric: tabular-nums; }
+.bd-history-by   { color: var(--c-text-2); font-weight: 500; }
+.bd-history-diff {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 0.8125rem; font-variant-numeric: tabular-nums;
+}
+.bd-history-old {
+  color: var(--c-text-3); text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.bd-history-arrow { color: var(--c-text-3); font-weight: 600; flex-shrink: 0; }
+.bd-history-new   { color: var(--c-green); font-weight: 600; }
 
 /* ── Table card ──────────────────────────────────────────────── */
 .bd-table-card {

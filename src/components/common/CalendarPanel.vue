@@ -56,12 +56,16 @@ const cells = computed(() => {
     let rangeOn  = false
     let rangeEnd = false
     if (props.mode === 'range') {
-      if (props.from && props.to) {
-        rangeOn  = inRange(iso, props.from, props.to)
-        rangeEnd = isEnd(iso, props.from, props.to)
-      } else if (pendingStart.value) {
+      // While the user is actively re-selecting (pendingStart set), prefer the
+      // in-progress visualization over the previously committed range — otherwise
+      // the first click of a new selection appears to do nothing because the
+      // stale from/to keeps painting the old range.
+      if (pendingStart.value) {
         rangeOn  = hoverISO.value ? inRange(iso, pendingStart.value, hoverISO.value) : false
         rangeEnd = iso === pendingStart.value || iso === hoverISO.value
+      } else if (props.from && props.to) {
+        rangeOn  = inRange(iso, props.from, props.to)
+        rangeEnd = isEnd(iso, props.from, props.to)
       }
     }
 

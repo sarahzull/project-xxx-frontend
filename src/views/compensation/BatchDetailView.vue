@@ -948,14 +948,15 @@ onMounted(fetchData)
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
   margin-top: 12px;
 }
-.bd-window-picker { flex: 1 1 240px; min-width: 0; }
-.bd-window-picker :deep(.drp-input) { width: 100%; }
+.bd-window-picker { flex: 0 0 auto; }
+.bd-window-picker :deep(.drp-input) { min-width: 240px; }
 .bd-window-actions {
-  display: flex; gap: 6px; flex-shrink: 0;
+  display: flex; gap: 6px; margin-left: auto; flex-shrink: 0;
 }
 @media (max-width: 640px) {
-  .bd-window-picker { flex-basis: 100%; }
-  .bd-window-actions { width: 100%; justify-content: flex-end; }
+  .bd-window-picker { flex: 1 1 100%; }
+  .bd-window-picker :deep(.drp-input) { width: 100%; min-width: 0; }
+  .bd-window-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
 }
 
 /* ── Remark cell ─────────────────────────────────────────────── */

@@ -4,12 +4,14 @@ import { useRouter } from 'vue-router'
 import compensationApi from '../../api/compensation'
 import tripsApi        from '../../api/trips'
 import { useToast } from '../../composables/useToast'
-import StatusBadge   from '../../components/common/StatusBadge.vue'
-import ActionBtn     from '../../components/common/ActionBtn.vue'
-import SearchInput   from '../../components/common/SearchInput.vue'
-import AppPagination from '../../components/common/AppPagination.vue'
+import StatusBadge     from '../../components/common/StatusBadge.vue'
+import ActionBtn       from '../../components/common/ActionBtn.vue'
+import SearchInput     from '../../components/common/SearchInput.vue'
+import AppPagination   from '../../components/common/AppPagination.vue'
+import DateRangePicker from '../../components/common/DateRangePicker.vue'
 import {
   ChevronLeftIcon, BatchIcon, CheckIcon, ExportIcon, CloseIcon, EditIcon,
+  CalendarIcon,
 } from '../../components/icons/index.js'
 
 const props  = defineProps({ id: { type: [String, Number], required: true } })
@@ -22,6 +24,98 @@ const loading       = ref(true)
 const actionLoading = ref(false)
 const editingRecord = ref(null)
 const editForm      = ref({ hardship_allowance: 0, remarks: '' })
+
+// ── Edit-window timeline state ───────────────────────────────────────────────
+// Admin can configure a date range (edit_window_start..edit_window_end) during
+// which a draft batch may still be modified. Outside that window the batch is
+// effectively locked even if its status is still 'draft'.
+const editingWindow = ref(false)
+const windowSaving  = ref(false)
+const windowForm    = ref({ edit_window_start: '', edit_window_end: '' })
+
+const todayISO = computed(() => new Date().toISOString().slice(0, 10))
+
+const isWithinEditWindow = computed(() => {
+  const s = batch.value?.edit_window_start
+  const e = batch.value?.edit_window_end
+  // No window configured → fall back to draft-status gating only.
+  if (!s && !e) return true
+  const t = todayISO.value
+  if (s && t < s) return false
+  if (e && t > e) return false
+  return true
+})
+
+const canEdit = computed(() =>
+  batch.value?.status === 'draft' && isWithinEditWindow.value
+)
+
+const windowProgress = computed(() => {
+  const s = batch.value?.edit_window_start
+  const e = batch.value?.edit_window_end
+  if (!s || !e) return 0
+  const start = new Date(s).getTime()
+  const end   = new Date(e).getTime()
+  const today = new Date(todayISO.value).getTime()
+  if (end <= start) return 100
+  if (today <= start) return 0
+  if (today >= end)   return 100
+  return Math.round(((today - start) / (end - start)) * 100)
+})
+
+const windowStatusLabel = computed(() => {
+  const s = batch.value?.edit_window_start
+  const e = batch.value?.edit_window_end
+  if (!s && !e) return 'No edit window set'
+  const t = todayISO.value
+  if (s && t < s) {
+    const days = Math.ceil((new Date(s) - new Date(t)) / 86400000)
+    return `Opens in ${days} day${days !== 1 ? 's' : ''}`
+  }
+  if (e && t > e) return 'Edit window closed'
+  if (e) {
+    const days = Math.ceil((new Date(e) - new Date(t)) / 86400000)
+    return `${days} day${days !== 1 ? 's' : ''} remaining`
+  }
+  return 'Open for edits'
+})
+
+function formatWindowDate(s) {
+  if (!s) return '—'
+  const p = s.split('-')
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s
+}
+
+function startEditWindow() {
+  windowForm.value = {
+    edit_window_start: batch.value?.edit_window_start || '',
+    edit_window_end:   batch.value?.edit_window_end   || '',
+  }
+  editingWindow.value = true
+}
+
+function cancelEditWindow() {
+  editingWindow.value = false
+}
+
+async function saveEditWindow() {
+  if (windowForm.value.edit_window_start && windowForm.value.edit_window_end &&
+      windowForm.value.edit_window_end < windowForm.value.edit_window_start) {
+    toast.error('End date must be on or after start date.', { title: 'Invalid Range' })
+    return
+  }
+  windowSaving.value = true
+  try {
+    await compensationApi.updateBatch(props.id, windowForm.value)
+    await fetchData()
+    editingWindow.value = false
+    toast.success('Edit window updated.', { title: 'Window Saved' })
+  } catch (e) {
+    toast.error(e.response?.data?.message || 'Failed to update edit window.', { title: 'Save Failed' })
+  } finally {
+    windowSaving.value = false
+  }
+}
 
 // Allowance breakdown drives the dedicated Allowance column + modal. Adding a
 // new allowance type later means appending a row here.
@@ -57,6 +151,7 @@ const columns = [
   { key: 'base_trip_compensation', label: 'Base (RM)' },
   { key: 'allowance',              label: 'Allowance (RM)' },
   { key: 'total_compensation',     label: 'Total (RM)' },
+  { key: 'remarks',                label: 'Remark' },
   { key: 'actions',                label: '' },
 ]
 
@@ -311,6 +406,91 @@ onMounted(fetchData)
           </div>
         </div>
       </div>
+
+      <!-- ── Edit-window timeline card ─────────────────────── -->
+      <div class="bd-window-card">
+        <div class="bd-window-hd">
+          <div class="bd-window-hd-left">
+            <div class="bd-window-icon">
+              <CalendarIcon :size="16" />
+            </div>
+            <div>
+              <p class="bd-window-title">Edit Window</p>
+              <p class="bd-window-sub">{{ windowStatusLabel }}</p>
+            </div>
+          </div>
+          <div class="bd-window-hd-right">
+            <button
+              v-if="batch.status === 'draft' && !editingWindow"
+              class="bd-window-edit-btn"
+              type="button"
+              @click="startEditWindow"
+            >
+              <EditIcon :size="13" />
+              {{ batch.edit_window_start || batch.edit_window_end ? 'Adjust' : 'Set Window' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- View mode: progress bar + dates -->
+        <template v-if="!editingWindow">
+          <div class="bd-window-bar-wrap">
+            <div class="bd-window-bar-track">
+              <div class="bd-window-bar-fill" :style="{ width: windowProgress + '%' }" />
+              <div
+                v-if="batch.edit_window_start && batch.edit_window_end"
+                class="bd-window-bar-marker"
+                :style="{ left: windowProgress + '%' }"
+              />
+            </div>
+            <div class="bd-window-bar-labels">
+              <span class="bd-window-date">
+                <span class="bd-window-date-lbl">Start</span>
+                {{ formatWindowDate(batch.edit_window_start) }}
+              </span>
+              <span v-if="batch.edit_window_start && batch.edit_window_end" class="bd-window-pct">
+                {{ windowProgress }}%
+              </span>
+              <span class="bd-window-date bd-window-date--end">
+                <span class="bd-window-date-lbl">End</span>
+                {{ formatWindowDate(batch.edit_window_end) }}
+              </span>
+            </div>
+          </div>
+          <p v-if="!isWithinEditWindow && batch.status === 'draft'" class="bd-window-warn">
+            Edits are currently locked. Adjust the window above to re-open editing.
+          </p>
+        </template>
+
+        <!-- Edit mode: date range picker -->
+        <template v-else>
+          <div class="bd-window-form">
+            <DateRangePicker
+              v-model:from="windowForm.edit_window_start"
+              v-model:to="windowForm.edit_window_end"
+              variant="input"
+              :presets="[]"
+              aria-label="Edit window date range"
+              class="bd-window-picker"
+            />
+            <div class="bd-window-actions">
+              <button
+                type="button"
+                class="bd-cancel-btn"
+                :disabled="windowSaving"
+                @click="cancelEditWindow"
+              >Cancel</button>
+              <button
+                type="button"
+                class="bd-save-btn"
+                :disabled="windowSaving"
+                @click="saveEditWindow"
+              >{{ windowSaving ? 'Saving…' : 'Save' }}</button>
+            </div>
+          </div>
+        </template>
+      </div>
+
       <!-- ── Records table ──────────────────────────────────── -->
       <div class="bd-table-card">
         <div class="bd-table-hd">
@@ -370,9 +550,13 @@ onMounted(fetchData)
                   </button>
                 </td>
                 <td class="bd-cell-total">{{ Number(row.total_compensation).toFixed(2) }}</td>
+                <td class="bd-cell-remark">
+                  <span v-if="row.remarks" class="bd-remark-text" :title="row.remarks">{{ row.remarks }}</span>
+                  <span v-else class="bd-remark-empty">—</span>
+                </td>
                 <td>
-                  <template v-if="batch.status === 'draft'">
-                    <ActionBtn tooltip="Edit Allowances" variant="edit" @click="openAllowanceModal(row)">
+                  <template v-if="canEdit">
+                    <ActionBtn tooltip="Edit Allowances &amp; Remark" variant="edit" @click="openAllowanceModal(row)">
                       <EditIcon :size="14" />
                     </ActionBtn>
                   </template>
@@ -418,10 +602,13 @@ onMounted(fetchData)
               <span><span class="bd-rk">KM</span>{{ Number(row.total_km_driven).toLocaleString() }}</span>
               <span><span class="bd-rk">Base</span>RM {{ Number(row.base_trip_compensation).toFixed(2) }}</span>
               <span><span class="bd-rk">Allowance</span>RM {{ allowanceTotal(row).toFixed(2) }}</span>
+              <span v-if="row.remarks" class="bd-rec-remark">
+                <span class="bd-rk">Remark</span>{{ row.remarks }}
+              </span>
             </div>
             <div class="bd-rec-actions">
               <button class="bd-edit-btn" @click="openAllowanceModal(row)">
-                {{ batch.status === 'draft' ? 'Manage Allowance' : 'View Allowance' }}
+                {{ canEdit ? 'Manage Allowance' : 'View Details' }}
               </button>
             </div>
           </div>
@@ -550,10 +737,13 @@ onMounted(fetchData)
             <p v-if="batch && batch.status !== 'draft'" class="bd-modal-locked">
               This batch is {{ batch.status }} — values are read-only.
             </p>
+            <p v-else-if="!isWithinEditWindow" class="bd-modal-locked">
+              Edit window is closed — values are read-only until the window is reopened.
+            </p>
             <ul class="bd-allowance-list">
               <li v-for="item in allowanceItems(allowanceModalRecord)" :key="item.key">
                 <span class="bd-allowance-label">{{ item.label }}</span>
-                <span v-if="item.editable && batch && batch.status === 'draft' && editingRecord === allowanceModalRecord.id">
+                <span v-if="item.editable && canEdit && editingRecord === allowanceModalRecord.id">
                   <input
                     v-model.number="editForm.hardship_allowance"
                     type="number" step="0.01" min="0"
@@ -569,8 +759,24 @@ onMounted(fetchData)
                 </span>
               </li>
             </ul>
+
+            <!-- Remark field -->
+            <div class="bd-remark-block">
+              <label class="bd-allowance-label">Remark</label>
+              <textarea
+                v-if="canEdit && editingRecord === allowanceModalRecord.id"
+                v-model="editForm.remarks"
+                rows="2"
+                class="bd-remark-input"
+                placeholder="Add a note for this driver's record…"
+              />
+              <p v-else class="bd-remark-readonly">
+                {{ allowanceModalRecord.remarks || '—' }}
+              </p>
+            </div>
+
             <div class="bd-modal-foot">
-              <template v-if="batch && batch.status === 'draft'">
+              <template v-if="canEdit">
                 <template v-if="editingRecord === allowanceModalRecord.id">
                   <button class="bd-cancel-btn" @click="editingRecord = null">Cancel</button>
                   <button class="bd-save-btn" @click="saveModalEdit">Save</button>
@@ -578,7 +784,7 @@ onMounted(fetchData)
                 <template v-else>
                   <button class="bd-cancel-btn" @click="closeAllowanceModal">Close</button>
                   <button class="bd-edit-btn bd-edit-btn--solid" @click="startEdit(allowanceModalRecord)">
-                    Amend Hardship
+                    Amend
                   </button>
                 </template>
               </template>
@@ -672,6 +878,110 @@ onMounted(fetchData)
 .bd-stat--blue   .bd-stat-val { color: var(--c-accent); }
 .bd-stat--purple .bd-stat-val { color: var(--c-purple); }
 .bd-stat--green  .bd-stat-val { color: var(--c-green);  font-size: 1.125rem; }
+
+/* ── Edit-window card ────────────────────────────────────────── */
+.bd-window-card {
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: var(--r-xl); box-shadow: var(--sh-sm);
+  padding: 16px 20px; margin-bottom: 16px;
+}
+.bd-window-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.bd-window-hd-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bd-window-icon {
+  width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px;
+  background: var(--c-accent-tint); color: var(--c-accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.bd-window-title { font-size: 0.875rem; font-weight: 700; color: var(--c-text-1); letter-spacing: -0.01em; }
+.bd-window-sub   { font-size: 0.75rem; color: var(--c-text-3); margin-top: 1px; }
+.bd-window-edit-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; font-size: 0.75rem; font-weight: 600;
+  color: var(--c-accent); background: var(--c-accent-tint);
+  border: 1px solid transparent; border-radius: var(--r-full); cursor: pointer;
+  transition: all var(--dur);
+}
+.bd-window-edit-btn:hover { background: var(--c-accent); color: #fff; }
+
+/* Progress bar */
+.bd-window-bar-wrap { margin-top: 14px; }
+.bd-window-bar-track {
+  position: relative; width: 100%; height: 8px;
+  background: var(--c-bg); border: 1px solid var(--c-border-light);
+  border-radius: var(--r-full); overflow: hidden;
+}
+.bd-window-bar-fill {
+  position: absolute; inset: 0 auto 0 0; height: 100%;
+  background: linear-gradient(90deg, var(--c-accent), var(--c-green));
+  transition: width var(--dur);
+}
+.bd-window-bar-marker {
+  position: absolute; top: 50%; width: 12px; height: 12px;
+  border-radius: 50%; background: #fff; border: 2px solid var(--c-accent);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px var(--c-accent-ring);
+  transition: left var(--dur);
+}
+.bd-window-bar-labels {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 8px; font-size: 0.75rem; color: var(--c-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.bd-window-date { display: inline-flex; flex-direction: column; gap: 1px; }
+.bd-window-date--end { text-align: right; }
+.bd-window-date-lbl {
+  font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--c-text-3);
+}
+.bd-window-pct { font-weight: 700; color: var(--c-accent); }
+.bd-window-warn {
+  margin-top: 12px; font-size: 0.75rem; padding: 8px 12px;
+  color: var(--c-amber); background: var(--c-amber-tint);
+  border-radius: 8px;
+}
+
+/* Edit form — single flex row, picker grows to fill, buttons hug the right */
+.bd-window-form {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-top: 12px;
+}
+.bd-window-picker { flex: 1 1 240px; min-width: 0; }
+.bd-window-picker :deep(.drp-input) { width: 100%; }
+.bd-window-actions {
+  display: flex; gap: 6px; flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .bd-window-picker { flex-basis: 100%; }
+  .bd-window-actions { width: 100%; justify-content: flex-end; }
+}
+
+/* ── Remark cell ─────────────────────────────────────────────── */
+.bd-cell-remark { max-width: 220px; }
+.bd-remark-text {
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 0.8125rem; color: var(--c-text-2); line-height: 1.35;
+}
+.bd-remark-empty { color: var(--c-text-3); font-size: 0.875rem; }
+.bd-rec-remark { grid-column: 1 / -1; }
+
+/* Remark block in modal */
+.bd-remark-block { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.bd-remark-input {
+  width: 100%; padding: 8px 12px; border: 1.5px solid var(--c-accent);
+  border-radius: 8px; background: var(--c-bg); color: var(--c-text-1);
+  font-size: 0.875rem; font-family: inherit; resize: vertical;
+  outline: none; box-shadow: 0 0 0 3px var(--c-accent-ring);
+  box-sizing: border-box;
+}
+.bd-remark-readonly {
+  padding: 8px 12px; border: 1px solid var(--c-border-light);
+  border-radius: 8px; background: var(--c-bg); color: var(--c-text-2);
+  font-size: 0.8125rem; line-height: 1.4; min-height: 36px;
+}
 
 /* ── Table card ──────────────────────────────────────────────── */
 .bd-table-card {

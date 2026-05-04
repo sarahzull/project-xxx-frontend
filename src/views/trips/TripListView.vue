@@ -28,6 +28,10 @@ const oilFilter  = ref('')
 const dateFrom   = ref(defaultDate)
 const dateTo     = ref(defaultDate)
 
+// ── Type dropdown state ───────────────────────────────────────────────────────
+const showTypeDrop = ref(false)
+const typeDropRef  = ref(null)
+
 // ── Oil dropdown state ────────────────────────────────────────────────────────
 const showOilDrop  = ref(false)
 const oilSearch    = ref('')
@@ -182,9 +186,15 @@ function onDocClick(e) {
   if (oilDropRef.value && !oilDropRef.value.contains(e.target)) {
     showOilDrop.value = false
   }
+  if (typeDropRef.value && !typeDropRef.value.contains(e.target)) {
+    showTypeDrop.value = false
+  }
 }
 
-function toggleType(t)  { typeFilter.value = typeFilter.value === t ? '' : t }
+function selectType(t) {
+  typeFilter.value   = typeFilter.value === t ? '' : t
+  showTypeDrop.value = false
+}
 
 function selectOil(co) {
   oilFilter.value   = oilFilter.value === co ? '' : co
@@ -278,14 +288,47 @@ function clearFilters() {
           Filter
         </span>
 
-        <!-- Trip type -->
-        <div v-if="!loading && uniqueTypes.length" class="tv-seg" role="group" aria-label="Filter by type">
-          <button :class="['tv-seg-btn', typeFilter === '' && 'tv-seg-btn--on']" @click="toggleType('')">All</button>
+        <!-- Trip type dropdown -->
+        <div v-if="!loading && uniqueTypes.length" ref="typeDropRef" class="tv-drop-wrap">
           <button
-            v-for="t in uniqueTypes" :key="t"
-            :class="['tv-seg-btn', typeFilter === t && 'tv-seg-btn--on']"
-            @click="toggleType(t)"
-          >{{ t }}</button>
+            :class="['tv-drop-trigger', typeFilter && 'tv-drop-trigger--on']"
+            @click="showTypeDrop = !showTypeDrop"
+            type="button"
+            aria-label="Filter by type"
+          >
+            <TruckIcon :size="14" class="tv-drop-icon" />
+            <span>{{ typeFilter || 'Type' }}</span>
+            <ChevronDownIcon :size="12" :stroke-width="1.5" class="tv-drop-caret" :class="showTypeDrop && 'tv-drop-caret--open'" />
+          </button>
+
+          <Transition name="tv-drop">
+            <div v-if="showTypeDrop" class="tv-drop-panel tv-drop-panel--narrow">
+              <div class="tv-drop-list">
+                <button
+                  class="tv-drop-opt"
+                  :class="typeFilter === '' && 'tv-drop-opt--on'"
+                  @click="selectType('')"
+                  type="button"
+                >
+                  <span class="tv-drop-opt-check">
+                    <CheckIcon v-if="typeFilter === ''" :size="12" />
+                  </span>
+                  All Types
+                </button>
+                <button
+                  v-for="t in uniqueTypes" :key="t"
+                  :class="['tv-drop-opt', typeFilter === t && 'tv-drop-opt--on']"
+                  @click="selectType(t)"
+                  type="button"
+                >
+                  <span class="tv-drop-opt-check">
+                    <CheckIcon v-if="typeFilter === t" :size="12" />
+                  </span>
+                  {{ t }}
+                </button>
+              </div>
+            </div>
+          </Transition>
         </div>
 
         <div class="tv-sep" />
@@ -525,19 +568,6 @@ function clearFilters() {
 .tv-sep { width: 1px; height: 24px; background: var(--c-border); flex-shrink: 0; margin: 0 2px; }
 @media (max-width: 640px) { .tv-sep { display: none; } }
 
-/* Trip type pill group */
-.tv-seg {
-  display: inline-flex; background: var(--c-bg); border: 1px solid var(--c-border);
-  border-radius: var(--r-full); padding: 3px; gap: 2px; flex-shrink: 0;
-}
-.tv-seg-btn {
-  padding: 4px 12px; border-radius: var(--r-full); font-size: 0.8125rem; font-weight: 500;
-  color: var(--c-text-3); background: transparent; border: none; cursor: pointer;
-  transition: all var(--dur); white-space: nowrap;
-}
-.tv-seg-btn:hover:not(.tv-seg-btn--on) { background: var(--c-surface); color: var(--c-text-1); }
-.tv-seg-btn--on { background: var(--c-surface); color: var(--c-accent); font-weight: 600; box-shadow: var(--sh-xs); }
-
 /* ── Oil Company searchable dropdown ─────────────────────────── */
 .tv-drop-wrap { position: relative; flex-shrink: 0; }
 
@@ -560,6 +590,7 @@ function clearFilters() {
   border-radius: 12px; box-shadow: var(--sh-lg);
   width: 220px; overflow: hidden;
 }
+.tv-drop-panel--narrow { width: 160px; }
 
 .tv-drop-search-wrap {
   display: flex; align-items: center; gap: 8px;

@@ -34,7 +34,7 @@ async function handleLogin() {
       <div class="login-brand-content">
         <div class="login-brand-wordmark">
           <div class="login-brand-dot" />
-          <span class="login-brand-name">Project XXX</span>
+          <span class="login-brand-name">BE-X</span>
         </div>
         <h2 class="login-brand-headline">Fleet operations,<br>precisely managed.</h2>
         <p class="login-brand-sub">Internal Logistics Management System</p>
@@ -47,7 +47,7 @@ async function handleLogin() {
         <!-- Mobile wordmark -->
         <div class="login-wordmark login-wordmark--mobile">
           <div class="login-wordmark-dot" />
-          <h1 class="login-title-mobile">Project XXX</h1>
+          <h1 class="login-title-mobile">BE-X</h1>
         </div>
 
         <h1 class="login-title">Sign in</h1>

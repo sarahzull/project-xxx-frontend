@@ -10,6 +10,12 @@ export default {
   getBatch(id) {
     return http.get(`/compensation/batches/${id}`)
   },
+  updateBatch(id, data) {
+    return http.put(`/compensation/batches/${id}`, data)
+  },
+  summary(params = {}) {
+    return http.get('/compensation/summary', { params })
+  },
   getBatchRecords(id) {
     return http.get(`/compensation/batches/${id}/records`)
   },

@@ -17,6 +17,9 @@ const statusFilter = ref('')
 const yearFilter   = ref('')
 const search       = ref('')
 
+// ── Sub-tab state (Batches | Summary) ────────────────────────────────────────
+const activeTab = ref('batches')
+
 // ── Pagination state ──────────────────────────────────────────────────────────
 const page  = ref(1)
 const meta  = ref({})
@@ -50,6 +53,27 @@ const columns = [
   { key: 'exported_at',   label: 'Exported' },
   { key: 'actions',       label: '' },
 ]
+
+// ── Summary aggregation (sub-tab) ────────────────────────────────────────────
+// Groups loaded batches by year so admin gets a quick yearly breakdown without
+// drilling into each batch. When a backend `/compensation/summary` endpoint is
+// available, replace this client-side aggregation with the API response.
+const summaryByYear = computed(() => {
+  const groups = new Map()
+  for (const b of batches.value) {
+    const y = b.period_year
+    if (!groups.has(y)) {
+      groups.set(y, { year: y, total: 0, draft: 0, confirmed: 0, exported: 0, drivers: 0 })
+    }
+    const g = groups.get(y)
+    g.total += 1
+    if (b.status === 'draft')     g.draft     += 1
+    if (b.status === 'confirmed') g.confirmed += 1
+    if (b.status === 'exported')  g.exported  += 1
+    g.drivers += Number(b.records_count) || 0
+  }
+  return [...groups.values()].sort((a, b) => b.year - a.year)
+})
 
 async function fetchBatches() {
   loading.value = true
@@ -131,7 +155,7 @@ onMounted(fetchBatches)
           <PayIcon :size="20" />
         </div>
         <div>
-          <h1 class="bv-banner-title">Compensation</h1>
+          <h1 class="bv-banner-title">Payroll</h1>
           <p class="bv-banner-sub">Driver Payroll Batches</p>
         </div>
       </div>
@@ -155,8 +179,20 @@ onMounted(fetchBatches)
       </div>
     </div>
 
+    <!-- ── Sub-tab nav ───────────────────────────────────────── -->
+    <div class="bv-sec-nav">
+      <button
+        v-for="t in [
+          { key: 'batches', label: 'Batches' },
+          { key: 'summary', label: 'Payroll Summary' },
+        ]" :key="t.key"
+        :class="['bv-sec-btn', activeTab === t.key && 'bv-sec-btn--on']"
+        @click="activeTab = t.key"
+      >{{ t.label }}</button>
+    </div>
+
     <!-- ── Table card ─────────────────────────────────────────── -->
-    <div class="bv-table-card">
+    <div v-show="activeTab === 'batches'" class="bv-table-card">
 
       <!-- Card header -->
       <div class="bv-card-hd">
@@ -282,6 +318,70 @@ onMounted(fetchBatches)
 
     </div>
 
+    <!-- ── Summary tab ────────────────────────────────────────── -->
+    <div v-show="activeTab === 'summary'" class="bv-table-card">
+      <div class="bv-card-hd">
+        <div>
+          <p class="bv-card-title">Payroll Summary</p>
+          <p class="bv-card-sub">
+            <span>Yearly aggregation across {{ batches.length }} loaded batch{{ batches.length !== 1 ? 'es' : '' }}</span>
+          </p>
+        </div>
+      </div>
+
+      <div v-if="loading" class="bv-empty">Loading…</div>
+      <div v-else-if="summaryByYear.length === 0" class="bv-empty">No batches to summarise yet.</div>
+
+      <div v-else class="bv-table-wrap">
+        <table class="bv-tbl">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Total Batches</th>
+              <th>Draft</th>
+              <th>Confirmed</th>
+              <th>Exported</th>
+              <th>Driver Records</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in summaryByYear" :key="row.year">
+              <td><span class="bv-period">{{ row.year }}</span></td>
+              <td>{{ row.total }}</td>
+              <td><span class="bv-sum-pill bv-sum-pill--amber">{{ row.draft }}</span></td>
+              <td><span class="bv-sum-pill bv-sum-pill--green">{{ row.confirmed }}</span></td>
+              <td><span class="bv-sum-pill bv-sum-pill--blue">{{ row.exported }}</span></td>
+              <td>
+                <span class="bv-drivers-count">
+                  <DriversIcon :size="14" />
+                  {{ row.drivers }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile cards -->
+      <div v-if="!loading && summaryByYear.length" class="bv-cards">
+        <div v-for="row in summaryByYear" :key="row.year" class="bv-card">
+          <div class="bv-card-top">
+            <span class="bv-period">{{ row.year }}</span>
+            <span class="bv-drivers-count">
+              <DriversIcon :size="14" />
+              {{ row.drivers }}
+            </span>
+          </div>
+          <div class="bv-card-meta">
+            <span><span class="bv-m-key">Total</span>{{ row.total }}</span>
+            <span><span class="bv-m-key">Draft</span>{{ row.draft }}</span>
+            <span><span class="bv-m-key">Confirmed</span>{{ row.confirmed }}</span>
+            <span><span class="bv-m-key">Exported</span>{{ row.exported }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Create Modal ────────────────────────────────────────── -->
     <Teleport to="body">
       <div v-if="showCreate" class="bv-overlay" @click.self="showCreate = false">
@@ -369,6 +469,29 @@ onMounted(fetchBatches)
 .bv-bstat--amber .bv-bstat-val { color: var(--c-amber); }
 .bv-bstat--green .bv-bstat-val { color: var(--c-green); }
 .bv-bstat--blue  .bv-bstat-val { color: var(--c-accent); }
+
+/* ── Sub-tab nav ─────────────────────────────────────────────── */
+.bv-sec-nav {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px;
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: var(--r-xl); padding: 6px; box-shadow: var(--sh-xs);
+}
+.bv-sec-btn {
+  padding: 6px 16px; border-radius: var(--r-lg); font-size: 0.875rem; font-weight: 500;
+  color: var(--c-text-3); background: transparent; border: none; cursor: pointer;
+  transition: all var(--dur); white-space: nowrap;
+}
+.bv-sec-btn:hover:not(.bv-sec-btn--on) { color: var(--c-text-1); background: var(--c-bg); }
+.bv-sec-btn--on { background: var(--c-green-tint); color: var(--c-green); font-weight: 600; }
+
+/* Summary pills */
+.bv-sum-pill {
+  display: inline-flex; padding: 2px 10px; border-radius: var(--r-full);
+  font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.bv-sum-pill--amber { background: var(--c-amber-tint);  color: var(--c-amber);  }
+.bv-sum-pill--green { background: var(--c-green-tint);  color: var(--c-green);  }
+.bv-sum-pill--blue  { background: var(--c-accent-tint); color: var(--c-accent); }
 
 /* ── Table card ──────────────────────────────────────────────── */
 .bv-table-card {

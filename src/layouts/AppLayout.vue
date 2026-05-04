@@ -29,10 +29,10 @@ const allNavigation = [
   { name: 'Dashboard',    path: '/',             icon: DashboardIcon,      roles: null },
   { name: 'Drivers',      path: '/drivers',      icon: DriversIcon,        roles: ['admin'] },
   { name: 'Trips',        path: '/trips',        icon: TruckIcon,          roles: null },
-  { name: 'Compensation', path: '/compensation', icon: PayIcon,            roles: ['admin'] },
   { name: 'Reports',      path: '/reports',      icon: ReportsIcon,        roles: ['admin'] },
   { name: 'Rates',        path: '/rates',        icon: RatesIcon,          roles: ['admin'] },
   { name: 'Users',        path: '/users',        icon: UserManagementIcon, roles: ['admin'] },
+  { name: 'Payroll',      path: '/compensation', icon: PayIcon,            roles: ['admin'] },
   // Driver-specific
   { name: 'Earnings',     path: '/earnings',     icon: EarningsIcon,       roles: ['driver'] },
   { name: 'Payslips',     path: '/payslips',     icon: PayslipIcon,        roles: ['driver'] },
@@ -101,7 +101,7 @@ function userInitials(name) {
     <aside :class="['sidebar', sidebarOpen && 'open']">
       <div class="sidebar-brand">
         <div class="sidebar-brand-dot" />
-        <span class="sidebar-brand-name">Project XXX</span>
+        <span class="sidebar-brand-name">BE-X</span>
       </div>
 
       <nav class="sidebar-nav">
@@ -158,7 +158,7 @@ function userInitials(name) {
         <button class="header-menu-btn" @click="sidebarOpen = true">
           <MenuIcon :size="20" />
         </button>
-        <span class="header-brand">Project XXX</span>
+        <span class="header-brand">BE-X</span>
         <div class="header-spacer" />
         <div class="header-right">
           <!-- Notification bell -->

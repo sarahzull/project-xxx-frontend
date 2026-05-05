@@ -13,6 +13,7 @@ import StatusBadge from '../../components/common/StatusBadge.vue'
 import SearchInput from '../../components/common/SearchInput.vue'
 import ConfirmDeleteModal from '../../components/common/ConfirmDeleteModal.vue'
 import AppPagination from '../../components/common/AppPagination.vue'
+import SelectInput from '../../components/common/SelectInput.vue'
 import { useToast } from '../../composables/useToast'
 
 const auth    = useAuthStore()
@@ -30,6 +31,10 @@ const meta  = ref({})
 const stats = ref({})
 
 const hasFilter = computed(() => search.value || filterStatus.value || filterRole.value)
+
+const roleOptions = computed(() =>
+  roles.value.map((r) => ({ value: r.id, label: r.name }))
+)
 
 function resetFilters() {
   search.value       = ''
@@ -595,10 +600,12 @@ async function confirmDeleteUser() {
             <!-- Role -->
             <div class="uv-field">
               <label class="uv-label">Role</label>
-              <select v-model="form.role_id" class="uv-input" required>
-                <option value="" disabled>Select a role…</option>
-                <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
-              </select>
+              <SelectInput
+                v-model="form.role_id"
+                :options="roleOptions"
+                placeholder="Select a role…"
+                :clearable="false"
+              />
             </div>
 
             <!-- Driver ID -->

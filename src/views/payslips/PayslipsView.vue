@@ -7,6 +7,7 @@ import {
 } from '../../components/icons/index.js'
 import driverMeApi from '../../api/driverMe'
 import ModalSheet from '../../components/common/ModalSheet.vue'
+import SelectInput from '../../components/common/SelectInput.vue'
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const payslips = ref([])
@@ -81,6 +82,16 @@ const filteredPayslips = computed(() => {
 })
 
 const hasFilter = computed(() => Boolean(filterYear.value || filterMonth.value))
+
+const yearOptions = computed(() =>
+  availableYears.value.map((y) => ({ value: String(y), label: String(y) }))
+)
+const monthOptions = computed(() =>
+  MONTH_NAMES.map((name, i) => ({
+    value: String(i + 1).padStart(2, '0'),
+    label: name,
+  }))
+)
 function clearFilters() {
   filterYear.value  = ''
   filterMonth.value = ''
@@ -161,20 +172,20 @@ async function openDetail(p) {
           <FilterIcon :size="12" aria-hidden="true" />
           Filter
         </span>
-        <label class="ps-select-wrap" aria-label="Filter by year">
-          <select v-model="filterYear" class="ps-select">
-            <option value="">All years</option>
-            <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
-          </select>
-        </label>
-        <label class="ps-select-wrap" aria-label="Filter by month">
-          <select v-model="filterMonth" class="ps-select">
-            <option value="">All months</option>
-            <option v-for="(name, i) in MONTH_NAMES" :key="name" :value="String(i + 1).padStart(2, '0')">
-              {{ name }}
-            </option>
-          </select>
-        </label>
+        <div class="ps-select-wrap" aria-label="Filter by year">
+          <SelectInput
+            v-model="filterYear"
+            :options="yearOptions"
+            placeholder="All years"
+          />
+        </div>
+        <div class="ps-select-wrap" aria-label="Filter by month">
+          <SelectInput
+            v-model="filterMonth"
+            :options="monthOptions"
+            placeholder="All months"
+          />
+        </div>
         <Transition name="ps-fade">
           <button v-if="hasFilter" class="ps-clear-btn" @click="clearFilters">
             <CloseIcon :size="10" :stroke-width="2.5" />
@@ -394,34 +405,8 @@ async function openDetail(p) {
   position: relative;
   display: inline-flex;
   align-items: center;
+  min-width: 140px;
 }
-.ps-select-wrap::after {
-  content: '';
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  width: 6px; height: 6px;
-  border-right: 1.5px solid var(--c-text-3);
-  border-bottom: 1.5px solid var(--c-text-3);
-  transform: translateY(-70%) rotate(45deg);
-  pointer-events: none;
-}
-.ps-select {
-  appearance: none;
-  padding: 6px 28px 6px 12px;
-  background: var(--c-bg);
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-full);
-  color: var(--c-text-1);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  outline: none;
-  transition: border-color var(--dur), box-shadow var(--dur);
-  line-height: 1;
-}
-.ps-select:hover  { border-color: var(--c-text-3); }
-.ps-select:focus  { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-ring); }
 
 .ps-clear-btn {
   display: inline-flex; align-items: center; gap: 4px;

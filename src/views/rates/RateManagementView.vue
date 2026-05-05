@@ -1,7 +1,16 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import ratesApi from '../../api/rates'
 import { useToast } from '../../composables/useToast'
+import DatePicker from '../../components/common/DatePicker.vue'
+import SelectInput from '../../components/common/SelectInput.vue'
+
+const SCOPE_OPTIONS = [
+  { value: 'all',     label: 'Everyone (no restriction)' },
+  { value: 'bases',   label: 'Specific bases' },
+  { value: 'drivers', label: 'Specific drivers only' },
+  { value: 'mixed',   label: 'Bases + driver overrides' },
+]
 import {
   RatesIcon, EditIcon, CheckIcon, CloseIcon, TrashIcon, AddIcon, InfoIcon, BatchIcon,
 } from '../../components/icons/index.js'
@@ -26,16 +35,39 @@ const kmHeadersBackup  = ref(null)
 const editingNoteIndex = ref(null)
 const editNoteBackup   = ref(null)
 
+// ── Targeting options ────────────────────────────────────────────────────────
+const optionDrivers = ref([]) // [{ id, driver_id, name, base }]
+const optionBases   = ref([]) // string[] (distinct bases currently in use)
+
 // ── Load data ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
   try {
-    const [tRes, sRes] = await Promise.all([ratesApi.getTripRates(), ratesApi.getSpecialNoteRates()])
-    specialRates.value = sRes.data.data
+    const [tRes, sRes, oRes] = await Promise.all([
+      ratesApi.getTripRates(),
+      ratesApi.getSpecialNoteRates(),
+      ratesApi.getSpecialNoteOptions(),
+    ])
+    specialRates.value = (sRes.data.data || []).map(normalizeSpecialRate)
+    optionDrivers.value = oRes.data.data?.drivers || []
+    optionBases.value   = oRes.data.data?.bases   || []
     buildMatrix(tRes.data.data)
   } finally {
     loading.value = false
   }
 })
+
+function normalizeSpecialRate(r) {
+  return {
+    ...r,
+    starts_at: r.starts_at || '',
+    ends_at:   r.ends_at   || '',
+    scope:     r.scope     || 'all',
+    bases:     Array.isArray(r.bases) ? [...r.bases] : [],
+    driver_targets: Array.isArray(r.driver_targets)
+      ? r.driver_targets.map(d => ({ ...d }))
+      : [],
+  }
+}
 
 function buildMatrix(flat) {
   const kmMap   = {}
@@ -230,27 +262,54 @@ async function deleteColumn(ki) {
 }
 
 // ── Special note helpers ──────────────────────────────────────────────────────
+function blankNote() {
+  return {
+    id: null, note_key: '', label: '', allowance: 0,
+    starts_at: '', ends_at: '', scope: 'all',
+    bases: [], driver_targets: [],
+    _new: true,
+  }
+}
+
 function addNote() {
   const idx = specialRates.value.length
-  specialRates.value.push({ id: null, note_key: '', label: '', allowance: 0, _new: true })
+  specialRates.value.push(blankNote())
   editNoteBackup.value   = null
   editingNoteIndex.value = idx
 }
 
 function startEditNote(index) {
-  editNoteBackup.value   = { ...specialRates.value[index] }
+  // Deep-clone so cancel can restore exactly what was on screen.
+  editNoteBackup.value = JSON.parse(JSON.stringify(specialRates.value[index]))
   editingNoteIndex.value = index
 }
 
 function cancelEditNote() {
   const i = editingNoteIndex.value
   if (editNoteBackup.value) {
-    specialRates.value[i] = { ...editNoteBackup.value }
+    specialRates.value[i] = editNoteBackup.value
   } else {
     specialRates.value.splice(i, 1)
   }
   editingNoteIndex.value = null
   editNoteBackup.value   = null
+}
+
+function buildPayload(rate) {
+  const derivedKey = (rate.note_key || rate.label || '').trim().toLowerCase().replace(/\s+/g, '_')
+  return {
+    note_key:  derivedKey,
+    label:     rate.label.trim(),
+    allowance: Number(rate.allowance) || 0,
+    starts_at: rate.starts_at || null,
+    ends_at:   rate.ends_at   || null,
+    scope:     rate.scope     || 'all',
+    bases:     [...(rate.bases || [])],
+    driver_targets: (rate.driver_targets || []).map(d => ({
+      driver_user_id: d.driver_user_id,
+      effect:         d.effect || 'include',
+    })),
+  }
 }
 
 async function saveEditNote(index) {
@@ -259,23 +318,85 @@ async function saveEditNote(index) {
     toast.warning('Please enter a note label before saving.', { title: 'Missing Label' })
     return
   }
+  if (rate.starts_at && rate.ends_at && rate.ends_at < rate.starts_at) {
+    toast.warning('End date must be on or after the start date.', { title: 'Invalid Window' })
+    return
+  }
+  if ((rate.scope === 'bases' || rate.scope === 'mixed') && !(rate.bases?.length)) {
+    toast.warning('Pick at least one base for this scope, or switch scope back to "Everyone".', { title: 'Missing Bases' })
+    return
+  }
   saving.value = true
   try {
-    const derivedKey = rate.label.trim().toLowerCase().replace(/\s+/g, '_')
+    const payload = buildPayload(rate)
     if (!rate.id) {
-      const res = await ratesApi.createSpecialNote({ note_key: derivedKey, label: rate.label.trim(), allowance: rate.allowance })
-      rate.id = res.data.data.id; rate.note_key = derivedKey; rate._new = false
+      const res = await ratesApi.createSpecialNote(payload)
+      Object.assign(rate, normalizeSpecialRate(res.data.data))
+      rate._new = false
     } else {
-      await ratesApi.updateSpecialNoteRates([{ id: rate.id, note_key: rate.note_key || derivedKey, label: rate.label.trim(), allowance: rate.allowance }])
+      await ratesApi.updateSpecialNoteRates([{ id: rate.id, ...payload }])
+      Object.assign(rate, normalizeSpecialRate({ ...rate, ...payload }))
     }
     editingNoteIndex.value = null
     editNoteBackup.value   = null
     toast.success('Special note rate saved successfully.', { title: 'Note Saved' })
-  } catch {
-    toast.error('Failed to save the special note rate.', { title: 'Save Failed' })
+  } catch (err) {
+    const msg = err?.response?.data?.message || 'Failed to save the special note rate.'
+    toast.error(msg, { title: 'Save Failed' })
   } finally {
     saving.value = false
   }
+}
+
+// ── Targeting helpers (used by template) ─────────────────────────────────────
+function toggleBase(rate, base) {
+  const i = rate.bases.indexOf(base)
+  if (i === -1) rate.bases.push(base)
+  else          rate.bases.splice(i, 1)
+}
+
+function isBaseSelected(rate, base) { return rate.bases.includes(base) }
+
+function findDriverTargetIndex(rate, userId) {
+  return rate.driver_targets.findIndex(d => d.driver_user_id === userId)
+}
+
+function setDriverTarget(rate, userId, effect) {
+  // effect: 'include' | 'exclude' | null (null = remove)
+  const i = findDriverTargetIndex(rate, userId)
+  if (effect === null) {
+    if (i !== -1) rate.driver_targets.splice(i, 1)
+    return
+  }
+  const drv = optionDrivers.value.find(d => d.id === userId)
+  const row = { driver_user_id: userId, effect, name: drv?.name, driver_id: drv?.driver_id }
+  if (i === -1) rate.driver_targets.push(row)
+  else          rate.driver_targets[i] = row
+}
+
+function driverEffect(rate, userId) {
+  const t = rate.driver_targets.find(d => d.driver_user_id === userId)
+  return t?.effect || null
+}
+
+const driverPickerQuery = ref('')
+const filteredOptionDrivers = computed(() => {
+  const q = driverPickerQuery.value.trim().toLowerCase()
+  if (!q) return optionDrivers.value
+  return optionDrivers.value.filter(d =>
+    (d.name || '').toLowerCase().includes(q) ||
+    (d.driver_id || '').toLowerCase().includes(q)
+  )
+})
+
+function fmtDate(iso) {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function scopeLabel(s) {
+  return ({ all: 'Everyone', bases: 'Specific bases', drivers: 'Specific drivers', mixed: 'Bases + driver overrides' })[s] || 'Everyone'
 }
 
 async function deleteNote(index) {
@@ -548,7 +669,22 @@ const activeTab = ref('trip-rates') // 'trip-rates' | 'special-notes'
             <template v-if="editingNoteIndex !== index">
               <div class="rm-sn-type-view">
                 <span :class="['rm-color-dot', `rm-dot--${noteColor(index)}`]"></span>
-                <span class="rm-sn-type-text">{{ rate.label || rate.note_key || '—' }}</span>
+                <div class="rm-sn-type-stack">
+                  <span class="rm-sn-type-text">{{ rate.label || rate.note_key || '—' }}</span>
+                  <div v-if="rate.starts_at || rate.ends_at || rate.scope !== 'all' || rate.bases?.length || rate.driver_targets?.length" class="rm-sn-meta">
+                    <span v-if="rate.starts_at || rate.ends_at" class="rm-meta-chip rm-meta-chip--date">
+                      {{ rate.starts_at ? fmtDate(rate.starts_at) : '…' }} → {{ rate.ends_at ? fmtDate(rate.ends_at) : '…' }}
+                    </span>
+                    <span v-if="rate.scope !== 'all'" class="rm-meta-chip">{{ scopeLabel(rate.scope) }}</span>
+                    <span v-if="rate.bases?.length" class="rm-meta-chip">
+                      {{ rate.bases.length }} base{{ rate.bases.length === 1 ? '' : 's' }}
+                    </span>
+                    <span v-if="rate.driver_targets?.length" class="rm-meta-chip">
+                      {{ rate.driver_targets.filter(d => d.effect === 'include').length }} incl ·
+                      {{ rate.driver_targets.filter(d => d.effect === 'exclude').length }} excl
+                    </span>
+                  </div>
+                </div>
               </div>
               <div class="rm-sn-rate-view">
                 <span class="rm-sn-rate-rm">RM</span>
@@ -582,8 +718,8 @@ const activeTab = ref('trip-rates') // 'trip-rates' | 'special-notes'
                   v-model="rate.label"
                   type="text"
                   class="rm-sn-type-input"
-                  placeholder="e.g. Diversion"
-                  maxlength="50"
+                  placeholder="e.g. Hari Raya Allowance"
+                  maxlength="120"
                   autofocus
                 />
               </div>
@@ -602,6 +738,118 @@ const activeTab = ref('trip-rates') // 'trip-rates' | 'special-notes'
                 <button class="rm-icon-btn rm-icon-btn--cancel" title="Cancel" @click="cancelEditNote">
                   <CloseIcon :size="14" :stroke-width="2.5" />
                 </button>
+              </div>
+
+              <!-- ── Advanced: date window + scope + targets ─── -->
+              <div class="rm-sn-adv">
+                <!-- Effective window -->
+                <div class="rm-sn-adv-row">
+                  <label class="rm-sn-adv-label">
+                    <InfoIcon :size="13" /> Effective window
+                  </label>
+                  <div class="rm-sn-adv-ctrl rm-window">
+                    <DatePicker
+                      v-model="rate.starts_at"
+                      placeholder="Starts (optional)"
+                      aria-label="Allowance start date"
+                    />
+                    <span class="rm-window-sep">→</span>
+                    <DatePicker
+                      v-model="rate.ends_at"
+                      placeholder="Ends (optional)"
+                      :min="rate.starts_at || ''"
+                      aria-label="Allowance end date"
+                    />
+                    <button
+                      v-if="rate.starts_at || rate.ends_at"
+                      type="button"
+                      class="rm-link-btn"
+                      @click="rate.starts_at = ''; rate.ends_at = ''"
+                    >Clear</button>
+                  </div>
+                </div>
+
+                <!-- Scope -->
+                <div class="rm-sn-adv-row">
+                  <label class="rm-sn-adv-label">
+                    <InfoIcon :size="13" /> Apply to
+                  </label>
+                  <div class="rm-sn-adv-ctrl">
+                    <SelectInput
+                      v-model="rate.scope"
+                      :options="SCOPE_OPTIONS"
+                      :clearable="false"
+                      placeholder="Select scope"
+                    />
+                  </div>
+                </div>
+
+                <!-- Bases (shown for bases / mixed) -->
+                <div v-if="rate.scope === 'bases' || rate.scope === 'mixed'" class="rm-sn-adv-row">
+                  <label class="rm-sn-adv-label">Bases</label>
+                  <div class="rm-sn-adv-ctrl rm-chips">
+                    <template v-if="optionBases.length">
+                      <button
+                        v-for="b in optionBases"
+                        :key="b"
+                        type="button"
+                        :class="['rm-chip', isBaseSelected(rate, b) && 'rm-chip--on']"
+                        @click="toggleBase(rate, b)"
+                      >{{ b }}</button>
+                    </template>
+                    <span v-else class="rm-empty-hint">
+                      No bases set on any driver yet — add a "base" value to drivers first.
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Drivers (shown for drivers / mixed) -->
+                <div v-if="rate.scope === 'drivers' || rate.scope === 'mixed'" class="rm-sn-adv-row">
+                  <label class="rm-sn-adv-label">
+                    {{ rate.scope === 'mixed' ? 'Driver overrides' : 'Drivers' }}
+                  </label>
+                  <div class="rm-sn-adv-ctrl rm-driver-block">
+                    <input
+                      v-model="driverPickerQuery"
+                      type="text"
+                      class="rm-driver-search"
+                      placeholder="Search drivers by name or ID…"
+                    />
+                    <div class="rm-driver-list">
+                      <div
+                        v-for="d in filteredOptionDrivers"
+                        :key="d.id"
+                        class="rm-driver-row"
+                      >
+                        <div class="rm-driver-info">
+                          <span class="rm-driver-name">{{ d.name }}</span>
+                          <span class="rm-driver-meta">{{ d.driver_id }}<span v-if="d.base"> · {{ d.base }}</span></span>
+                        </div>
+                        <div class="rm-driver-actions">
+                          <button
+                            type="button"
+                            :class="['rm-driver-btn', driverEffect(rate, d.id) === 'include' && 'rm-driver-btn--on-incl']"
+                            title="Include this driver"
+                            @click="setDriverTarget(rate, d.id, driverEffect(rate, d.id) === 'include' ? null : 'include')"
+                          >+ Include</button>
+                          <button
+                            type="button"
+                            :class="['rm-driver-btn', driverEffect(rate, d.id) === 'exclude' && 'rm-driver-btn--on-excl']"
+                            title="Exclude this driver from the allowance"
+                            @click="setDriverTarget(rate, d.id, driverEffect(rate, d.id) === 'exclude' ? null : 'exclude')"
+                          >– Exclude</button>
+                        </div>
+                      </div>
+                      <div v-if="!filteredOptionDrivers.length" class="rm-empty-hint">
+                        No matching drivers.
+                      </div>
+                    </div>
+                    <p v-if="rate.scope === 'mixed'" class="rm-driver-help">
+                      Tip: Driver-level <strong>Exclude</strong> overrides base-level inclusion.
+                      Use <strong>Include</strong> to add a driver outside their base.
+                    </p>
+                  </div>
+                </div>
               </div>
             </template>
 
@@ -924,6 +1172,108 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .rm-sn-empty p { font-size: .875rem; max-width: 320px; line-height: 1.5; }
 .rm-sn-empty strong { color: var(--c-text-2); }
 
+/* ── Special-note view-mode meta chips ───────────────────────────────────── */
+.rm-sn-type-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rm-sn-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+.rm-meta-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: .68rem; font-weight: 600; color: var(--c-text-3);
+  background: var(--c-bg); border: 1px solid var(--c-border-light);
+  padding: 1px 7px; border-radius: 999px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.rm-meta-chip--date {
+  color: var(--c-amber); border-color: var(--c-amber);
+  background: var(--c-amber-tint);
+}
+
+/* ── Special-note edit-mode advanced section ─────────────────────────────── */
+.rm-special-row--editing { align-items: start; }
+.rm-sn-adv {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; gap: 10px;
+  margin-top: 8px; padding-top: 12px;
+  border-top: 1px dashed var(--c-border-light);
+}
+.rm-sn-adv-row {
+  display: grid; grid-template-columns: 1fr; gap: 4px;
+  align-items: start;
+}
+@media (min-width: 480px) {
+  .rm-sn-adv-row { grid-template-columns: 130px 1fr; gap: 12px; }
+}
+.rm-sn-adv-label {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--c-text-3); padding-top: 6px;
+}
+.rm-sn-adv-label svg { width: 12px; height: 12px; }
+.rm-sn-adv-ctrl { min-width: 0; }
+
+.rm-window { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rm-window-sep { color: var(--c-text-3); font-weight: 600; }
+.rm-link-btn {
+  background: transparent; border: none; padding: 2px 6px;
+  font-size: .75rem; font-weight: 600; color: var(--c-text-3);
+  cursor: pointer; border-radius: 5px;
+}
+.rm-link-btn:hover { color: var(--c-red); background: var(--c-red-tint); }
+
+.rm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rm-chip {
+  padding: 5px 11px; border-radius: 999px;
+  border: 1.5px solid var(--c-border); background: var(--c-surface);
+  font-size: .78rem; font-weight: 600; color: var(--c-text-2);
+  cursor: pointer; transition: all var(--dur);
+}
+.rm-chip:hover { border-color: var(--c-accent); color: var(--c-accent); }
+.rm-chip--on {
+  background: var(--c-accent); color: #fff; border-color: var(--c-accent);
+}
+
+.rm-empty-hint {
+  font-size: .76rem; color: var(--c-text-3); font-style: italic; padding: 6px 2px;
+}
+
+.rm-driver-block { display: flex; flex-direction: column; gap: 8px; max-width: 540px; }
+.rm-driver-search {
+  width: 100%; padding: 6px 10px;
+  border: 1.5px solid var(--c-border); border-radius: var(--r-md);
+  font-size: .8125rem; background: var(--c-surface); color: var(--c-text-1);
+}
+.rm-driver-search:focus { outline: none; border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-ring); }
+
+.rm-driver-list {
+  display: flex; flex-direction: column;
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--c-border-light); border-radius: var(--r-md);
+  background: var(--c-bg);
+}
+.rm-driver-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 7px 10px; border-bottom: 1px solid var(--c-border-light);
+}
+.rm-driver-row:last-child { border-bottom: none; }
+.rm-driver-info { display: flex; flex-direction: column; min-width: 0; }
+.rm-driver-name { font-size: .82rem; font-weight: 600; color: var(--c-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rm-driver-meta { font-size: .68rem; color: var(--c-text-3); }
+
+.rm-driver-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.rm-driver-btn {
+  padding: 3px 9px; font-size: .68rem; font-weight: 700;
+  border: 1.5px solid var(--c-border); background: transparent; color: var(--c-text-3);
+  border-radius: 6px; cursor: pointer; transition: all var(--dur); white-space: nowrap;
+}
+.rm-driver-btn:hover { border-color: var(--c-text-2); color: var(--c-text-1); }
+.rm-driver-btn--on-incl {
+  background: rgba(22,163,74,.12); border-color: #16A34A; color: #16A34A;
+}
+.rm-driver-btn--on-excl {
+  background: var(--c-red-tint); border-color: var(--c-red); color: var(--c-red);
+}
+.rm-driver-help { font-size: .72rem; color: var(--c-text-3); }
+.rm-driver-help strong { color: var(--c-text-2); }
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .rm-sn-col-labels { grid-template-columns: 1fr 130px 68px; }
@@ -932,5 +1282,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   .rm-sn-suffix, .rm-sn-rate-suffix { display: none; }
   .rm-icon-btn span { display: none; }
   .rm-icon-btn { padding: 0 7px; }
+  .rm-sn-adv-row { grid-template-columns: 1fr; gap: 4px; }
+  .rm-sn-adv-label { padding-top: 0; }
 }
 </style>

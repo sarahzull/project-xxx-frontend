@@ -7,6 +7,7 @@ export default {
   deleteTripRates(ids)            { return http.delete('/rates/trip-rates', { data: { ids } }) },
 
   getSpecialNoteRates()           { return http.get('/rates/special-notes') },
+  getSpecialNoteOptions()         { return http.get('/rates/special-notes/options') },
   updateSpecialNoteRates(rates)   { return http.put('/rates/special-notes', { rates }) },
   createSpecialNote(data)         { return http.post('/rates/special-notes', data) },
   deleteSpecialNote(id)           { return http.delete(`/rates/special-notes/${id}`) },

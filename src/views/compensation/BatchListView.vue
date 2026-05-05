@@ -7,7 +7,13 @@ import StatusBadge  from '../../components/common/StatusBadge.vue'
 import SearchInput  from '../../components/common/SearchInput.vue'
 import ActionBtn    from '../../components/common/ActionBtn.vue'
 import AppPagination from '../../components/common/AppPagination.vue'
+import SelectInput from '../../components/common/SelectInput.vue'
 import { PayIcon, AddIcon, FilterIcon, DriversIcon, ViewIcon, CalendarIcon, CloseIcon } from '../../components/icons/index.js'
+
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
+  value: i + 1,
+  label: String(i + 1).padStart(2, '0'),
+}))
 
 const router  = useRouter()
 const toast   = useToast()
@@ -401,9 +407,12 @@ onMounted(fetchBatches)
             <div class="bv-fields-row">
               <div class="bv-field">
                 <label class="bv-label">Month</label>
-                <select v-model.number="createForm.period_month" class="bv-input">
-                  <option v-for="m in 12" :key="m" :value="m">{{ String(m).padStart(2, '0') }}</option>
-                </select>
+                <SelectInput
+                  v-model="createForm.period_month"
+                  :options="MONTH_OPTIONS"
+                  :clearable="false"
+                  placeholder="Pick month"
+                />
               </div>
               <div class="bv-field">
                 <label class="bv-label">Year</label>
@@ -629,7 +638,8 @@ onMounted(fetchBatches)
 .bv-modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
 .bv-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
 
-.bv-fields-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bv-fields-row { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 360px) { .bv-fields-row { grid-template-columns: 1fr 1fr; } }
 .bv-field { display: flex; flex-direction: column; gap: 5px; }
 .bv-label { font-size: 0.8125rem; font-weight: 600; color: var(--c-text-2); }
 .bv-optional { font-weight: 400; color: var(--c-text-3); }

@@ -671,13 +671,15 @@ const activeTab = ref('trip-rates') // 'trip-rates' | 'special-notes'
                 <span :class="['rm-color-dot', `rm-dot--${noteColor(index)}`]"></span>
                 <div class="rm-sn-type-stack">
                   <span class="rm-sn-type-text">{{ rate.label || rate.note_key || '—' }}</span>
-                  <div v-if="rate.starts_at || rate.ends_at || rate.scope !== 'all' || rate.bases?.length || rate.driver_targets?.length" class="rm-sn-meta">
+                  <div class="rm-sn-meta">
                     <span v-if="rate.starts_at || rate.ends_at" class="rm-meta-chip rm-meta-chip--date">
                       {{ rate.starts_at ? fmtDate(rate.starts_at) : '…' }} → {{ rate.ends_at ? fmtDate(rate.ends_at) : '…' }}
                     </span>
-                    <span v-if="rate.scope !== 'all'" class="rm-meta-chip">{{ scopeLabel(rate.scope) }}</span>
-                    <span v-if="rate.bases?.length" class="rm-meta-chip">
-                      {{ rate.bases.length }} base{{ rate.bases.length === 1 ? '' : 's' }}
+                    <span class="rm-meta-chip rm-meta-chip--scope">
+                      Apply to: {{ scopeLabel(rate.scope) }}
+                    </span>
+                    <span v-if="rate.bases?.length" class="rm-meta-chip rm-meta-chip--bases">
+                      Bases: {{ rate.bases.join(' · ') }}
                     </span>
                     <span v-if="rate.driver_targets?.length" class="rm-meta-chip">
                       {{ rate.driver_targets.filter(d => d.effect === 'include').length }} incl ·
@@ -791,11 +793,12 @@ const activeTab = ref('trip-rates') // 'trip-rates' | 'special-notes'
                     <template v-if="optionBases.length">
                       <button
                         v-for="b in optionBases"
-                        :key="b"
+                        :key="b.code"
                         type="button"
-                        :class="['rm-chip', isBaseSelected(rate, b) && 'rm-chip--on']"
-                        @click="toggleBase(rate, b)"
-                      >{{ b }}</button>
+                        :class="['rm-chip', isBaseSelected(rate, b.code) && 'rm-chip--on']"
+                        :title="b.label"
+                        @click="toggleBase(rate, b.code)"
+                      >{{ b.code }}</button>
                     </template>
                     <span v-else class="rm-empty-hint">
                       No bases set on any driver yet — add a "base" value to drivers first.

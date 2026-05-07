@@ -32,9 +32,7 @@ const dateTo       = ref(initialTo)
 const search       = ref('')
 const page         = ref(1)
 
-// Action enum is fixed — show all four even before any of those types
-// have actually been recorded, so admins can pre-filter.
-const ALL_ACTIONS = ['INSERT', 'UPDATE', 'DELETE', 'EXPORT']
+const ALL_ACTIONS = ['UPDATE', 'DELETE']
 
 const availableTables  = computed(() => stats.value.tables ?? [])
 const availableUsers   = computed(() => stats.value.users  ?? [])
@@ -271,7 +269,8 @@ function secondaryChanges(group) {
 // changed column. Grouping key: table + row_id + action + created_at.
 const groupedLogs = computed(() => {
   const visible = logs.value.filter(l =>
-    !SENSITIVE_FIELDS.has(String(l.changed_fields || '').toLowerCase())
+    !SENSITIVE_FIELDS.has(String(l.changed_fields || '').toLowerCase()) &&
+    ['UPDATE', 'DELETE'].includes(String(l.action || '').toUpperCase())
   )
   const map = new Map()
   for (const l of visible) {
@@ -355,7 +354,7 @@ onBeforeUnmount(() => {
         </div>
         <div>
           <h1 class="al-banner-title">Audit Logs</h1>
-          <p class="al-banner-sub">Track every create, update, delete, and export action</p>
+          <p class="al-banner-sub">Track every update and delete action</p>
         </div>
       </div>
       <div class="al-banner-stats">
@@ -565,15 +564,17 @@ onBeforeUnmount(() => {
               <th class="al-th--time">When</th>
               <th class="al-th--user">User</th>
               <th class="al-th--action">Action</th>
-              <th class="al-th--change">Change</th>
+              <th class="al-th--field">Field</th>
+              <th class="al-th--before">Before</th>
+              <th class="al-th--after">After</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="4" class="al-empty">Loading audit logs…</td>
+              <td colspan="6" class="al-empty">Loading audit logs…</td>
             </tr>
             <tr v-else-if="!groupedLogs.length">
-              <td colspan="4" class="al-empty">
+              <td colspan="6" class="al-empty">
                 {{ hasFilter ? 'No audit logs match these filters.' : 'No audit activity recorded for today yet.' }}
               </td>
             </tr>
@@ -594,21 +595,12 @@ onBeforeUnmount(() => {
                   {{ actionLabel(g.action) }}
                 </span>
               </td>
-              <td class="al-cell-change">
+
+              <!-- Field column — holds the expand toggle -->
+              <td class="al-cell-field">
                 <ul class="al-change-list">
-                  <li v-for="c in (expandedGroups.has(g.key) ? g.changes : [primaryChange(g)])" :key="c.field" class="al-change-row">
+                  <li v-for="c in (expandedGroups.has(g.key) ? g.changes : [primaryChange(g)])" :key="c.field" class="al-change-item">
                     <span class="al-field-tag">{{ fieldLabel(c.field) }}</span>
-                    <template v-if="String(g.action).toUpperCase() === 'INSERT'">
-                      <span class="al-val al-val--new">+ {{ displayValue(c.field, c.new_values) }}</span>
-                    </template>
-                    <template v-else-if="String(g.action).toUpperCase() === 'DELETE'">
-                      <span class="al-val al-val--old">− {{ displayValue(c.field, c.old_values) }}</span>
-                    </template>
-                    <template v-else>
-                      <span class="al-val al-val--old">{{ displayValue(c.field, c.old_values) }}</span>
-                      <span class="al-arrow">→</span>
-                      <span class="al-val al-val--new">{{ displayValue(c.field, c.new_values) }}</span>
-                    </template>
                   </li>
                 </ul>
                 <button
@@ -627,6 +619,32 @@ onBeforeUnmount(() => {
                     :class="['al-expand-caret', expandedGroups.has(g.key) && 'al-expand-caret--open']"
                   />
                 </button>
+              </td>
+
+              <!-- Before column -->
+              <td class="al-cell-before">
+                <ul class="al-change-list">
+                  <li v-for="c in (expandedGroups.has(g.key) ? g.changes : [primaryChange(g)])" :key="c.field" class="al-change-item">
+                    <span
+                      v-if="c.old_values !== null && c.old_values !== undefined && c.old_values !== ''"
+                      class="al-val al-val--old"
+                    >{{ displayValue(c.field, c.old_values) }}</span>
+                    <span v-else class="al-val-na">—</span>
+                  </li>
+                </ul>
+              </td>
+
+              <!-- After column -->
+              <td class="al-cell-after">
+                <ul class="al-change-list">
+                  <li v-for="c in (expandedGroups.has(g.key) ? g.changes : [primaryChange(g)])" :key="c.field" class="al-change-item">
+                    <span
+                      v-if="c.new_values !== null && c.new_values !== undefined && c.new_values !== ''"
+                      class="al-val al-val--new"
+                    >{{ displayValue(c.field, c.new_values) }}</span>
+                    <span v-else class="al-val-na">—</span>
+                  </li>
+                </ul>
               </td>
             </tr>
           </tbody>
@@ -829,17 +847,19 @@ onBeforeUnmount(() => {
 .al-empty { text-align: center; padding: 32px 14px; color: var(--c-text-3); font-size: 0.875rem; }
 
 .al-cell-time   { white-space: nowrap; color: var(--c-text-2); }
-.al-cell-user   { white-space: nowrap; }
-.al-cell-table  { color: var(--c-text-2); white-space: nowrap; }
-.al-cell-row    { color: var(--c-text-3); white-space: nowrap; }
-.al-cell-changes { min-width: 220px; }
+.al-cell-user   { white-space: normal; }
 .al-user-name   { font-weight: 600; color: var(--c-text-1); }
 .al-user-system { color: var(--c-text-3); font-style: italic; }
 .al-cell-user-meta {
   display: block; margin-top: 2px;
   font-size: 0.7rem; color: var(--c-text-3);
 }
-.al-cell-user { white-space: normal; }
+.al-th--field   { min-width: 120px; }
+.al-th--before  { min-width: 140px; }
+.al-th--after   { min-width: 140px; }
+.al-cell-field  { min-width: 120px; vertical-align: top; }
+.al-cell-before { min-width: 140px; vertical-align: top; }
+.al-cell-after  { min-width: 140px; vertical-align: top; }
 
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
 
@@ -868,11 +888,8 @@ onBeforeUnmount(() => {
 .al-when-date { font-size: 0.8125rem; color: var(--c-text-1); font-weight: 500; }
 .al-when-time { font-size: 0.7rem; color: var(--c-text-3); }
 
-.al-cell-change { min-width: 280px; }
-.al-change-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.al-change-row {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-}
+.al-change-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 5px; }
+.al-change-item { display: flex; align-items: flex-start; }
 .al-expand-btn {
   display: inline-flex; align-items: center; gap: 4px;
   margin-top: 8px; padding: 3px 9px;
@@ -900,8 +917,5 @@ onBeforeUnmount(() => {
 }
 .al-val--old { background: rgba(239,68,68,0.08);  color: #B91C1C; text-decoration: line-through; text-decoration-color: rgba(185,28,28,0.4); }
 .al-val--new { background: rgba(22,163,74,0.10);  color: #15803D; }
-.al-arrow {
-  color: var(--c-text-3);
-  font-size: 0.875rem;
-}
+.al-val-na   { color: var(--c-text-3); font-size: 0.8125rem; padding: 2px 0; }
 </style>

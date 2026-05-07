@@ -74,6 +74,58 @@ const meta = ref({})
 const showDetail   = ref(false)
 const activeItem   = ref(null)
 
+// Recipients drill-down modal
+const showRecipients      = ref(false)
+const recipientItem       = ref(null)   // the communication row
+const recipientList       = ref([])     // [{user_id, name, driver_id, base, read_at, rendered_subject, rendered_body}]
+const recipientsLoading   = ref(false)
+const recipientsErr       = ref('')
+const recipientReadFilter = ref('all')  // 'all' | 'read' | 'unread'
+const recipientSearch     = ref('')
+const previewRecipient    = ref(null)   // a single recipient when admin clicks Preview
+
+async function openRecipients(item) {
+  recipientItem.value       = item
+  recipientList.value       = []
+  recipientsErr.value       = ''
+  recipientReadFilter.value = 'all'
+  recipientSearch.value     = ''
+  previewRecipient.value    = null
+  showRecipients.value      = true
+  recipientsLoading.value   = true
+  try {
+    const { data } = await communicationsApi.get(item.id)
+    recipientList.value = data?.data?.recipients || []
+  } catch (e) {
+    recipientsErr.value = e?.response?.data?.message || 'Failed to load recipients.'
+  } finally {
+    recipientsLoading.value = false
+  }
+}
+
+function closeRecipients() {
+  showRecipients.value   = false
+  previewRecipient.value = null
+}
+
+const recipientsFiltered = computed(() => {
+  let list = recipientList.value
+  if (recipientReadFilter.value === 'read')   list = list.filter(r => r.read_at)
+  if (recipientReadFilter.value === 'unread') list = list.filter(r => !r.read_at)
+  if (recipientSearch.value.trim()) {
+    const q = recipientSearch.value.trim().toLowerCase()
+    list = list.filter(r =>
+      (r.name      || '').toLowerCase().includes(q) ||
+      (r.driver_id || '').toLowerCase().includes(q) ||
+      (r.base      || '').toLowerCase().includes(q)
+    )
+  }
+  return list
+})
+
+const recipientReadCount   = computed(() => recipientList.value.filter(r => r.read_at).length)
+const recipientUnreadCount = computed(() => recipientList.value.length - recipientReadCount.value)
+
 // Compose modal (admin)
 const showCompose  = ref(false)
 
@@ -451,7 +503,7 @@ function onSent() { fetchItems() }
                 <th class="cv-th cv-th--subject">Subject</th>
                 <th class="cv-th cv-th--date">Date</th>
                 <th v-if="!isAdmin" class="cv-th cv-th--status">Status</th>
-                <th class="cv-th cv-th--actions">Actions</th>
+                <!-- <th class="cv-th cv-th--actions">Actions</th> -->
               </tr>
             </thead>
             <tbody>
@@ -473,7 +525,7 @@ function onSent() { fetchItems() }
                   </td>
                   <td class="cv-td"><Skeleton width="86px" height="12px" /></td>
                   <td v-if="!isAdmin" class="cv-td"><Skeleton width="56px" height="20px" rounded="full" /></td>
-                  <td class="cv-td"><Skeleton width="80px" height="26px" rounded="md" /></td>
+                  <!-- <td class="cv-td"><Skeleton width="80px" height="26px" rounded="md" /></td> -->
                 </tr>
               </template>
 
@@ -493,9 +545,14 @@ function onSent() { fetchItems() }
                   </span>
                 </td>
 
-                <!-- Recipients (admin only) -->
+                <!-- Recipients (admin only) — click to drill into the actual list -->
                 <td v-if="isAdmin" class="cv-td cv-td--recipients">
-                  <div class="cv-recipients-cell">
+                  <button
+                    type="button"
+                    class="cv-recipients-cell cv-recipients-cell--btn"
+                    title="View recipients"
+                    @click.stop="openRecipients(item)"
+                  >
                     <div class="cv-recipients-row">
                       <span :class="['cv-aud-tag', `cv-aud-tag--${item.audience?.type || 'single'}`]">
                         {{ audienceCategoryLabel(item) }}
@@ -503,7 +560,7 @@ function onSent() { fetchItems() }
                       <span class="cv-recipients-main">{{ audienceSummary(item) }}</span>
                     </div>
                     <span v-if="recipientSummary(item)" class="cv-recipients-sub">{{ recipientSummary(item) }}</span>
-                  </div>
+                  </button>
                 </td>
 
                 <!-- Subject + preview -->
@@ -535,7 +592,7 @@ function onSent() { fetchItems() }
                 </td>
 
                 <!-- Actions -->
-                <td class="cv-td cv-td--actions" @click.stop>
+                <!-- <td class="cv-td cv-td--actions" @click.stop>
                   <div class="cv-actions">
                     <ActionBtn tooltip="View" variant="view" @click="openDetail(item)">
                       <ViewIcon :size="14" />
@@ -550,7 +607,7 @@ function onSent() { fetchItems() }
                       <ResendIcon :size="14" :class="resendingId === item.id && 'spinning'" />
                     </ActionBtn>
                   </div>
-                </td>
+                </td> -->
               </tr>
             </tbody>
           </table>
@@ -626,6 +683,105 @@ function onSent() { fetchItems() }
 
         <!-- Content body -->
         <div class="cv-detail-body" v-html="formatContent(activeItem.body)" />
+      </div>
+    </ModalSheet>
+
+    <!-- ── Recipients drill-down modal (admin) ─────────────────────────────── -->
+    <ModalSheet
+      v-if="isAdmin"
+      v-model="showRecipients"
+      max-width="620px"
+      :title="recipientItem?.subject || 'Recipients'"
+      :subtitle="recipientItem ? audienceSummary(recipientItem) : ''"
+    >
+      <template v-if="recipientItem" #icon>
+        <span :class="['cv-aud-tag', `cv-aud-tag--${recipientItem.audience?.type || 'single'}`]">
+          {{ audienceCategoryLabel(recipientItem) }}
+        </span>
+      </template>
+
+      <div v-if="recipientItem" class="cv-recip">
+
+        <!-- Stat strip -->
+        <div class="cv-recip-stats">
+          <button
+            type="button"
+            :class="['cv-recip-stat', recipientReadFilter === 'all' && 'cv-recip-stat--on']"
+            @click="recipientReadFilter = 'all'"
+          >
+            <span class="cv-recip-stat-num">{{ recipientList.length }}</span>
+            <span class="cv-recip-stat-lbl">Total</span>
+          </button>
+          <button
+            type="button"
+            :class="['cv-recip-stat', recipientReadFilter === 'read' && 'cv-recip-stat--on']"
+            @click="recipientReadFilter = 'read'"
+          >
+            <span class="cv-recip-stat-num cv-recip-stat-num--read">{{ recipientReadCount }}</span>
+            <span class="cv-recip-stat-lbl">Read</span>
+          </button>
+          <button
+            type="button"
+            :class="['cv-recip-stat', recipientReadFilter === 'unread' && 'cv-recip-stat--on']"
+            @click="recipientReadFilter = 'unread'"
+          >
+            <span class="cv-recip-stat-num cv-recip-stat-num--unread">{{ recipientUnreadCount }}</span>
+            <span class="cv-recip-stat-lbl">Unread</span>
+          </button>
+        </div>
+
+        <!-- Search -->
+        <div class="cv-recip-tools">
+          <SearchInput v-model="recipientSearch" placeholder="Search by name, ID or base…" />
+        </div>
+
+        <!-- States -->
+        <div v-if="recipientsLoading" class="cv-recip-state">Loading recipients…</div>
+        <div v-else-if="recipientsErr" class="cv-recip-state cv-recip-state--err">{{ recipientsErr }}</div>
+        <div v-else-if="!recipientsFiltered.length" class="cv-recip-state">No matching recipients.</div>
+
+        <!-- List -->
+        <ul v-else class="cv-recip-list">
+          <li v-for="r in recipientsFiltered" :key="r.user_id" class="cv-recip-item">
+            <div class="cv-recip-avatar">{{ (r.name || '?').charAt(0).toUpperCase() }}</div>
+            <div class="cv-recip-info">
+              <span class="cv-recip-name">{{ r.name || '—' }}</span>
+              <span class="cv-recip-meta">
+                <span class="cv-recip-id">{{ r.driver_id || '—' }}</span>
+                <span v-if="r.base" class="cv-recip-base">{{ r.base }}</span>
+              </span>
+            </div>
+            <div class="cv-recip-status">
+              <span v-if="r.read_at" class="badge badge-active" :title="`Read at ${formatDate(r.read_at)}`">
+                <CheckIcon :size="11" /> Read
+              </span>
+              <span v-else class="badge badge-info">Unread</span>
+            </div>
+            <button
+              type="button"
+              class="cv-recip-preview-btn"
+              title="Preview as this recipient"
+              @click="previewRecipient = r"
+            >
+              <ViewIcon :size="13" />
+            </button>
+          </li>
+        </ul>
+
+        <!-- Per-recipient rendered preview -->
+        <div v-if="previewRecipient" class="cv-recip-preview">
+          <div class="cv-recip-preview-hd">
+            <div>
+              <p class="cv-recip-preview-eyebrow">Preview as</p>
+              <p class="cv-recip-preview-name">{{ previewRecipient.name }} <span class="cv-recip-preview-id">{{ previewRecipient.driver_id }}</span></p>
+            </div>
+            <button class="cv-recip-close" @click="previewRecipient = null" aria-label="Close preview">
+              <CloseIcon :size="13" />
+            </button>
+          </div>
+          <p class="cv-recip-preview-subject">{{ previewRecipient.rendered_subject || recipientItem.subject }}</p>
+          <div class="cv-recip-preview-body" v-html="formatContent(previewRecipient.rendered_body || recipientItem.body)" />
+        </div>
       </div>
     </ModalSheet>
 
@@ -843,6 +999,87 @@ function onSent() { fetchItems() }
 }
 .cv-recipients-main { font-size: 0.875rem; font-weight: 600; color: var(--c-text-1); }
 .cv-recipients-sub  { font-size: 0.72rem; color: var(--c-text-3); }
+
+/* Make the cell behave like a clickable link without losing layout. */
+.cv-recipients-cell--btn {
+  width: 100%; text-align: left;
+  background: transparent; border: none; padding: 4px 6px; margin: -4px -6px;
+  border-radius: 6px; cursor: pointer; transition: background var(--dur);
+}
+.cv-recipients-cell--btn:hover { background: var(--c-hover); }
+.cv-recipients-cell--btn:hover .cv-recipients-main { color: var(--c-accent); }
+
+/* ══ Recipients drill-down modal ════════════════════════════════════════════ */
+.cv-recip { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 18px; }
+
+.cv-recip-stats {
+  display: flex; gap: 5px;
+}
+.cv-recip-stat {
+  display: inline-flex; align-items: center; gap: 6px; flex: 1;
+  padding: 5px 10px; border-radius: var(--r-full);
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  cursor: pointer; transition: all var(--dur);
+}
+.cv-recip-stat:hover { border-color: var(--c-accent); }
+.cv-recip-stat--on  { background: var(--c-accent-tint); border-color: var(--c-accent); }
+.cv-recip-stat-num  { font-size: 0.9rem; font-weight: 700; color: var(--c-text-1); font-variant-numeric: tabular-nums; }
+.cv-recip-stat-num--read   { color: #16A34A; }
+.cv-recip-stat-num--unread { color: #D97706; }
+.cv-recip-stat-lbl { font-size: 0.7rem; font-weight: 600; color: var(--c-text-3); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.cv-recip-tools { display: flex; gap: 6px; }
+
+.cv-recip-state {
+  padding: 16px 12px; text-align: center; color: var(--c-text-3); font-size: 0.8rem;
+  background: var(--c-bg); border-radius: 8px; border: 1px dashed var(--c-border);
+}
+.cv-recip-state--err { color: var(--c-red); border-color: var(--c-red); background: var(--c-red-tint); }
+
+.cv-recip-list {
+  list-style: none; margin: 0; padding: 0;
+  border: 1px solid var(--c-border); border-radius: 8px; overflow: hidden;
+  max-height: 340px; overflow-y: auto;
+}
+.cv-recip-item {
+  display: grid; grid-template-columns: 28px 1fr auto auto;
+  align-items: center; gap: 8px;
+  padding: 7px 10px; border-bottom: 1px solid var(--c-border-light);
+}
+.cv-recip-item:last-child { border-bottom: none; }
+.cv-recip-item:hover { background: var(--c-hover); }
+.cv-recip-avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(124,58,237,0.12); color: #7C3AED;
+  display: grid; place-items: center; font-size: 0.72rem; font-weight: 700;
+}
+.cv-recip-info { display: flex; flex-direction: column; min-width: 0; }
+.cv-recip-name { font-size: 0.875rem; font-weight: 600; color: var(--c-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cv-recip-meta { display: flex; gap: 8px; font-size: 0.72rem; color: var(--c-text-3); }
+.cv-recip-id   { font-family: monospace; }
+.cv-recip-base {
+  padding: 0 6px; border-radius: 4px;
+  background: var(--c-bg); color: var(--c-text-2); font-weight: 600;
+}
+.cv-recip-status .badge { display: inline-flex; align-items: center; gap: 4px; }
+.cv-recip-preview-btn {
+  width: 26px; height: 26px; border-radius: 6px;
+  border: 1px solid var(--c-border); background: transparent; color: var(--c-text-3);
+  display: grid; place-items: center; cursor: pointer; transition: all var(--dur);
+}
+.cv-recip-preview-btn:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent-tint); }
+
+.cv-recip-preview {
+  margin-top: 4px; padding: 14px 16px;
+  background: var(--c-bg); border: 1px solid var(--c-border); border-radius: 10px;
+}
+.cv-recip-preview-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.cv-recip-preview-eyebrow { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--c-text-3); margin-bottom: 2px; }
+.cv-recip-preview-name { font-size: 0.92rem; font-weight: 700; color: var(--c-text-1); }
+.cv-recip-preview-id   { font-family: monospace; font-size: 0.75rem; color: var(--c-text-3); margin-left: 6px; }
+.cv-recip-preview-subject { margin-top: 12px; font-size: 0.95rem; font-weight: 700; color: var(--c-text-1); }
+.cv-recip-preview-body :deep(p) { margin: 0.5em 0; line-height: 1.55; color: var(--c-text-1); }
+.cv-recip-preview-body :deep(strong) { color: var(--c-text-1); font-weight: 700; }
 
 .cv-aud-tag {
   display: inline-flex; align-items: center;

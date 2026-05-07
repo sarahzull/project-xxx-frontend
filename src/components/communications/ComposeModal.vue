@@ -29,7 +29,7 @@ import { useToast }      from '../../composables/useToast'
 import {
   CloseIcon, SearchIcon, SendIcon, CheckCircleIcon, AlertIcon,
   BoldIcon, ItalicIcon, ListIcon, DriversIcon, CalendarIcon,
-  BellRingIcon,
+  BellRingIcon, InfoIcon,
 } from '../icons/index.js'
 
 const props = defineProps({ modelValue: { type: Boolean, required: true } })
@@ -119,7 +119,6 @@ function selectDriver(d) {
   if (audienceType.value === 'single') {
     selectedDriver.value = d
     form.value.driver_id = d.driver_id
-    replaceDriverName('[Driver Name]', d.name)
   } else {
     addDriverToList(d)
   }
@@ -128,23 +127,13 @@ function selectDriver(d) {
   showDriverDrop.value = false
 }
 function clearDriver() {
-  const prevName = selectedDriver.value?.name
   selectedDriver.value = null
   form.value.driver_id = ''
   driverQuery.value    = ''
   driverResults.value  = []
   showDriverDrop.value = false
-  if (prevName) replaceDriverName(prevName, '[Driver Name]')
 }
 
-/** Replace all occurrences of `from` with `to` in the editor HTML. */
-function replaceDriverName(from, to) {
-  if (!editor.value) return
-  const current = editor.value.getHTML()
-  if (!current.includes(from)) return
-  editor.value.commands.setContent(current.replaceAll(from, to))
-  form.value.content = editor.value.getHTML()
-}
 function onDriverBlur() { setTimeout(() => { showDriverDrop.value = false }, 180) }
 
 // ── Templates ─────────────────────────────────────────────────────────────────
@@ -196,14 +185,13 @@ function applyTemplate(value) {
 
   // Built-in templates only pre-fill subject/content. Type is chosen
   // independently in the Type selector above so the two concerns don't fight.
+  // Merge tags like [Driver Name] / [Name] / [Driver ID] / [Base] are kept
+  // templated; the backend substitutes them per recipient at read time.
   const builtin = BUILTIN_TEMPLATES[value]
   if (builtin) {
     form.value.subject = builtin.subject
-    const content = selectedDriver.value
-      ? builtin.content.replaceAll('[Driver Name]', selectedDriver.value.name)
-      : builtin.content
-    form.value.content = content
-    editor.value?.commands.setContent(content)
+    form.value.content = builtin.content
+    editor.value?.commands.setContent(builtin.content)
     return
   }
 
@@ -215,9 +203,7 @@ function applyTemplate(value) {
     if (!tpl) return
     if (tpl.type) form.value.type = tpl.type
     form.value.subject = tpl.subject || ''
-    const content = selectedDriver.value
-      ? (tpl.content || '').replaceAll('[Driver Name]', selectedDriver.value.name)
-      : (tpl.content || '')
+    const content = tpl.content || ''
     form.value.content = content
     editor.value?.commands.setContent(content)
   }
@@ -257,18 +243,13 @@ function confirmSaveTemplate() {
     return
   }
 
-  // Stash the placeholder so saved templates work for any future driver.
-  let stored = form.value.content
-  if (selectedDriver.value?.name) {
-    stored = stored.replaceAll(selectedDriver.value.name, '[Driver Name]')
-  }
-
+  // Editor stays templated, so the content is already storeable as-is.
   const tpl = {
     id:      String(Date.now()),
     name,
     type:    form.value.type,
     subject: form.value.subject.trim(),
-    content: stored,
+    content: form.value.content,
   }
   customTemplates.value = [...customTemplates.value, tpl]
   persistCustomTemplates()
@@ -335,9 +316,46 @@ const previewDate = computed(() => {
   return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`
 })
 
-const previewDriver = computed(() =>
-  selectedDriver.value?.name || '[Driver Name]'
+// Mailchimp-style merge tags. Stays templated in the editor / stored body;
+// the backend substitutes per recipient at read time. We mirror the same
+// tokens here for the live preview only.
+const MERGE_TOKENS = ['[Driver Name]', '[Name]', '[Driver ID]', '[Base]']
+
+function renderTokens(text, user) {
+  if (!text || !user) return text || ''
+  return text
+    .replaceAll('[Driver Name]', user.name      || '')
+    .replaceAll('[Name]',        user.name      || '')
+    .replaceAll('[Driver ID]',   user.driver_id || '')
+    .replaceAll('[Base]',        user.base      || '')
+}
+
+// Driver used in the preview pane. Single mode → the picked driver; multi
+// modes (drivers/all/bases) → the first chosen driver as a representative
+// example. Falls back to a placeholder so the preview still renders.
+const previewAsDriver = computed(() => {
+  if (audienceType.value === 'single') return selectedDriver.value
+  if (selectedDrivers.value.length)    return selectedDrivers.value[0]
+  return null
+})
+
+const previewDriver = computed(() => previewAsDriver.value?.name || '[Driver Name]')
+
+const previewSubject = computed(() =>
+  renderTokens(form.value.subject, previewAsDriver.value)
 )
+
+const previewBody = computed(() =>
+  renderTokens(form.value.content, previewAsDriver.value)
+)
+
+function copyMergeTag(tag) {
+  if (editor.value) {
+    editor.value.chain().focus().insertContent(tag).run()
+    return
+  }
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(tag)
+}
 
 // ── Reset on open/close ───────────────────────────────────────────────────────
 watch(() => props.modelValue, (open) => {
@@ -705,6 +723,18 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
               <!-- Rich text editor -->
               <div class="cm-field">
                 <label class="cm-label">Content <span class="cm-req">*</span></label>
+                <div class="cm-merge-hint">
+                  <InfoIcon :size="12" />
+                  <span>Personalise per recipient with merge tags:</span>
+                  <button
+                    v-for="t in MERGE_TOKENS"
+                    :key="t"
+                    type="button"
+                    class="cm-merge-tag"
+                    title="Click to copy — paste into the editor"
+                    @click="copyMergeTag(t)"
+                  >{{ t }}</button>
+                </div>
                 <div class="cm-editor-wrap">
                   <!-- Toolbar -->
                   <div class="cm-toolbar" v-if="editor">
@@ -768,12 +798,12 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
                 </div>
 
                 <!-- Subject -->
-                <p class="cm-letter-subject">{{ form.subject || 'Subject will appear here…' }}</p>
+                <p class="cm-letter-subject">{{ previewSubject || 'Subject will appear here…' }}</p>
 
                 <!-- Body content -->
                 <div
                   class="cm-letter-body"
-                  v-html="form.content || '<p style=\'color:#94A3B8\'>Content will appear here as you type…</p>'"
+                  v-html="previewBody || '<p style=\'color:#94A3B8\'>Content will appear here as you type…</p>'"
                 />
 
                 <!-- Footer -->
@@ -1167,6 +1197,21 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 .cm-drop-id     { font-size: 0.7rem; color: var(--c-text-3); font-family: monospace; }
 
 /* ── Tiptap Editor ─────────────────────────────────────────────────────────── */
+.cm-merge-hint {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin: -2px 0 8px;
+  font-size: 0.74rem; color: var(--c-text-3);
+}
+.cm-merge-hint > svg { flex-shrink: 0; opacity: 0.7; }
+.cm-merge-tag {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.7rem; font-weight: 600; color: #7C3AED;
+  background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25);
+  padding: 1px 7px; border-radius: 4px; cursor: pointer;
+  transition: background var(--dur), border-color var(--dur);
+}
+.cm-merge-tag:hover { background: rgba(124,58,237,0.18); border-color: rgba(124,58,237,0.5); }
+
 .cm-editor-wrap {
   border: 1px solid var(--c-border); border-radius: 10px;
   overflow: hidden; transition: border-color var(--dur);

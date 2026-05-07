@@ -24,6 +24,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import communicationsApi from '../../api/communications'
 import driversApi        from '../../api/drivers'
+import basesApi          from '../../api/bases'
 import { useToast }      from '../../composables/useToast'
 import {
   CloseIcon, SearchIcon, SendIcon, CheckCircleIcon, AlertIcon,
@@ -51,17 +52,53 @@ const form = ref({
   date:      new Date().toISOString().split('T')[0],
 })
 
+// ── Audience picker ───────────────────────────────────────────────────────────
+// Mirrors the rates "Apply to" pattern: pick a single driver, all drivers,
+// drivers in selected base(s), or an explicit driver list.
+const audienceType    = ref('single') // 'single' | 'all' | 'bases' | 'drivers'
+const selectedBases   = ref([])       // base codes, e.g. ['MA','PG']
+const selectedDrivers = ref([])       // [{ driver_id, name, user_id?, base?, ... }]
+const bases           = ref([])       // [{ code, label }]
+const baseLabelByCode = computed(() => Object.fromEntries(bases.value.map(b => [b.code, b.label])))
+
+async function fetchBases() {
+  try {
+    const { data } = await basesApi.list()
+    bases.value = data.data || []
+  } catch { /* silent — picker just shows empty */ }
+}
+
+function toggleBase(code) {
+  const i = selectedBases.value.indexOf(code)
+  if (i === -1) selectedBases.value = [...selectedBases.value, code]
+  else          selectedBases.value = selectedBases.value.filter(b => b !== code)
+}
+function isBaseSelected(code) { return selectedBases.value.includes(code) }
+
+function addDriverToList(d) {
+  // Dedupe by driver_id (always present). SWAT search results have no `id`,
+  // so the previous `x.id === d.id` check collapsed to undefined === undefined
+  // and rejected every driver after the first one.
+  if (selectedDrivers.value.some(x => x.driver_id === d.driver_id)) return
+  selectedDrivers.value = [...selectedDrivers.value, d]
+}
+function removeDriverFromList(driverId) {
+  selectedDrivers.value = selectedDrivers.value.filter(d => d.driver_id !== driverId)
+}
+
 // ── Driver search ─────────────────────────────────────────────────────────────
 const driverQuery     = ref('')
 const driverResults   = ref([])
 const driverSearching = ref(false)
 const showDriverDrop  = ref(false)
-const selectedDriver  = ref(null)
+const selectedDriver  = ref(null) // single-mode only
 
 let _searchTimer = null
 function onDriverInput() {
-  selectedDriver.value  = null
-  form.value.driver_id  = ''
+  if (audienceType.value === 'single') {
+    selectedDriver.value = null
+    form.value.driver_id = ''
+  }
   const q = driverQuery.value.trim()
   if (!q) { driverResults.value = []; showDriverDrop.value = false; return }
   clearTimeout(_searchTimer)
@@ -79,13 +116,16 @@ function onDriverInput() {
   }, 280)
 }
 function selectDriver(d) {
-  selectedDriver.value = d
-  form.value.driver_id = d.driver_id
+  if (audienceType.value === 'single') {
+    selectedDriver.value = d
+    form.value.driver_id = d.driver_id
+    replaceDriverName('[Driver Name]', d.name)
+  } else {
+    addDriverToList(d)
+  }
   driverQuery.value    = ''
   driverResults.value  = []
   showDriverDrop.value = false
-  // Replace placeholder with real driver name in editor content
-  replaceDriverName('[Driver Name]', d.name)
 }
 function clearDriver() {
   const prevName = selectedDriver.value?.name
@@ -94,7 +134,6 @@ function clearDriver() {
   driverQuery.value    = ''
   driverResults.value  = []
   showDriverDrop.value = false
-  // Restore placeholder when driver is cleared
   if (prevName) replaceDriverName(prevName, '[Driver Name]')
 }
 
@@ -306,25 +345,78 @@ watch(() => props.modelValue, (open) => {
     form.value    = { driver_id: '', type: 'reward', subject: '', content: '', date: new Date().toISOString().split('T')[0] }
     composeErr.value = ''
     activeTab.value  = 'form'
+    audienceType.value    = 'single'
+    selectedBases.value   = []
+    selectedDrivers.value = []
     loadCustomTemplates()
+    fetchBases()
     clearDriver()
     applyTemplate('reward')
   }
 })
 
 // ── Submit ────────────────────────────────────────────────────────────────────
+function buildAudiencePayload() {
+  switch (audienceType.value) {
+    case 'single':
+      return form.value.driver_id ? { type: 'single', driver_id: form.value.driver_id } : null
+    case 'all':
+      return { type: 'all' }
+    case 'bases':
+      return selectedBases.value.length ? { type: 'bases', bases: [...selectedBases.value] } : null
+    case 'drivers': {
+      // Backend expects users.id ints — use user_id from the enriched driver
+      // record (added by DriverController::index). Drivers without a matching
+      // User row are dropped silently here; the audienceErrorMessage() guard
+      // catches the empty-list case below.
+      const ids = selectedDrivers.value
+        .map(d => d.user_id)
+        .filter(v => Number.isInteger(v))
+      return ids.length ? { type: 'drivers', driver_user_ids: ids } : null
+    }
+    default:
+      return null
+  }
+}
+
+function audienceErrorMessage() {
+  if (!form.value.subject || !form.value.content || form.value.content === '<p></p>') {
+    return 'Please fill in subject and content.'
+  }
+  switch (audienceType.value) {
+    case 'single':  return 'Please select a driver.'
+    case 'bases':   return 'Pick at least one base.'
+    case 'drivers': return 'Pick at least one driver.'
+    default:        return 'Please complete the audience selection.'
+  }
+}
+
 async function sendCommunication() {
-  if (!form.value.driver_id || !form.value.subject || !form.value.content || form.value.content === '<p></p>') {
-    composeErr.value = 'Please fill in all required fields (driver, subject, and content).'
+  const audience = buildAudiencePayload()
+  if (!audience || !form.value.subject || !form.value.content || form.value.content === '<p></p>') {
+    composeErr.value = audienceErrorMessage()
     return
   }
   composeErr.value = ''
   sending.value = true
   try {
-    const res = await communicationsApi.send(form.value)
+    const payload = {
+      type:    form.value.type,
+      subject: form.value.subject,
+      body:    form.value.content,
+      audience,
+    }
+    const res = await communicationsApi.send(payload)
     emit('update:modelValue', false)
     emit('sent', res.data?.data || res.data)
-    toast.success('Communication sent successfully.', { title: 'Sent' })
+    const sentTo = audience.type === 'single'
+      ? 'driver'
+      : audience.type === 'all'
+        ? 'all drivers'
+        : audience.type === 'bases'
+          ? `drivers in ${audience.bases.join(', ')}`
+          : `${audience.driver_user_ids.length} driver${audience.driver_user_ids.length === 1 ? '' : 's'}`
+    toast.success(`Communication sent to ${sentTo}.`, { title: 'Sent' })
   } catch (e) {
     composeErr.value = e.response?.data?.message || 'Failed to send communication.'
     toast.error(composeErr.value, { title: 'Send Failed' })
@@ -479,50 +571,122 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
                 </div>
               </div>
 
-              <!-- Driver search -->
+              <!-- Audience picker -->
               <div class="cm-field">
-                <label class="cm-label">Driver <span class="cm-req">*</span></label>
-                <div v-if="selectedDriver" class="cm-driver-chip">
-                  <div class="cm-driver-avatar">{{ selectedDriver.name.charAt(0).toUpperCase() }}</div>
-                  <div class="cm-driver-info">
-                    <span class="cm-driver-name">{{ selectedDriver.name }}</span>
-                    <span class="cm-driver-id">{{ selectedDriver.driver_id }}</span>
-                  </div>
-                  <button class="cm-driver-clear" type="button" @click="clearDriver" aria-label="Remove driver">
-                    <CloseIcon :size="13" :stroke-width="2.4" />
-                  </button>
+                <label class="cm-label">Send to <span class="cm-req">*</span></label>
+                <div class="cm-aud-seg" role="group" aria-label="Audience type">
+                  <button type="button" :class="['cm-aud-seg-btn', audienceType === 'single'  && 'cm-aud-seg-btn--on']" @click="audienceType = 'single'">Single driver</button>
+                  <button type="button" :class="['cm-aud-seg-btn', audienceType === 'bases'   && 'cm-aud-seg-btn--on']" @click="audienceType = 'bases'">By base</button>
+                  <button type="button" :class="['cm-aud-seg-btn', audienceType === 'drivers' && 'cm-aud-seg-btn--on']" @click="audienceType = 'drivers'">Selected drivers</button>
+                  <button type="button" :class="['cm-aud-seg-btn', audienceType === 'all'     && 'cm-aud-seg-btn--on']" @click="audienceType = 'all'">All drivers</button>
                 </div>
-                <div v-else class="cm-driver-search">
-                  <div class="cm-driver-search-row">
-                    <SearchIcon :size="14" class="cm-driver-search-icon" />
-                    <input
-                      v-model="driverQuery"
-                      type="text"
-                      class="cm-driver-input"
-                      placeholder="Search by name or driver ID…"
-                      autocomplete="off"
-                      @input="onDriverInput"
-                      @focus="driverQuery && (showDriverDrop = true)"
-                      @blur="onDriverBlur"
-                    />
-                    <span v-if="driverSearching" class="cm-searching-dot" />
-                  </div>
-                  <div v-if="showDriverDrop" class="cm-driver-drop">
-                    <div v-if="!driverSearching && !driverResults.length" class="cm-drop-empty">
-                      No drivers found for "{{ driverQuery }}"
+
+                <!-- Single driver -->
+                <div v-if="audienceType === 'single'" class="cm-aud-panel">
+                  <div v-if="selectedDriver" class="cm-driver-chip">
+                    <div class="cm-driver-avatar">{{ selectedDriver.name.charAt(0).toUpperCase() }}</div>
+                    <div class="cm-driver-info">
+                      <span class="cm-driver-name">{{ selectedDriver.name }}</span>
+                      <span class="cm-driver-id">{{ selectedDriver.driver_id }}</span>
                     </div>
-                    <button
-                      v-for="d in driverResults" :key="d.driver_id"
-                      class="cm-drop-item" type="button"
-                      @mousedown.prevent="selectDriver(d)"
-                    >
-                      <div class="cm-drop-avatar">{{ d.name.charAt(0).toUpperCase() }}</div>
-                      <div class="cm-drop-info">
-                        <span class="cm-drop-name">{{ d.name }}</span>
-                        <span class="cm-drop-id">{{ d.driver_id }}</span>
-                      </div>
+                    <button class="cm-driver-clear" type="button" @click="clearDriver" aria-label="Remove driver">
+                      <CloseIcon :size="13" :stroke-width="2.4" />
                     </button>
                   </div>
+                  <div v-else class="cm-driver-search">
+                    <div class="cm-driver-search-row">
+                      <SearchIcon :size="14" class="cm-driver-search-icon" />
+                      <input
+                        v-model="driverQuery"
+                        type="text"
+                        class="cm-driver-input"
+                        placeholder="Search by name or driver ID…"
+                        autocomplete="off"
+                        @input="onDriverInput"
+                        @focus="driverQuery && (showDriverDrop = true)"
+                        @blur="onDriverBlur"
+                      />
+                      <span v-if="driverSearching" class="cm-searching-dot" />
+                    </div>
+                    <div v-if="showDriverDrop" class="cm-driver-drop">
+                      <div v-if="!driverSearching && !driverResults.length" class="cm-drop-empty">
+                        No drivers found for "{{ driverQuery }}"
+                      </div>
+                      <button
+                        v-for="d in driverResults" :key="d.driver_id"
+                        class="cm-drop-item" type="button"
+                        @mousedown.prevent="selectDriver(d)"
+                      >
+                        <div class="cm-drop-avatar">{{ d.name.charAt(0).toUpperCase() }}</div>
+                        <div class="cm-drop-info">
+                          <span class="cm-drop-name">{{ d.name }}</span>
+                          <span class="cm-drop-id">{{ d.driver_id }}</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- By base -->
+                <div v-else-if="audienceType === 'bases'" class="cm-aud-panel">
+                  <div v-if="bases.length" class="cm-aud-chips">
+                    <button
+                      v-for="b in bases" :key="b.code" type="button"
+                      :class="['cm-aud-chip', isBaseSelected(b.code) && 'cm-aud-chip--on']"
+                      :title="b.label"
+                      @click="toggleBase(b.code)"
+                    >{{ b.code }}</button>
+                  </div>
+                  <p v-else class="cm-aud-hint">Loading bases…</p>
+                </div>
+
+                <!-- Selected drivers (multi) -->
+                <div v-else-if="audienceType === 'drivers'" class="cm-aud-panel">
+                  <div v-if="selectedDrivers.length" class="cm-aud-chips cm-aud-chips--drivers">
+                    <span v-for="d in selectedDrivers" :key="d.driver_id" class="cm-aud-driver-chip">
+                      {{ d.name }} <span class="cm-aud-driver-id">{{ d.driver_id }}</span>
+                      <button type="button" class="cm-aud-driver-remove" @click="removeDriverFromList(d.driver_id)" aria-label="Remove">
+                        <CloseIcon :size="11" :stroke-width="2.4" />
+                      </button>
+                    </span>
+                  </div>
+                  <div class="cm-driver-search">
+                    <div class="cm-driver-search-row">
+                      <SearchIcon :size="14" class="cm-driver-search-icon" />
+                      <input
+                        v-model="driverQuery"
+                        type="text"
+                        class="cm-driver-input"
+                        placeholder="Add a driver by name or ID…"
+                        autocomplete="off"
+                        @input="onDriverInput"
+                        @focus="driverQuery && (showDriverDrop = true)"
+                        @blur="onDriverBlur"
+                      />
+                      <span v-if="driverSearching" class="cm-searching-dot" />
+                    </div>
+                    <div v-if="showDriverDrop" class="cm-driver-drop">
+                      <div v-if="!driverSearching && !driverResults.length" class="cm-drop-empty">
+                        No drivers found for "{{ driverQuery }}"
+                      </div>
+                      <button
+                        v-for="d in driverResults" :key="d.driver_id"
+                        class="cm-drop-item" type="button"
+                        @mousedown.prevent="selectDriver(d)"
+                      >
+                        <div class="cm-drop-avatar">{{ d.name.charAt(0).toUpperCase() }}</div>
+                        <div class="cm-drop-info">
+                          <span class="cm-drop-name">{{ d.name }}</span>
+                          <span class="cm-drop-id">{{ d.driver_id }}</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- All -->
+                <div v-else class="cm-aud-panel">
+                  <p class="cm-aud-info">All active drivers will receive this communication.</p>
                 </div>
               </div>
 
@@ -879,6 +1043,66 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
   border-color: #7C3AED;
   box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
 }
+
+/* ── Audience picker ──────────────────────────────────────────────────────── */
+.cm-aud-seg {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  padding: 3px; border-radius: 9px; margin-bottom: 0.5rem;
+}
+.cm-aud-seg-btn {
+  flex: 1 1 auto; padding: 5px 10px; border-radius: 7px;
+  background: transparent; border: none; cursor: pointer;
+  font-size: 0.78rem; font-weight: 600; color: var(--c-text-3);
+  transition: background var(--dur), color var(--dur);
+  white-space: nowrap;
+}
+.cm-aud-seg-btn:hover:not(.cm-aud-seg-btn--on) { background: var(--c-surface); color: var(--c-text-1); }
+.cm-aud-seg-btn--on { background: var(--c-surface); color: #7C3AED; box-shadow: var(--sh-xs); }
+
+.cm-aud-panel {
+  margin-top: 0.25rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.cm-aud-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.cm-aud-chip {
+  padding: 5px 12px; border-radius: var(--r-full);
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.78rem; font-weight: 700; color: var(--c-text-2);
+  cursor: pointer; transition: background var(--dur), color var(--dur), border-color var(--dur);
+}
+.cm-aud-chip:hover { border-color: #7C3AED; color: #7C3AED; }
+.cm-aud-chip--on {
+  background: rgba(124,58,237,0.12); color: #7C3AED;
+  border-color: rgba(124,58,237,0.4);
+}
+.cm-aud-chips--drivers { gap: 5px; }
+.cm-aud-driver-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 10px; border-radius: var(--r-full);
+  background: rgba(124,58,237,0.08); color: var(--c-text-1);
+  border: 1px solid rgba(124,58,237,0.25);
+  font-size: 0.78rem;
+}
+.cm-aud-driver-id {
+  font-family: monospace; font-size: 0.72rem; color: var(--c-text-3);
+}
+.cm-aud-driver-remove {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; color: var(--c-text-2);
+  background: transparent; border: none; cursor: pointer;
+}
+.cm-aud-driver-remove:hover { background: rgba(239,68,68,0.15); color: #EF4444; }
+.cm-aud-info {
+  padding: 9px 12px; border-radius: 8px;
+  background: rgba(124,58,237,0.06);
+  border: 1px dashed rgba(124,58,237,0.3);
+  color: var(--c-text-2); font-size: 0.82rem;
+}
+.cm-aud-hint { font-size: 0.78rem; color: var(--c-text-3); }
 
 /* ── Driver combobox ──────────────────────────────────────────────────────── */
 .cm-driver-chip {

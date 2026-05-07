@@ -91,6 +91,35 @@ function markViewed(id) {
   localStorage.setItem(VIEWED_KEY, JSON.stringify([...viewedIds.value]))
 }
 
+// Short label describing who received this communication (admin table cell).
+function audienceSummary(item) {
+  const a = item.audience
+  if (!a || !a.type || a.type === 'single') return item.driver_name || '—'
+  if (a.type === 'all')     return 'All drivers'
+  if (a.type === 'bases')   return `By base: ${(a.payload?.bases || []).join(', ') || '—'}`
+  if (a.type === 'drivers') {
+    const n = (a.payload?.driver_user_ids || []).length
+    return `${n} selected driver${n === 1 ? '' : 's'}`
+  }
+  if (a.type === 'mixed')   return 'Mixed audience'
+  return '—'
+}
+
+// Sub-line under audienceSummary — recipient/read tally.
+function recipientSummary(item) {
+  const total = item.recipients_count
+  const read  = item.read_count
+  if (total == null) return ''
+  if (read == null)  return `${total} sent`
+  return `${total} sent · ${read} read`
+}
+
+// Short category label rendered as a colored chip in the Recipients cell.
+function audienceCategoryLabel(item) {
+  const t = item.audience?.type || 'single'
+  return ({ single: 'Single', all: 'All', bases: 'By base', drivers: 'Selected', mixed: 'Mixed' })[t] || 'Single'
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(s) {
   if (!s) return '—'
@@ -418,10 +447,10 @@ function onSent() { fetchItems() }
             <thead>
               <tr>
                 <th class="cv-th cv-th--type">Type</th>
-                <th v-if="isAdmin" class="cv-th cv-th--driver">Driver</th>
+                <th v-if="isAdmin" class="cv-th cv-th--recipients">Recipients</th>
                 <th class="cv-th cv-th--subject">Subject</th>
                 <th class="cv-th cv-th--date">Date</th>
-                <th class="cv-th cv-th--status">Status</th>
+                <th v-if="!isAdmin" class="cv-th cv-th--status">Status</th>
                 <th class="cv-th cv-th--actions">Actions</th>
               </tr>
             </thead>
@@ -431,12 +460,9 @@ function onSent() { fetchItems() }
                 <tr v-for="n in 6" :key="`skel-${n}`" class="cv-tr cv-tr--skel">
                   <td class="cv-td"><Skeleton width="76px" height="20px" rounded="full" /></td>
                   <td v-if="isAdmin" class="cv-td">
-                    <div class="cv-driver-cell">
-                      <Skeleton width="32px" height="32px" rounded="full" />
-                      <div class="cv-driver-info" style="gap:6px;">
-                        <Skeleton width="110px" height="12px" />
-                        <Skeleton width="60px" height="10px" />
-                      </div>
+                    <div class="cv-recipients-cell">
+                      <Skeleton width="120px" height="12px" />
+                      <Skeleton width="90px" height="10px" />
                     </div>
                   </td>
                   <td class="cv-td">
@@ -446,7 +472,7 @@ function onSent() { fetchItems() }
                     </div>
                   </td>
                   <td class="cv-td"><Skeleton width="86px" height="12px" /></td>
-                  <td class="cv-td"><Skeleton width="56px" height="20px" rounded="full" /></td>
+                  <td v-if="!isAdmin" class="cv-td"><Skeleton width="56px" height="20px" rounded="full" /></td>
                   <td class="cv-td"><Skeleton width="80px" height="26px" rounded="md" /></td>
                 </tr>
               </template>
@@ -467,19 +493,17 @@ function onSent() { fetchItems() }
                   </span>
                 </td>
 
-                <!-- Driver (admin only) -->
-                <td v-if="isAdmin" class="cv-td cv-td--driver">
-                  <div v-if="item.driver_name" class="cv-driver-cell">
-                    <div class="cv-driver-avatar">
-                      <img v-if="item.driver_photo" :src="item.driver_photo" :alt="item.driver_name" class="cv-driver-photo" />
-                      <span v-else>{{ item.driver_name.charAt(0).toUpperCase() }}</span>
+                <!-- Recipients (admin only) -->
+                <td v-if="isAdmin" class="cv-td cv-td--recipients">
+                  <div class="cv-recipients-cell">
+                    <div class="cv-recipients-row">
+                      <span :class="['cv-aud-tag', `cv-aud-tag--${item.audience?.type || 'single'}`]">
+                        {{ audienceCategoryLabel(item) }}
+                      </span>
+                      <span class="cv-recipients-main">{{ audienceSummary(item) }}</span>
                     </div>
-                    <div class="cv-driver-info">
-                      <span class="cv-driver-name">{{ item.driver_name }}</span>
-                      <span v-if="item.driver_id" class="cv-driver-id">{{ item.driver_id }}</span>
-                    </div>
+                    <span v-if="recipientSummary(item)" class="cv-recipients-sub">{{ recipientSummary(item) }}</span>
                   </div>
-                  <span v-else class="cv-td-empty">—</span>
                 </td>
 
                 <!-- Subject + preview -->
@@ -503,10 +527,10 @@ function onSent() { fetchItems() }
                   </span>
                 </td>
 
-                <!-- Status -->
-                <td class="cv-td cv-td--status">
-                  <span :class="['badge', isAdmin ? 'badge-confirmed' : (isViewed(item.id) ? 'badge-active' : 'badge-info')]">
-                    {{ isAdmin ? 'Sent' : (isViewed(item.id) ? 'Read' : 'New') }}
+                <!-- Status (driver-side only — admin gets recipients sub-line instead) -->
+                <td v-if="!isAdmin" class="cv-td cv-td--status">
+                  <span :class="['badge', isViewed(item.id) ? 'badge-active' : 'badge-info']">
+                    {{ isViewed(item.id) ? 'Read' : 'New' }}
                   </span>
                 </td>
 
@@ -809,6 +833,29 @@ function onSent() { fetchItems() }
 .cv-th--subject { }
 .cv-th--date    { width: 130px; }
 .cv-th--status  { width: 90px; text-align: center; }
+.cv-th--recipients { min-width: 180px; }
+.cv-td--recipients { vertical-align: middle; }
+.cv-recipients-cell {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.cv-recipients-row  {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.cv-recipients-main { font-size: 0.875rem; font-weight: 600; color: var(--c-text-1); }
+.cv-recipients-sub  { font-size: 0.72rem; color: var(--c-text-3); }
+
+.cv-aud-tag {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  white-space: nowrap; flex-shrink: 0;
+}
+.cv-aud-tag--single  { background: #E0E7FF; color: #3730A3; }
+.cv-aud-tag--all     { background: #DCFCE7; color: #166534; }
+.cv-aud-tag--bases   { background: #F3E8FF; color: #6B21A8; }
+.cv-aud-tag--drivers { background: #FEF3C7; color: #92400E; }
+.cv-aud-tag--mixed   { background: #FCE7F3; color: #9D174D; }
 .cv-th--actions { width: 80px; text-align: center; }
 
 /* Body rows */

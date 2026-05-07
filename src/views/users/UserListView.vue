@@ -6,6 +6,7 @@ import {
 import ActionBtn from '../../components/common/ActionBtn.vue'
 import usersApi from '../../api/users'
 import rolesApi from '../../api/roles'
+import basesApi from '../../api/bases'
 import tripsApi from '../../api/trips'
 import { useAuthStore } from '../../stores/auth'
 import DataTable from '../../components/common/DataTable.vue'
@@ -20,6 +21,7 @@ const auth    = useAuthStore()
 const toast   = useToast()
 const users   = ref([])
 const roles   = ref([])
+const bases   = ref([])
 const loading      = ref(true)
 const search       = ref('')
 const filterStatus = ref('')   // '' | 'active' | 'blocked'
@@ -35,6 +37,16 @@ const hasFilter = computed(() => search.value || filterStatus.value || filterRol
 const roleOptions = computed(() =>
   roles.value.map((r) => ({ value: r.id, label: r.name }))
 )
+
+const baseOptions = computed(() =>
+  bases.value.map((b) => ({ value: b.code, label: `${b.code} — ${b.label}` }))
+)
+
+const baseLabelByCode = computed(() => {
+  const map = {}
+  bases.value.forEach((b) => { map[b.code] = b.label })
+  return map
+})
 
 function resetFilters() {
   search.value       = ''
@@ -64,6 +76,7 @@ const form        = ref({
   name: '', email: '', password: '', dob: '', phone: '',
   role_id: '', driver_id: '', photo: '', license_no: '', license_date: '', date_joined: '',
   license_type: '', license_expiry: '', gdl_expiry: '', ranking: '', oil_company: '',
+  base: '',
   is_active: true,
 })
 const photoPreview = ref('')
@@ -180,6 +193,7 @@ const columns = [
   { key: 'name',       label: 'Name' },
   { key: 'email',      label: 'Email' },
   { key: 'roles',      label: 'Role' },
+  { key: 'base',       label: 'Base' },
   { key: 'is_active',  label: 'Status' },
   { key: 'created_at', label: 'Created' },
   { key: 'actions',    label: '' },
@@ -222,7 +236,14 @@ async function fetchRoles() {
   } catch { /* silent */ }
 }
 
-onMounted(() => { fetchUsers(); fetchRoles() })
+async function fetchBases() {
+  try {
+    const { data } = await basesApi.list()
+    bases.value = data.data || []
+  } catch { /* silent */ }
+}
+
+onMounted(() => { fetchUsers(); fetchRoles(); fetchBases() })
 
 function openCreate() {
   editingUser.value = null
@@ -231,6 +252,7 @@ function openCreate() {
     role_id: roles.value[0]?.id || '', driver_id: '', photo: '',
     license_no: '', license_date: '', date_joined: '',
     license_type: '', license_expiry: '', gdl_expiry: '', ranking: '', oil_company: '',
+    base: 'MA',
     is_active: true,
   }
   photoPreview.value = ''
@@ -261,6 +283,7 @@ function openEdit(user) {
     gdl_expiry:     user.gdl_expiry || '',
     ranking:        user.ranking || '',
     oil_company:    user.oil_company || '',
+    base:           user.base || 'MA',
     is_active:      user.is_active,
   }
   photoPreview.value = user.photo || ''
@@ -305,6 +328,7 @@ async function saveUser() {
       gdl_expiry:     form.value.gdl_expiry      || null,
       ranking:        computedRanking.value      || null,
       oil_company:    form.value.oil_company     || null,
+      base:           form.value.base,
     }
     if (!editingUser.value) {
       payload.password              = form.value.password
@@ -489,6 +513,12 @@ async function confirmDeleteUser() {
           </span>
           <span v-else class="tc-3">—</span>
         </template>
+        <template #cell-base="{ row }">
+          <span v-if="row.base" class="uv-base-pill" :title="baseLabelByCode[row.base] || row.base">
+            {{ row.base }}
+          </span>
+          <span v-else class="tc-3">—</span>
+        </template>
         <template #cell-is_active="{ value }">
           <StatusBadge :status="value ? 'active' : 'blocked'" />
         </template>
@@ -604,6 +634,17 @@ async function confirmDeleteUser() {
                 v-model="form.role_id"
                 :options="roleOptions"
                 placeholder="Select a role…"
+                :clearable="false"
+              />
+            </div>
+
+            <!-- Base -->
+            <div class="uv-field">
+              <label class="uv-label">Base</label>
+              <SelectInput
+                v-model="form.base"
+                :options="baseOptions"
+                placeholder="Select a base…"
                 :clearable="false"
               />
             </div>
@@ -871,6 +912,13 @@ async function confirmDeleteUser() {
 }
 .uv-role--admin  { background: #DBEAFE; color: #1D4ED8; }
 .uv-role--driver { background: #D1FAE5; color: #047857; }
+
+.uv-base-pill {
+  display: inline-flex; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.05em;
+  background: #F3E8FF; color: #6B21A8;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
 
 .uv-row-actions { display: flex; align-items: center; gap: 4px; }
 

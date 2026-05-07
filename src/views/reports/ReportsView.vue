@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { ReportsIcon, CheckCircleIcon } from '../../components/icons/index.js'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ReportsIcon, CheckCircleIcon, ExportIcon, ChevronDownIcon } from '../../components/icons/index.js'
 import reportsApi from '../../api/reports'
 import StatCard from '../../components/common/StatCard.vue'
 
@@ -9,6 +9,54 @@ const tripSummary     = ref(null)
 const expiringDrivers = ref([])
 const loading         = ref(true)
 const activeSection   = ref('all')   // 'all' | 'drivers' | 'trips' | 'expiry'
+
+const exporting = ref(false)
+const menuOpen  = ref(false)
+
+const tabKey = computed(() => activeSection.value === 'all' ? 'overview' : activeSection.value)
+
+function filenameFromHeaders(headers, fallback) {
+  const cd = headers?.['content-disposition'] || headers?.['Content-Disposition']
+  if (!cd) return fallback
+  const match = /filename\*?=(?:UTF-8''|")?([^";]+)"?/i.exec(cd)
+  return match ? decodeURIComponent(match[1]) : fallback
+}
+
+function triggerBlobDownload(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+async function runExport(mode) {
+  if (exporting.value) return
+  menuOpen.value = false
+  exporting.value = true
+  try {
+    const tab = tabKey.value
+    const today = new Date().toISOString().slice(0, 10)
+    const fallback = `fleet-report-${tab}-${mode}-${today}.xlsx`
+    const res = await reportsApi.exportReport(tab, mode)
+    const filename = filenameFromHeaders(res.headers, fallback)
+    triggerBlobDownload(res.data, filename)
+  } catch (err) {
+    console.error('Export failed', err)
+    alert('Failed to export report. Please try again.')
+  } finally {
+    exporting.value = false
+  }
+}
+
+function onDocClick(e) {
+  if (!e.target.closest('.rv-export')) menuOpen.value = false
+}
+onMounted(() => document.addEventListener('click', onDocClick))
+onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 function formatDate(s) {
   if (!s) return '—'
@@ -105,16 +153,40 @@ onMounted(async () => {
     <template v-else>
 
       <!-- ── Section nav ─────────────────────────────────────── -->
-      <div class="rv-sec-nav">
-        <button v-for="s in [
-          { key: 'all',     label: 'Overview' },
-          { key: 'drivers', label: 'Drivers' },
-          { key: 'trips',   label: 'Trips' },
-          { key: 'expiry',  label: 'License Expiry' },
-        ]" :key="s.key"
-          :class="['rv-sec-btn', activeSection === s.key && 'rv-sec-btn--on']"
-          @click="activeSection = s.key"
-        >{{ s.label }}</button>
+      <div class="rv-sec-row">
+        <div class="rv-sec-nav">
+          <button v-for="s in [
+            { key: 'all',     label: 'Overview' },
+            { key: 'drivers', label: 'Drivers' },
+            { key: 'trips',   label: 'Trips' },
+            { key: 'expiry',  label: 'License Expiry' },
+          ]" :key="s.key"
+            :class="['rv-sec-btn', activeSection === s.key && 'rv-sec-btn--on']"
+            @click="activeSection = s.key"
+          >{{ s.label }}</button>
+        </div>
+
+        <div class="rv-export">
+          <button
+            class="rv-export-btn"
+            :disabled="exporting"
+            @click.stop="menuOpen = !menuOpen"
+          >
+            <ExportIcon :size="16" />
+            <span>{{ exporting ? 'Exporting…' : 'Export' }}</span>
+            <ChevronDownIcon :size="14" :class="['rv-export-chev', menuOpen && 'rv-export-chev--on']" />
+          </button>
+          <div v-if="menuOpen" class="rv-export-menu" role="menu">
+            <button class="rv-export-item" @click="runExport('summary')">
+              <span class="rv-export-item-title">Summary</span>
+              <span class="rv-export-item-sub">Key metrics &amp; counts only</span>
+            </button>
+            <button class="rv-export-item" @click="runExport('detailed')">
+              <span class="rv-export-item-title">Detailed</span>
+              <span class="rv-export-item-sub">Full underlying records</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- ── Driver summary ──────────────────────────────────── -->
@@ -302,10 +374,52 @@ onMounted(async () => {
 @keyframes rv-spin { to { transform: rotate(360deg); } }
 
 /* Section nav */
+.rv-sec-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+}
 .rv-sec-nav {
-  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 20px;
+  display: flex; gap: 4px; flex-wrap: wrap; flex: 1; min-width: 0;
   background: var(--c-surface); border: 1px solid var(--c-border);
   border-radius: var(--r-xl); padding: 6px; box-shadow: var(--sh-xs);
+}
+
+/* Export menu */
+.rv-export { position: relative; flex-shrink: 0; }
+.rv-export-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: var(--r-lg);
+  background: var(--c-purple); color: #fff; border: none; cursor: pointer;
+  font-size: 0.875rem; font-weight: 600;
+  box-shadow: var(--sh-xs); transition: background var(--dur), transform var(--dur);
+}
+.rv-export-btn:hover:not(:disabled) { background: var(--c-purple-hover, #4f46e5); }
+.rv-export-btn:active:not(:disabled) { transform: translateY(1px); }
+.rv-export-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.rv-export-chev { transition: transform var(--dur); }
+.rv-export-chev--on { transform: rotate(180deg); }
+
+.rv-export-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+  min-width: 240px;
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: var(--r-lg); box-shadow: var(--sh-md, 0 8px 24px rgba(0,0,0,0.08));
+  padding: 6px; display: flex; flex-direction: column; gap: 2px;
+}
+.rv-export-item {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  padding: 10px 12px; border-radius: var(--r-md, 8px);
+  background: transparent; border: none; cursor: pointer; text-align: left;
+  transition: background var(--dur);
+}
+.rv-export-item:hover { background: var(--c-bg); }
+.rv-export-item-title { font-size: 0.875rem; font-weight: 600; color: var(--c-text-1); }
+.rv-export-item-sub   { font-size: 0.75rem; color: var(--c-text-3); }
+
+@media (max-width: 480px) {
+  .rv-sec-row { flex-direction: column; align-items: stretch; }
+  .rv-export, .rv-export-btn { width: 100%; justify-content: center; }
+  .rv-export-menu { left: 0; right: 0; }
 }
 .rv-sec-btn {
   padding: 6px 16px; border-radius: var(--r-lg); font-size: 0.875rem; font-weight: 500;

@@ -16,4 +16,10 @@ export default {
   monthlyTrips() {
     return http.get('/reports/monthly-trips')
   },
+  exportReport(tab, mode, params = {}) {
+    return http.get('/reports/export', {
+      params: { tab, mode, ...params },
+      responseType: 'blob',
+    })
+  },
 }

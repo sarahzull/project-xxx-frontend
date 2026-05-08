@@ -123,6 +123,16 @@ const SENSITIVE_FIELDS = new Set([
   'api_token',
   'two_factor_secret',
   'two_factor_recovery_codes',
+  'created_at',
+  'updated_at',
+  'read_at',
+  'email_verified_at',
+  'last_login_at',
+  'last_login_ip',
+  'last_seen_at',
+  'last_activity_at',
+  'delivered_at',
+  'sent_at',
 ])
 
 function formatDate(s) {
@@ -281,14 +291,21 @@ const groupedLogs = computed(() => {
     if (!map.has(key)) {
       map.set(key, {
         key,
-        id:           l.id,
-        created_at:   l.created_at,
-        user:         l.user,
-        action:       l.action,
-        table_name:   l.table_name,
-        row_id:       l.row_id,
-        changes:      [],
+        id:             l.id,
+        created_at:     l.created_at,
+        user:           l.user,
+        action:         l.action,
+        table_name:     l.table_name,
+        row_id:         l.row_id,
+        subject_label:  l.subject_label || null,
+        subject_meta:   l.subject_meta  || null,
+        changes:        [],
       })
+    } else {
+      // First row to define them wins; backfill if a later row has them.
+      const g = map.get(key)
+      if (!g.subject_label && l.subject_label) g.subject_label = l.subject_label
+      if (!g.subject_meta  && l.subject_meta)  g.subject_meta  = l.subject_meta
     }
     map.get(key).changes.push({
       field:      l.changed_fields,
@@ -567,6 +584,7 @@ onBeforeUnmount(() => {
               <th class="al-th--time">When</th>
               <th class="al-th--user">User</th>
               <th class="al-th--action">Action</th>
+              <th class="al-th--subject">Subject</th>
               <th class="al-th--field">Field</th>
               <th class="al-th--before">Before</th>
               <th class="al-th--after">After</th>
@@ -574,10 +592,10 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="6" class="al-empty">Loading audit logs…</td>
+              <td colspan="7" class="al-empty">Loading audit logs…</td>
             </tr>
             <tr v-else-if="!groupedLogs.length">
-              <td colspan="6" class="al-empty">
+              <td colspan="7" class="al-empty">
                 {{ hasFilter ? 'No audit logs match these filters.' : 'No audit activity recorded for today yet.' }}
               </td>
             </tr>
@@ -599,6 +617,13 @@ onBeforeUnmount(() => {
                 </span>
               </td>
 
+              <!-- Subject column — answers WHICH record was changed -->
+              <td class="al-cell-subject">
+                <span class="al-subj-table">{{ tableLabel(g.table_name) }}</span>
+                <span class="al-subj-label">{{ g.subject_label || `#${g.row_id}` }}</span>
+                <span v-if="g.subject_meta" class="al-subj-meta">{{ g.subject_meta }}</span>
+              </td>
+
               <!-- Field column — holds the expand toggle -->
               <td class="al-cell-field">
                 <ul class="al-change-list">
@@ -615,7 +640,8 @@ onBeforeUnmount(() => {
                   :aria-expanded="expandedGroups.has(g.key)"
                   @click="toggleExpand(g.key)"
                 >
-                  <span v-if="!expandedGroups.has(g.key)" class="al-expand-count">+{{ g.changes.length - 1 }}</span>
+                  <span v-if="!expandedGroups.has(g.key)" class="al-expand-count">+{{ g.changes.length - 1 }} more</span>
+                  <span v-else class="al-expand-count">Show less</span>
                   <ChevronDownIcon
                     :size="14"
                     :stroke-width="2"
@@ -857,9 +883,28 @@ onBeforeUnmount(() => {
   display: block; margin-top: 2px;
   font-size: 0.7rem; color: var(--c-text-3);
 }
+.al-th--subject { min-width: 200px; }
 .al-th--field   { min-width: 120px; }
 .al-th--before  { min-width: 140px; }
 .al-th--after   { min-width: 140px; }
+.al-cell-subject {
+  min-width: 200px; vertical-align: top;
+}
+.al-subj-table {
+  display: block;
+  font-size: 0.625rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--c-text-3);
+  margin-bottom: 2px;
+}
+.al-subj-label {
+  display: block;
+  font-size: 0.875rem; font-weight: 600; color: var(--c-text-1); line-height: 1.3;
+}
+.al-subj-meta {
+  display: block;
+  font-size: 0.7rem; color: var(--c-text-3);
+  margin-top: 2px;
+}
 .al-cell-field  { min-width: 120px; vertical-align: top; }
 .al-cell-before { min-width: 140px; vertical-align: top; }
 .al-cell-after  { min-width: 140px; vertical-align: top; }

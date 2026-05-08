@@ -327,8 +327,13 @@ onMounted(async () => {
         </div>
         <div>
           <p class="dd-alert-title">
-            {{ licenseUrgency.field }} Expiring in {{ licenseUrgency.days }} day{{ licenseUrgency.days !== 1 ? 's' : '' }}
-            <span v-if="licenseUrgency.key === 'critical'">&nbsp;— Action Required</span>
+            <template v-if="licenseUrgency.days < 0">
+              {{ licenseUrgency.field }} Expired {{ Math.abs(licenseUrgency.days) }} day{{ Math.abs(licenseUrgency.days) !== 1 ? 's' : '' }} ago&nbsp;— Action Required
+            </template>
+            <template v-else>
+              {{ licenseUrgency.field }} Expiring in {{ licenseUrgency.days }} day{{ licenseUrgency.days !== 1 ? 's' : '' }}
+              <span v-if="licenseUrgency.key === 'critical'">&nbsp;— Action Required</span>
+            </template>
           </p>
           <p class="dd-alert-sub">Immediate renewal required to maintain driver assignment eligibility</p>
         </div>

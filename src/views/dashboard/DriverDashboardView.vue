@@ -257,7 +257,7 @@ onMounted(async () => {
           </div>
           <div class="ddash-stat-body">
             <div class="ddash-stat-value" :style="{ color: licenseStatus.color }">
-              {{ licenseCountdown > 9000 ? '—' : licenseCountdown + 'd' }}
+              {{ licenseCountdown > 9000 ? '—' : licenseCountdown <= 0 ? 'Exp.' : licenseCountdown + 'd' }}
             </div>
             <div class="ddash-stat-label">
               License · <span :style="{ color: licenseStatus.color }">{{ licenseStatus.label }}</span>

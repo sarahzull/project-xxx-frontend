@@ -72,8 +72,8 @@ useBodyScrollLock(toRef(props, 'modelValue'))
 /* ── Backdrop ── */
 .ms-backdrop {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(3px);
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: flex-end;
   justify-content: center;

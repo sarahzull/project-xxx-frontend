@@ -5,6 +5,7 @@ import profileApi   from '../../api/profile'
 import { useToast } from '../../composables/useToast'
 import PhotoCropper from '../../components/common/PhotoCropper.vue'
 import DatePicker from '../../components/common/DatePicker.vue'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 import {
   UserIcon, CloseIcon, ViewIcon, PhotoIcon, TrashIcon, SearchIcon, InfoIcon, MoreIcon,
 } from '../../components/icons/index.js'
@@ -22,6 +23,7 @@ const showCropper   = ref(false)
 const cropperSrc    = ref('')
 const fileInputRef  = ref(null)
 const showPhotoModal = ref(false)
+useBodyScrollLock(showPhotoModal)
 
 function openFilePicker() {
   fileInputRef.value?.click()

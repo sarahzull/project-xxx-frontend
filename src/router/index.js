@@ -25,8 +25,12 @@ const routes = [
       { path: 'reports',       name: 'reports',      component: () => import('../views/reports/ReportsView.vue'),                meta: { roles: ['admin'] } },
       { path: 'rates',         name: 'rates',        component: () => import('../views/rates/RateManagementView.vue'),           meta: { roles: ['admin'] } },
       { path: 'users',         name: 'users',        component: () => import('../views/users/UserListView.vue'),                 meta: { roles: ['admin'] } },
+      { path: 'users/new',     name: 'user-create',  component: () => import('../views/users/UserFormView.vue'),                 meta: { roles: ['admin'] } },
+      { path: 'users/:id',      name: 'user-show',   component: () => import('../views/users/UserShowView.vue'), props: true,    meta: { roles: ['admin'] } },
+      { path: 'users/:id/edit', name: 'user-edit',   component: () => import('../views/users/UserFormView.vue'), props: true,    meta: { roles: ['admin'] } },
       { path: 'audit-logs',    name: 'audit-logs',   component: () => import('../views/audit/AuditLogsView.vue'),                meta: { roles: ['admin'] } },
       { path: 'safety',        name: 'safety',       component: () => import('../views/safety/SafetyView.vue'),                  meta: { roles: ['admin'] } },
+      { path: 'safety/:driverId', name: 'safety-driver', component: () => import('../views/safety/SafetyDriverDetailView.vue'), props: true, meta: { roles: ['admin'] } },
 
       // Driver-only routes
       { path: 'earnings',     name: 'earnings',     component: () => import('../views/earnings/EarningsView.vue'),   meta: { roles: ['driver'] } },
@@ -34,7 +38,8 @@ const routes = [
       { path: 'my-safety',    name: 'my-safety',    component: () => import('../views/safety/MySafetyView.vue'),     meta: { roles: ['driver'] } },
 
       // All authenticated users — Driver Communications module
-      { path: 'communications', name: 'communications', component: () => import('../views/communications/CommunicationsView.vue') },
+      { path: 'communications',     name: 'communications',         component: () => import('../views/communications/CommunicationsView.vue') },
+      { path: 'communications/new', name: 'communications-compose', component: () => import('../views/communications/CommunicationsComposeView.vue'), meta: { roles: ['admin'] } },
       // Legacy redirect: /letters → /communications
       { path: 'letters', redirect: { name: 'communications' } },
     ],

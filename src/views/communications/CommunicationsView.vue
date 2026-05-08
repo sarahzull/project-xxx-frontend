@@ -11,7 +11,7 @@
 -->
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   CommunicationsIcon, CheckCircleIcon, AlertIcon, AddIcon,
   CloseIcon, CalendarIcon, ViewIcon, ResendIcon, FilterIcon,
@@ -21,7 +21,6 @@ import communicationsApi from '../../api/communications'
 import { useAuthStore }  from '../../stores/auth'
 import { useToast }      from '../../composables/useToast'
 import ModalSheet        from '../../components/common/ModalSheet.vue'
-import ComposeModal      from '../../components/communications/ComposeModal.vue'
 import ActionBtn         from '../../components/common/ActionBtn.vue'
 import SearchInput       from '../../components/common/SearchInput.vue'
 import AppPagination     from '../../components/common/AppPagination.vue'
@@ -30,7 +29,8 @@ import Skeleton          from '../../components/common/Skeleton.vue'
 
 const auth  = useAuthStore()
 const toast = useToast()
-const route = useRoute()
+const route  = useRoute()
+const router = useRouter()
 
 const isAdmin = computed(() => auth.hasRole('admin'))
 
@@ -126,8 +126,9 @@ const recipientsFiltered = computed(() => {
 const recipientReadCount   = computed(() => recipientList.value.filter(r => r.read_at).length)
 const recipientUnreadCount = computed(() => recipientList.value.length - recipientReadCount.value)
 
-// Compose modal (admin)
-const showCompose  = ref(false)
+function openCompose() {
+  router.push({ name: 'communications-compose' })
+}
 
 // Resend state
 const resendingId  = ref(null)
@@ -336,7 +337,6 @@ async function resendCommunication(item) {
   }
 }
 
-function onSent() { fetchItems() }
 </script>
 
 <template>
@@ -411,7 +411,7 @@ function onSent() { fetchItems() }
                 :placeholder="isAdmin ? 'Search subject, driver…' : 'Search subject…'"
               />
             </div>
-            <button v-if="isAdmin" class="cv-compose-btn" @click="showCompose = true">
+            <button v-if="isAdmin" class="cv-compose-btn" @click="openCompose">
               <AddIcon :size="16" :stroke-width="2.5" />
               New Communication
             </button>
@@ -784,9 +784,6 @@ function onSent() { fetchItems() }
         </div>
       </div>
     </ModalSheet>
-
-    <!-- ── Compose modal (admin) ──────────────────────────────────────────────── -->
-    <ComposeModal v-if="isAdmin" v-model="showCompose" @sent="onSent" />
 
   </div>
 </template>

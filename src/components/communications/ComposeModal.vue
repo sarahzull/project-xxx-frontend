@@ -35,10 +35,13 @@ import {
   BellRingIcon, InfoIcon,
 } from '../icons/index.js'
 
-const props = defineProps({ modelValue: { type: Boolean, required: true } })
-const emit  = defineEmits(['update:modelValue', 'sent'])
+const props = defineProps({
+  modelValue: { type: Boolean, default: false },
+  inline:     { type: Boolean, default: false },
+})
+const emit  = defineEmits(['update:modelValue', 'sent', 'cancel'])
 
-useBodyScrollLock(() => props.modelValue)
+useBodyScrollLock(() => !props.inline && props.modelValue)
 
 const toast = useToast()
 
@@ -441,7 +444,7 @@ async function sendCommunication() {
       audience,
     }
     const res = await communicationsApi.send(payload)
-    emit('update:modelValue', false)
+    if (!props.inline) emit('update:modelValue', false)
     emit('sent', res.data?.data || res.data)
     const sentTo = audience.type === 'single'
       ? 'driver'
@@ -459,15 +462,25 @@ async function sendCommunication() {
   }
 }
 
-function close() { if (!sending.value) emit('update:modelValue', false) }
+function close() {
+  if (sending.value) return
+  if (props.inline) emit('cancel')
+  else              emit('update:modelValue', false)
+}
 </script>
 
 <template>
-  <Teleport to="body">
+  <Teleport to="body" :disabled="inline">
     <Transition name="cm">
-      <div v-if="modelValue" class="cm-backdrop" role="dialog" aria-modal="true" aria-label="Compose Communication">
+      <div
+        v-if="inline || modelValue"
+        :class="['cm-shell', inline ? 'cm-shell--inline' : 'cm-backdrop']"
+        :role="inline ? null : 'dialog'"
+        :aria-modal="inline ? null : 'true'"
+        aria-label="Compose Communication"
+      >
 
-        <div class="cm-panel">
+        <div :class="['cm-panel', inline && 'cm-panel--inline']">
 
           <!-- ── Header ──────────────────────────────────────────────────── -->
           <div class="cm-head">
@@ -480,7 +493,7 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
                 <p class="cm-head-sub">Send an official reward or warning communication</p>
               </div>
             </div>
-            <button class="cm-close" @click="close" aria-label="Close" :disabled="sending">
+            <button v-if="!inline" class="cm-close" @click="close" aria-label="Close" :disabled="sending">
               <CloseIcon :size="16" :stroke-width="2.2" />
             </button>
           </div>
@@ -859,6 +872,16 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 }
 @media (min-width: 640px) {
   .cm-panel { border-radius: var(--r-2xl); max-height: 88vh; }
+}
+
+/* Inline (page) mode: no backdrop, fills the page container, no max-height clamp */
+.cm-shell--inline { display: block; }
+.cm-panel--inline {
+  max-width: 100%;
+  max-height: none;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--c-border);
+  box-shadow: var(--sh-sm);
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────────── */

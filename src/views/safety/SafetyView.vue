@@ -7,18 +7,16 @@
 -->
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import safetyApi from '../../api/safety'
 import { useToast } from '../../composables/useToast'
 import {
-  SafetyIcon, CheckCircleIcon, ViewIcon,
-  AlertIcon, SearchIcon, ShieldAlertIcon,
+  SafetyIcon, CheckCircleIcon, ViewIcon, SearchIcon,
 } from '../../components/icons/index.js'
-import ModalSheet from '../../components/common/ModalSheet.vue'
 import SelectInput from '../../components/common/SelectInput.vue'
-import { useSafetyStore } from '../../stores/safety'
 
-const toast = useToast()
-const safety = useSafetyStore()
+const router = useRouter()
+const toast  = useToast()
 
 // ── Period picker ────────────────────────────────────────────────────────────
 function buildPeriodOptions() {
@@ -54,77 +52,16 @@ async function loadFleet() {
 onMounted(loadFleet)
 watch(period, loadFleet)
 
-// ── Driver detail modal ──────────────────────────────────────────────────────
-const showDetail   = ref(false)
-const detailLoading = ref(false)
-const detail       = ref(null)
-const activeEvent  = ref(null)
-const coachNote    = ref('')
-const coachSaving  = ref(false)
-
-async function openDriver(driver) {
-  showDetail.value   = true
-  detailLoading.value = true
-  detail.value       = null
-  activeEvent.value  = null
-  try {
-    const { data } = await safetyApi.driver(driver.driver_user_id, { period: period.value })
-    detail.value = data?.data || null
-  } catch (err) {
-    toast.error('Could not load driver detail.', { title: 'Load failed' })
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-function pickEvent(ev) {
-  activeEvent.value = ev
-  coachNote.value   = ''
-}
-
-async function markReviewed(ev) {
-  const wasPending = ev.status === 'pending'
-  try {
-    const { data } = await safetyApi.review(ev.id)
-    Object.assign(ev, data?.data || {})
-    if (wasPending) safety.decrementReview(1)
-    toast.success('Event marked reviewed.', { title: 'Reviewed' })
-  } catch (err) {
-    toast.error('Failed to update event.', { title: 'Action failed' })
-  }
-}
-
-async function submitCoach(ev) {
-  if (!coachNote.value.trim()) {
-    toast.warning('Write a brief coaching note before saving.', { title: 'Note required' })
-    return
-  }
-  coachSaving.value = true
-  const wasPending = ev.status === 'pending'
-  try {
-    const { data } = await safetyApi.coach(ev.id, coachNote.value.trim())
-    Object.assign(ev, data?.data?.event || {})
-    if (wasPending) safety.decrementReview(1)
-    coachNote.value = ''
-    toast.success('Coaching note saved.', { title: 'Coached' })
-  } catch (err) {
-    toast.error('Failed to save coaching note.', { title: 'Action failed' })
-  } finally {
-    coachSaving.value = false
-  }
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function formatDateTime(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (isNaN(d)) return iso
-  return d.toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: false,
+// ── Driver detail navigation ─────────────────────────────────────────────────
+function openDriver(driver) {
+  router.push({
+    name: 'safety-driver',
+    params: { driverId: driver.driver_user_id },
+    query:  { period: period.value },
   })
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 const TYPE_LABELS = {
   hard_brake:           'Hard braking',
   distracted:           'Distracted driving',
@@ -136,11 +73,6 @@ const TYPE_LABELS = {
   following_too_close:  'Following too close',
 }
 function eventTypeLabel(t) { return TYPE_LABELS[t] || t }
-
-const SEVERITY_LABELS = { 1: 'Low', 2: 'Medium', 3: 'High' }
-function severityLabel(n) { return SEVERITY_LABELS[n] || n }
-
-const STATUS_LABELS = { pending: 'New', reviewed: 'Reviewed', coached: 'Coached' }
 
 const totalDrivers = computed(() => {
   if (!fleet.value) return 0
@@ -189,49 +121,6 @@ const filteredOffenders = computed(() => {
   )
 })
 
-// ── Driver detail: auto-generated diagnosis line ─────────────────────────────
-function diagnosis(events) {
-  if (!events?.length) return ''
-  // Most-common type
-  const byType = {}
-  events.forEach(e => { byType[e.event_type] = (byType[e.event_type] || 0) + 1 })
-  const topType = Object.entries(byType).sort((a, b) => b[1] - a[1])[0]
-  if (!topType) return ''
-  const [type, count] = topType
-  const typeLabel = eventTypeLabel(type).toLowerCase()
-
-  // Time-of-day pattern (group hours into windows)
-  const hours = events
-    .filter(e => e.event_type === type)
-    .map(e => new Date(e.occurred_at).getHours())
-    .filter(h => !isNaN(h))
-  let timeHint = ''
-  if (hours.length >= 3) {
-    const buckets = { 'early morning (00–06)': 0, 'morning (06–12)': 0, 'afternoon (12–18)': 0, 'evening (18–24)': 0 }
-    hours.forEach(h => {
-      if (h < 6)       buckets['early morning (00–06)']++
-      else if (h < 12) buckets['morning (06–12)']++
-      else if (h < 18) buckets['afternoon (12–18)']++
-      else             buckets['evening (18–24)']++
-    })
-    const topBucket = Object.entries(buckets).sort((a, b) => b[1] - a[1])[0]
-    if (topBucket && topBucket[1] >= Math.ceil(hours.length * 0.5)) {
-      timeHint = `, mostly in the ${topBucket[0]}`
-    }
-  }
-
-  // Location pattern
-  const locs = events.filter(e => e.event_type === type).map(e => e.location).filter(Boolean)
-  const locCount = {}
-  locs.forEach(l => { locCount[l] = (locCount[l] || 0) + 1 })
-  const topLoc = Object.entries(locCount).sort((a, b) => b[1] - a[1])[0]
-  let locHint = ''
-  if (topLoc && topLoc[1] >= 2 && topLoc[1] >= Math.ceil(locs.length * 0.4)) {
-    locHint = ` — recurring at ${topLoc[0]}`
-  }
-
-  return `Pattern: ${count} ${typeLabel} event${count === 1 ? '' : 's'}${timeHint}${locHint}.`
-}
 </script>
 
 <template>
@@ -259,52 +148,35 @@ function diagnosis(events) {
     <div v-if="loading" class="sv-state"><div class="sv-spinner" /> Loading…</div>
 
     <template v-else-if="fleet">
-      <!-- ── Hero: worst driver this period, urgent counters ──────────────── -->
+      <!-- ── Hero: worst driver this period — single-row subject card ────── -->
       <div class="sv-hero">
-        <div class="sv-hero-eyebrow">
-          <ShieldAlertIcon :size="13" /> NEEDS ATTENTION
-        </div>
+        <p class="sv-hero-eyebrow">Needs attention</p>
 
-        <div v-if="worstDriver" class="sv-hero-body">
+        <div v-if="worstDriver" class="sv-hero-body" @click="openDriver(worstDriver)">
           <div :class="['sv-hero-grade', `sv-grade-pill--${worstDriver.grade}`]">
             <span class="sv-hero-grade-letter">{{ worstDriver.grade }}</span>
             <span class="sv-hero-grade-score">{{ Number(worstDriver.score).toFixed(1) }}</span>
           </div>
           <div class="sv-hero-info">
-            <p class="sv-hero-headline">
-              <ShieldAlertIcon :size="16" />
-              <span>{{ worstDriver.name }}</span>
-              <span class="sv-hero-id">{{ worstDriver.driver_id }}</span>
-              <span v-if="worstDriver.base" class="sv-base">{{ worstDriver.base }}</span>
+            <p class="sv-hero-name">{{ worstDriver.name }}</p>
+            <p class="sv-hero-meta">
+              <span class="sv-hero-meta-id">{{ worstDriver.driver_id }}</span>
+              <span v-if="worstDriver.base" class="sv-hero-meta-sep">·</span>
+              <span v-if="worstDriver.base">{{ worstDriver.base }}</span>
+              <span class="sv-hero-meta-sep">·</span>
+              <span>{{ worstDriver.total_events }} events</span>
             </p>
-            <p class="sv-hero-subline">
-              {{ worstDriver.total_events }} events recorded this period —
-              <strong>highest risk in the fleet right now</strong>.
-            </p>
-            <button class="sv-hero-cta" @click="openDriver(worstDriver)">
-              <ViewIcon :size="13" /> Open driver report
-            </button>
           </div>
-          <div class="sv-hero-counters">
-            <div class="sv-hero-counter sv-hero-counter--alert">
-              <span class="sv-hero-counter-num">{{ unreviewedHigh }}</span>
-              <span class="sv-hero-counter-lbl">High severity</span>
-            </div>
-            <div class="sv-hero-counter">
-              <span class="sv-hero-counter-num">{{ fleet.driver_count || 0 }}</span>
-              <span class="sv-hero-counter-lbl">Drivers</span>
-            </div>
-            <div class="sv-hero-counter">
-              <span class="sv-hero-counter-num">{{ fleet.fleet_avg_score ?? '—' }}</span>
-              <span class="sv-hero-counter-lbl">Avg STSB</span>
-            </div>
-          </div>
+          <button class="sv-hero-cta" @click.stop="openDriver(worstDriver)">
+            Open driver report <ViewIcon :size="13" />
+          </button>
         </div>
-        <div v-else class="sv-hero-clear">
-          <CheckCircleIcon :size="22" />
-          <div>
-            <p class="sv-hero-clear-title">All clear this period.</p>
-            <p class="sv-hero-clear-sub">No drivers below grade A — keep the streak going.</p>
+
+        <div v-else class="sv-hero-body sv-hero-body--clear">
+          <div class="sv-hero-clear-icon"><CheckCircleIcon :size="22" /></div>
+          <div class="sv-hero-info">
+            <p class="sv-hero-name">All clear this period</p>
+            <p class="sv-hero-meta">No drivers below grade A — keep the streak going.</p>
           </div>
         </div>
       </div>
@@ -403,140 +275,6 @@ function diagnosis(events) {
       </div>
     </template>
 
-    <ModalSheet
-      v-model="showDetail"
-      max-width="900px"
-      :title="detail?.driver?.name || 'Driver detail'"
-      :subtitle="detail?.driver ? `${detail.driver.driver_id}${detail.driver.base ? ' · ' + detail.driver.base : ''}` : ''"
-    >
-      <div v-if="detailLoading" class="sv-state"><div class="sv-spinner" /> Loading driver…</div>
-      <div v-else-if="detail" class="sv-detail">
-        <div class="sv-detail-grade">
-          <div :class="['sv-detail-letter', `sv-grade-pill--${detail.current_scorecard?.grade || 'A'}`]">
-            {{ detail.current_scorecard?.grade || '—' }}
-          </div>
-          <div class="sv-detail-grade-info">
-            <p class="sv-detail-score">{{ detail.current_scorecard?.score ?? '—' }} <span>/ 100</span></p>
-            <p class="sv-detail-meta">
-              {{ detail.current_scorecard?.total_events || 0 }} events ·
-              fleet median {{ detail.fleet_median ?? '—' }}
-            </p>
-          </div>
-          <div class="sv-trend">
-            <div v-for="t in detail.trend" :key="`${t.period_year}-${t.period_month}`" class="sv-trend-bar">
-              <span :style="{ height: Math.max(6, (t.score || 0) * 0.7) + 'px' }" :class="`sv-trend-bar--${t.grade}`" />
-              <span class="sv-trend-lbl">{{ String(t.period_month).padStart(2, '0') }}/{{ String(t.period_year).slice(2) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Auto-generated diagnosis line — turns the data into an insight. -->
-        <p v-if="diagnosis(detail.events)" class="sv-diagnosis">
-          <AlertIcon :size="13" />
-          {{ diagnosis(detail.events) }}
-        </p>
-
-        <div class="sv-detail-grid">
-          <div class="sv-events">
-            <p class="sv-section-title">Events ({{ detail.events.length }})</p>
-            <div v-if="!detail.events.length" class="sv-empty">No events for this driver.</div>
-            <ul class="sv-event-list">
-              <li
-                v-for="ev in detail.events"
-                :key="ev.id"
-                :class="['sv-event-row', `sv-event-row--sev${ev.severity}`, activeEvent?.id === ev.id && 'sv-event-row--on']"
-                @click="pickEvent(ev)"
-              >
-                <span :class="['sv-sev', `sv-sev--${ev.severity}`]" :title="severityLabel(ev.severity)">
-                  {{ ev.severity }}
-                </span>
-                <div class="sv-event-info">
-                  <span class="sv-event-type">{{ eventTypeLabel(ev.event_type) }}</span>
-                  <span class="sv-event-when">{{ formatDateTime(ev.occurred_at) }}</span>
-                </div>
-                <span :class="['sv-event-status', `sv-event-status--${ev.status}`]">
-                  {{ STATUS_LABELS[ev.status] || ev.status }}
-                </span>
-              </li>
-            </ul>
-          </div>
-
-          <div v-if="activeEvent" class="sv-event-panel">
-            <p class="sv-section-title">{{ eventTypeLabel(activeEvent.event_type) }}</p>
-            <div class="sv-event-meta-row">
-              <span class="sv-event-meta-chip">{{ formatDateTime(activeEvent.occurred_at) }}</span>
-              <span :class="['sv-event-meta-chip', `sv-sev-chip--${activeEvent.severity}`]">
-                Severity {{ severityLabel(activeEvent.severity) }}
-              </span>
-              <span v-if="activeEvent.location" class="sv-event-meta-chip">{{ activeEvent.location }}</span>
-            </div>
-
-            <div :class="['sv-video', `sv-video--sev${activeEvent.severity}`]">
-              <span class="sv-video-overlay">
-                <span :class="['sv-video-sev', `sv-sev-chip--${activeEvent.severity}`]">
-                  SEV {{ activeEvent.severity }} · {{ severityLabel(activeEvent.severity).toUpperCase() }}
-                </span>
-                <span class="sv-video-rec">● REC</span>
-              </span>
-              <video v-if="activeEvent.video_url" controls :src="activeEvent.video_url" />
-              <div v-else class="sv-video-empty">
-                <ShieldAlertIcon :size="20" />
-                <p>Lytx footage not yet attached</p>
-                <p class="sv-video-empty-sub">{{ activeEvent.video_url || 'When the integration is live, the recorded clip plays here.' }}</p>
-              </div>
-            </div>
-
-            <div v-if="activeEvent.behaviors?.length" class="sv-behaviors">
-              <span class="sv-behaviors-lbl">Behaviors:</span>
-              <span v-for="b in activeEvent.behaviors" :key="b" class="sv-behavior">{{ b.replace(/_/g, ' ') }}</span>
-            </div>
-
-            <div v-if="activeEvent.coaching_notes?.length" class="sv-notes">
-              <p class="sv-notes-title">Coaching notes</p>
-              <div v-for="n in activeEvent.coaching_notes" :key="n.id" class="sv-note">
-                <p class="sv-note-meta">
-                  <strong>{{ n.admin_name || 'Admin' }}</strong>
-                  · {{ formatDateTime(n.created_at) }}
-                  <span v-if="n.acknowledged_at" class="sv-note-ack">
-                    <CheckCircleIcon :size="11" /> ack {{ formatDateTime(n.acknowledged_at) }}
-                  </span>
-                </p>
-                <p class="sv-note-body">{{ n.note }}</p>
-              </div>
-            </div>
-
-            <div class="sv-actions">
-              <button
-                class="sv-btn sv-btn--secondary"
-                :disabled="activeEvent.status !== 'pending'"
-                @click="markReviewed(activeEvent)"
-              >Mark reviewed</button>
-            </div>
-
-            <div class="sv-coach">
-              <label class="sv-coach-label">Add coaching note</label>
-              <textarea
-                v-model="coachNote"
-                class="sv-coach-input"
-                rows="3"
-                placeholder="What should the driver do differently next time?"
-              />
-              <div class="sv-coach-actions">
-                <button
-                  class="sv-btn sv-btn--primary"
-                  :disabled="coachSaving || !coachNote.trim()"
-                  @click="submitCoach(activeEvent)"
-                >{{ coachSaving ? 'Saving…' : 'Save & mark coached' }}</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-else class="sv-event-panel sv-event-panel--empty">
-            <p class="sv-empty">Select an event on the left to review the recording and coach.</p>
-          </div>
-        </div>
-      </div>
-    </ModalSheet>
   </div>
 </template>
 
@@ -562,82 +300,68 @@ function diagnosis(events) {
 @keyframes sv-spin { to { transform: rotate(360deg); } }
 .sv-empty { color: var(--c-text-3); font-size: 0.875rem; padding: 12px 4px; }
 
-/* ── Hero "Today's watch" ───────────────────────────────────────────────── */
+/* ── Hero: single-row "needs attention" subject card ────────────────────── */
 .sv-hero {
   background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 14px;
-  padding: 14px 18px 16px;
-  position: relative; overflow: hidden;
-}
-.sv-hero::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(220,38,38,0.06) 0%, transparent 60%);
-  pointer-events: none;
+  padding: 18px 22px;
 }
 .sv-hero-eyebrow {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.12em;
-  color: #DC2626; margin-bottom: 14px;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--c-text-3); margin-bottom: 12px;
 }
-.sv-hero-eyebrow svg { color: #DC2626; }
 
 .sv-hero-body {
-  display: grid; grid-template-columns: auto 1fr auto; gap: 18px;
-  align-items: center; position: relative;
+  display: grid; grid-template-columns: auto 1fr auto;
+  gap: 18px; align-items: center;
+  cursor: pointer; transition: background var(--dur);
+  margin: -6px; padding: 6px; border-radius: 10px;
 }
-@media (max-width: 720px) {
-  .sv-hero-body { grid-template-columns: auto 1fr; }
-  .sv-hero-counters { grid-column: 1 / -1; }
-}
+.sv-hero-body:hover { background: var(--c-hover); }
+.sv-hero-body--clear { cursor: default; }
+.sv-hero-body--clear:hover { background: transparent; }
 
 .sv-hero-grade {
-  width: 84px; height: 84px; border-radius: 14px;
+  width: 64px; height: 64px; border-radius: 12px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.sv-hero-grade-letter { font-size: 2.4rem; font-weight: 900; line-height: 0.9; }
-.sv-hero-grade-score  { font-size: 0.7rem; font-weight: 700; opacity: 0.7; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.sv-hero-grade-letter { font-size: 1.85rem; font-weight: 800; line-height: 0.9; }
+.sv-hero-grade-score  { font-size: 0.7rem; font-weight: 600; opacity: 0.75; margin-top: 4px; font-variant-numeric: tabular-nums; }
 
-.sv-hero-info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.sv-hero-headline {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  font-size: 1.05rem; font-weight: 800; color: var(--c-text-1);
+.sv-hero-clear-icon {
+  width: 64px; height: 64px; border-radius: 12px;
+  background: rgba(22,163,74,0.12); color: #16A34A;
+  display: grid; place-items: center; flex-shrink: 0;
 }
-.sv-hero-headline svg { color: #DC2626; flex-shrink: 0; }
-.sv-hero-id { font-family: monospace; font-size: 0.78rem; color: var(--c-text-3); font-weight: 600; }
-.sv-hero-subline { font-size: 0.84rem; color: var(--c-text-2); line-height: 1.4; }
-.sv-hero-subline strong { color: #DC2626; }
+
+.sv-hero-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sv-hero-name {
+  font-size: 1.05rem; font-weight: 700; color: var(--c-text-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sv-hero-meta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  font-size: 0.82rem; color: var(--c-text-3);
+}
+.sv-hero-meta-id { font-family: monospace; font-weight: 600; }
+.sv-hero-meta-sep { opacity: 0.5; }
+
 .sv-hero-cta {
-  align-self: flex-start;
   display: inline-flex; align-items: center; gap: 6px;
-  margin-top: 4px; padding: 7px 12px;
-  background: #DC2626; color: #fff; border: none; border-radius: 8px;
-  font-size: 0.8rem; font-weight: 700; cursor: pointer;
-  transition: background var(--dur), transform var(--dur);
+  padding: 8px 14px;
+  background: var(--c-text-1); color: var(--c-surface);
+  border: none; border-radius: 8px;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  transition: opacity var(--dur);
+  flex-shrink: 0;
 }
-.sv-hero-cta:hover { background: #B91C1C; transform: translateY(-1px); }
+.sv-hero-cta:hover { opacity: 0.85; }
+.sv-hero-cta svg { opacity: 0.8; }
 
-.sv-hero-counters {
-  display: flex; gap: 10px; flex-shrink: 0;
+@media (max-width: 640px) {
+  .sv-hero-body { grid-template-columns: auto 1fr; }
+  .sv-hero-cta  { grid-column: 1 / -1; justify-content: center; }
 }
-.sv-hero-counter {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 8px 14px; border-radius: 10px;
-  background: var(--c-bg); border: 1px solid var(--c-border-light);
-  min-width: 70px;
-}
-.sv-hero-counter-num { font-size: 1.4rem; font-weight: 800; color: var(--c-text-1); font-variant-numeric: tabular-nums; line-height: 1.1; }
-.sv-hero-counter-lbl { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-text-3); margin-top: 2px; }
-.sv-hero-counter--alert { background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.3); }
-.sv-hero-counter--alert .sv-hero-counter-num { color: #DC2626; }
-.sv-hero-counter--alert .sv-hero-counter-lbl { color: #DC2626; }
-
-.sv-hero-clear {
-  display: flex; align-items: center; gap: 14px;
-  padding: 4px 0;
-}
-.sv-hero-clear svg { color: #16A34A; }
-.sv-hero-clear-title { font-size: 1rem; font-weight: 800; color: var(--c-text-1); }
-.sv-hero-clear-sub   { font-size: 0.85rem; color: var(--c-text-3); }
 
 .sv-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px; padding: 16px 20px; }
 .sv-card-title { font-size: 0.95rem; font-weight: 700; color: var(--c-text-1); margin-bottom: 12px; }
@@ -698,7 +422,7 @@ function diagnosis(events) {
 .sv-table tbody tr.sv-row--C > td:first-child { border-left-color: #DC2626; }
 .sv-th-num   { text-align: right; }
 .sv-th-grade { width: 80px; }
-.sv-num      { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.sv-num      { text-align: left; font-variant-numeric: tabular-nums; font-weight: 600; }
 
 .sv-driver-cell { display: flex; align-items: center; gap: 10px; }
 .sv-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(29,78,216,0.12); color: #1D4ED8; display: grid; place-items: center; font-size: 0.78rem; font-weight: 700; }

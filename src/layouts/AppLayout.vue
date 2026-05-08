@@ -26,11 +26,12 @@ onMounted(() => {
   if (!safety.initialized) safety.fetchBadge()
 })
 
-// Returns the count to render on a nav item, if any. Keeps the template tidy.
+// Today's alert count for a nav item — null = "no badge for this item",
+// number = "always show, even when 0".
 function navBadge(item) {
   if (item.path === '/safety')    return safety.pendingReview
   if (item.path === '/my-safety') return safety.unreadCoachings
-  return 0
+  return null
 }
 
 const isAdmin = computed(() => auth.hasRole('admin'))
@@ -125,7 +126,10 @@ function userInitials(name) {
           >
             <component :is="item.icon" class="nav-icon" />
             <span class="nav-item-text">{{ item.name }}</span>
-            <span v-if="navBadge(item) > 0" class="nav-badge">{{ navBadge(item) > 99 ? '99+' : navBadge(item) }}</span>
+            <span
+              v-if="navBadge(item) !== null"
+              :class="['nav-badge', navBadge(item) === 0 && 'nav-badge--zero']"
+            >{{ navBadge(item) > 99 ? '99+' : navBadge(item) }}</span>
           </router-link>
           <button
             v-else
@@ -308,7 +312,8 @@ function userInitials(name) {
 .nav-item-label { flex: 1; min-width: 0; }
 .nav-item-text  { flex: 1; min-width: 0; }
 
-/* Sidebar nav badge — small counter pill aligned right of the label */
+/* Sidebar nav badge — always visible for items that opt in; muted when 0,
+   alarming red when there are alerts today. */
 .nav-badge {
   margin-left: auto;
   display: inline-grid; place-items: center;
@@ -321,8 +326,17 @@ function userInitials(name) {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  transition: background var(--dur), color var(--dur);
+  align-items: center;
 }
-.nav-item.active .nav-badge { background: #fff; color: #DC2626; }
+.nav-badge--zero {
+  background: rgba(148, 163, 184, 0.22);
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 600;
+  align-items: center;
+}
+.nav-item.active .nav-badge       { background: #fff; color: #DC2626; }
+.nav-item.active .nav-badge--zero { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); }
 .nav-soon-pill {
   margin-left: auto;
   padding: 2px 8px;

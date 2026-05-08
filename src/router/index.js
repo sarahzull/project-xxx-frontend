@@ -26,10 +26,12 @@ const routes = [
       { path: 'rates',         name: 'rates',        component: () => import('../views/rates/RateManagementView.vue'),           meta: { roles: ['admin'] } },
       { path: 'users',         name: 'users',        component: () => import('../views/users/UserListView.vue'),                 meta: { roles: ['admin'] } },
       { path: 'audit-logs',    name: 'audit-logs',   component: () => import('../views/audit/AuditLogsView.vue'),                meta: { roles: ['admin'] } },
+      { path: 'safety',        name: 'safety',       component: () => import('../views/safety/SafetyView.vue'),                  meta: { roles: ['admin'] } },
 
       // Driver-only routes
-      { path: 'earnings',  name: 'earnings',  component: () => import('../views/earnings/EarningsView.vue'),   meta: { roles: ['driver'] } },
-      { path: 'payslips',  name: 'payslips',  component: () => import('../views/payslips/PayslipsView.vue'),   meta: { roles: ['driver'] } },
+      { path: 'earnings',     name: 'earnings',     component: () => import('../views/earnings/EarningsView.vue'),   meta: { roles: ['driver'] } },
+      { path: 'payslips',     name: 'payslips',     component: () => import('../views/payslips/PayslipsView.vue'),   meta: { roles: ['driver'] } },
+      { path: 'my-safety',    name: 'my-safety',    component: () => import('../views/safety/MySafetyView.vue'),     meta: { roles: ['driver'] } },
 
       // All authenticated users — Driver Communications module
       { path: 'communications', name: 'communications', component: () => import('../views/communications/CommunicationsView.vue') },

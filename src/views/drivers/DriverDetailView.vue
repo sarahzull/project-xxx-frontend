@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { ChevronLeftIcon, TruckIcon, AlertIcon, CloseIcon, CalendarIcon } from '../../components/icons/index.js'
+import { ChevronLeftIcon, TruckIcon, AlertIcon, CloseIcon } from '../../components/icons/index.js'
 import { useRouter } from 'vue-router'
 import { Bar, Doughnut } from 'vue-chartjs'
 import {
@@ -16,6 +16,7 @@ import AppPagination from '../../components/common/AppPagination.vue'
 import StatusBadge from '../../components/common/StatusBadge.vue'
 import StatCard from '../../components/common/StatCard.vue'
 import ChartCard from '../../components/common/ChartCard.vue'
+import DatePicker from '../../components/common/DatePicker.vue'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement)
 
@@ -438,20 +439,19 @@ onMounted(async () => {
         <div class="dd-history-right">
           <div class="dd-history-filter-rail">
             <div class="dd-history-dates" role="group" aria-label="Trip history date range">
-              <div class="dd-date-shell">
-                <span class="dd-date-shell-icon">
-                  <CalendarIcon :size="15" />
-                </span>
-                <div class="dd-date-segment">
-                  <label class="dd-date-label" for="trip-date-from">From</label>
-                  <input id="trip-date-from" v-model="tripDateFrom" type="date" class="dd-date-input" :max="tripDateTo || undefined" />
-                </div>
-                <span class="dd-date-divider" aria-hidden="true" />
-                <div class="dd-date-segment">
-                  <label class="dd-date-label" for="trip-date-to">To</label>
-                  <input id="trip-date-to" v-model="tripDateTo" type="date" class="dd-date-input" :min="tripDateFrom || undefined" />
-                </div>
-              </div>
+              <DatePicker
+                v-model="tripDateFrom"
+                placeholder="From"
+                :max="tripDateTo || ''"
+                aria-label="Trip history start date"
+              />
+              <span class="dd-date-arrow" aria-hidden="true">→</span>
+              <DatePicker
+                v-model="tripDateTo"
+                placeholder="To"
+                :min="tripDateFrom || ''"
+                aria-label="Trip history end date"
+              />
             </div>
             <div class="dd-history-search dd-history-search--aligned">
               <SearchInput v-model="tripSearch" placeholder="Search trips…" />
@@ -668,73 +668,8 @@ onMounted(async () => {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-.dd-history-dates { display: flex; align-items: stretch; }
-.dd-date-shell {
-  display: flex;
-  align-items: stretch;
-  min-height: 44px;
-  padding: 0 6px 0 10px;
-  border: 1.5px solid var(--c-border);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, var(--c-surface) 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 8px 18px rgba(15,23,42,0.04);
-  transition: border-color var(--dur), box-shadow var(--dur);
-}
-.dd-date-shell:focus-within {
-  border-color: var(--c-accent);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 3px var(--c-accent-tint), 0 10px 20px rgba(29,78,216,0.08);
-}
-.dd-date-shell-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--c-accent);
-  padding-right: 8px;
-  flex-shrink: 0;
-}
-.dd-date-segment {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  min-width: 138px;
-  padding: 7px 10px;
-}
-.dd-date-label {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--c-text-3);
-  line-height: 1;
-}
-.dd-date-divider {
-  width: 1px;
-  align-self: center;
-  height: 26px;
-  background: linear-gradient(180deg, transparent 0%, var(--c-border) 20%, var(--c-border) 80%, transparent 100%);
-  flex-shrink: 0;
-}
-.dd-date-input {
-  min-width: 0;
-  width: 100%;
-  height: 20px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--c-text-1);
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.2;
-  appearance: none;
-}
-.dd-date-input:focus {
-  outline: none;
-}
-.dd-date-input::-webkit-calendar-picker-indicator {
-  opacity: 0.72;
-  cursor: pointer;
-}
+.dd-history-dates { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dd-date-arrow { color: var(--c-text-3); font-weight: 600; flex-shrink: 0; }
 .dd-history-search { flex-shrink: 0; width: 220px; min-width: 0; }
 .dd-history-search--aligned :deep(.search-input) {
   min-height: 44px;
@@ -749,31 +684,11 @@ onMounted(async () => {
   .dd-history-right { width: 100%; justify-content: flex-start; }
   .dd-history-filter-rail { width: 100%; justify-content: stretch; }
   .dd-history-dates { width: 100%; }
-  .dd-date-shell { width: 100%; }
-  .dd-date-segment { flex: 1; min-width: 0; }
   .dd-history-search { width: 100%; }
 }
 @media (max-width: 480px) {
   .dd-history-right { width: 100%; }
   .dd-history-filter-rail { gap: 8px; }
-  .dd-date-shell {
-    flex-wrap: wrap;
-    padding: 8px 10px;
-    gap: 6px;
-  }
-  .dd-date-shell-icon {
-    width: 100%;
-    justify-content: flex-start;
-    padding-right: 0;
-  }
-  .dd-date-divider {
-    width: 100%;
-    height: 1px;
-  }
-  .dd-date-segment {
-    width: 100%;
-    padding: 0;
-  }
   .dd-history-search { width: 100%; }
 }
 

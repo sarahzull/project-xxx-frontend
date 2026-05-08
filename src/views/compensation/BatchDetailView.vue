@@ -9,6 +9,7 @@ import ActionBtn       from '../../components/common/ActionBtn.vue'
 import SearchInput     from '../../components/common/SearchInput.vue'
 import AppPagination   from '../../components/common/AppPagination.vue'
 import DateRangePicker from '../../components/common/DateRangePicker.vue'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 import {
   ChevronLeftIcon, BatchIcon, CheckIcon, ExportIcon, CloseIcon, EditIcon,
   CalendarIcon,
@@ -179,6 +180,7 @@ watch(recordSearch, () => { recordPage.value = 1 })
 
 // ── Trips modal (driver × payroll month) ────────────────────────────────────
 const tripsModalRecord  = ref(null)
+useBodyScrollLock(() => !!tripsModalRecord.value)
 const tripsModalTrips   = ref([])
 const tripsModalLoading = ref(false)
 const tripsModalSearch  = ref('')
@@ -256,6 +258,7 @@ function closeTripsModal() {
 
 // ── Allowance breakdown modal ────────────────────────────────────────────────
 const allowanceModalRecord = ref(null)
+useBodyScrollLock(() => !!allowanceModalRecord.value)
 const recordHistory   = ref([])
 const historyLoading  = ref(false)
 

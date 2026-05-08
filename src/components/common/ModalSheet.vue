@@ -16,9 +16,11 @@
     update:modelValue
 -->
 <script setup>
+import { toRef } from 'vue'
 import { CloseIcon } from '../icons/index.js'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
-defineProps({
+const props = defineProps({
   modelValue: { type: Boolean, required: true },
   title:      { type: String,  default: '' },
   subtitle:   { type: String,  default: '' },
@@ -26,6 +28,8 @@ defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 function close() { emit('update:modelValue', false) }
+
+useBodyScrollLock(toRef(props, 'modelValue'))
 </script>
 
 <template>

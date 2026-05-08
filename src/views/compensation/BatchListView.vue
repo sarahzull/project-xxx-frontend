@@ -8,6 +8,7 @@ import SearchInput  from '../../components/common/SearchInput.vue'
 import ActionBtn    from '../../components/common/ActionBtn.vue'
 import AppPagination from '../../components/common/AppPagination.vue'
 import SelectInput from '../../components/common/SelectInput.vue'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 import { PayIcon, AddIcon, FilterIcon, DriversIcon, ViewIcon, CalendarIcon, CloseIcon } from '../../components/icons/index.js'
 
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
@@ -36,6 +37,7 @@ const hasFilter = computed(() => statusFilter.value || yearFilter.value || searc
 
 // Create modal
 const showCreate = ref(false)
+useBodyScrollLock(showCreate)
 const creating   = ref(false)
 const createErr  = ref('')
 const createForm = ref({

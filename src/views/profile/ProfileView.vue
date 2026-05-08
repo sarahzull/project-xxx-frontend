@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/auth'
 import profileApi   from '../../api/profile'
 import { useToast } from '../../composables/useToast'
 import PhotoCropper from '../../components/common/PhotoCropper.vue'
+import DatePicker from '../../components/common/DatePicker.vue'
 import {
   UserIcon, CloseIcon, ViewIcon, PhotoIcon, TrashIcon, SearchIcon, InfoIcon, MoreIcon,
 } from '../../components/icons/index.js'
@@ -329,7 +330,7 @@ function userInitials(name) {
             </div>
             <div class="pv-field">
               <label class="pv-label">Date of Birth</label>
-              <input v-model="infoForm.dob" class="pv-input" type="date" />
+              <DatePicker v-model="infoForm.dob" placeholder="Select date" aria-label="Date of birth" />
             </div>
             <div class="pv-field">
               <label class="pv-label">License No.</label>
@@ -337,11 +338,11 @@ function userInitials(name) {
             </div>
             <div class="pv-field">
               <label class="pv-label">License Expiry Date</label>
-              <input v-model="infoForm.license_date" class="pv-input" type="date" />
+              <DatePicker v-model="infoForm.license_date" placeholder="Select date" aria-label="License expiry date" />
             </div>
             <div class="pv-field">
               <label class="pv-label">Date Joined Company</label>
-              <input v-model="infoForm.date_joined" class="pv-input" type="date" />
+              <DatePicker v-model="infoForm.date_joined" placeholder="Select date" aria-label="Date joined company" />
             </div>
           </div>
           <div class="pv-card-foot">

@@ -92,7 +92,7 @@ function onSelect(iso) {
 </template>
 
 <style scoped>
-.dp { display: inline-block; }
+.dp { display: block; }
 
 .dp-input {
   display: inline-flex;

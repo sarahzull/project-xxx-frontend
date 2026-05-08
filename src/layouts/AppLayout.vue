@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationsStore } from '../stores/notifications'
+import { useSafetyStore } from '../stores/safety'
 import ThemeToggle from '../components/common/ThemeToggle.vue'
 import {
   DashboardIcon, DriversIcon, TruckIcon, PayIcon, ReportsIcon,
@@ -14,14 +15,23 @@ import NotificationBell from '../components/common/NotificationBell.vue'
 
 const auth          = useAuthStore()
 const notifications = useNotificationsStore()
+const safety        = useSafetyStore()
 const router        = useRouter()
 const route         = useRoute()
 const sidebarOpen   = ref(false)
 
-// Initialise notifications as soon as the app shell mounts
+// Initialise notifications + safety badge as soon as the app shell mounts
 onMounted(() => {
   if (!notifications.initialized) notifications.fetchNotifications()
+  if (!safety.initialized) safety.fetchBadge()
 })
+
+// Returns the count to render on a nav item, if any. Keeps the template tidy.
+function navBadge(item) {
+  if (item.path === '/safety')    return safety.pendingReview
+  if (item.path === '/my-safety') return safety.unreadCoachings
+  return 0
+}
 
 const isAdmin = computed(() => auth.hasRole('admin'))
 
@@ -36,10 +46,11 @@ const allNavigation = [
   // Driver-specific
   { name: 'Earnings',     path: '/earnings',     icon: EarningsIcon,       roles: ['driver'] },
   { name: 'Payslips',     path: '/payslips',     icon: PayslipIcon,        roles: ['driver'] },
+  { name: 'My Safety',    path: '/my-safety',    icon: SafetyIcon,         roles: ['driver'] },
   // All roles
   { name: 'Communications', path: '/communications', icon: CommunicationsIcon, roles: null },
-  // Coming soon (visual placeholders, no route yet)
-  { name: 'Safety Driving', path: null, icon: SafetyIcon,   roles: ['admin'], comingSoon: true },
+  // Admin
+  { name: 'Safety Driving', path: '/safety',     icon: SafetyIcon,   roles: ['admin'] },
   { name: 'Audit Logs',     path: '/audit-logs', icon: AuditLogIcon, roles: ['admin'] },
 ]
 
@@ -113,7 +124,8 @@ function userInitials(name) {
             @click="sidebarOpen = false"
           >
             <component :is="item.icon" class="nav-icon" />
-            {{ item.name }}
+            <span class="nav-item-text">{{ item.name }}</span>
+            <span v-if="navBadge(item) > 0" class="nav-badge">{{ navBadge(item) > 99 ? '99+' : navBadge(item) }}</span>
           </router-link>
           <button
             v-else
@@ -294,6 +306,23 @@ function userInitials(name) {
 .nav-item--soon:disabled { color: var(--sb-text); }
 .nav-item--soon:hover { background: transparent; opacity: 0.85; }
 .nav-item-label { flex: 1; min-width: 0; }
+.nav-item-text  { flex: 1; min-width: 0; }
+
+/* Sidebar nav badge — small counter pill aligned right of the label */
+.nav-badge {
+  margin-left: auto;
+  display: inline-grid; place-items: center;
+  min-width: 18px; height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #DC2626;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.nav-item.active .nav-badge { background: #fff; color: #DC2626; }
 .nav-soon-pill {
   margin-left: auto;
   padding: 2px 8px;

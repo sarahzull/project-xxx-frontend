@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, watch } from 'vue'
 import { AlertIcon } from '../icons/index.js'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const props = defineProps({
   open:           { type: Boolean, default: false },
@@ -13,6 +14,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:open', 'cancel', 'confirm'])
+
+useBodyScrollLock(() => props.open)
 
 const descriptionPrefix = computed(() => props.message.trim().replace(/[?.!]+$/, ''))
 

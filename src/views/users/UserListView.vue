@@ -15,7 +15,9 @@ import SearchInput from '../../components/common/SearchInput.vue'
 import ConfirmDeleteModal from '../../components/common/ConfirmDeleteModal.vue'
 import AppPagination from '../../components/common/AppPagination.vue'
 import SelectInput from '../../components/common/SelectInput.vue'
+import DatePicker from '../../components/common/DatePicker.vue'
 import { useToast } from '../../composables/useToast'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const auth    = useAuthStore()
 const toast   = useToast()
@@ -64,6 +66,7 @@ const driverCount = computed(() => stats.value.drivers ?? 0)
 
 // ── Modal state ───────────────────────────────────────────────────────────────
 const showModal   = ref(false)
+useBodyScrollLock(showModal)
 const editingUser = ref(null)
 const saving      = ref(false)
 const formError   = ref('')
@@ -552,7 +555,7 @@ async function confirmDeleteUser() {
 
     <!-- ── Modal ──────────────────────────────────────────────── -->
     <Teleport to="body">
-      <div v-if="showModal" class="uv-overlay" @click.self="showModal = false">
+      <div v-if="showModal" class="uv-overlay">
         <div class="uv-modal">
           <div class="uv-modal-hd">
             <div class="uv-modal-icon">
@@ -612,7 +615,7 @@ async function confirmDeleteUser() {
             <div class="uv-field-row">
               <div class="uv-field">
                 <label class="uv-label">Date of Birth</label>
-                <input v-model="form.dob" class="uv-input" type="date" />
+                <DatePicker v-model="form.dob" placeholder="Select date" aria-label="Date of birth" />
               </div>
               <div class="uv-field">
                 <label class="uv-label">Phone No.</label>
@@ -690,14 +693,14 @@ async function confirmDeleteUser() {
               </div>
               <div class="uv-field">
                 <label class="uv-label">License Date</label>
-                <input v-model="form.license_date" class="uv-input" type="date" />
+                <DatePicker v-model="form.license_date" placeholder="Select date" aria-label="License date" />
               </div>
             </div>
 
             <!-- Date Joined Company -->
             <div class="uv-field">
               <label class="uv-label">Date Joined Company</label>
-              <input v-model="form.date_joined" class="uv-input" type="date" />
+              <DatePicker v-model="form.date_joined" placeholder="Select date" aria-label="Date joined company" />
             </div>
 
             <!-- License Type + Ranking (auto) — side by side -->
@@ -722,11 +725,11 @@ async function confirmDeleteUser() {
             <div class="uv-field-row">
               <div class="uv-field">
                 <label class="uv-label">License Expiry</label>
-                <input v-model="form.license_expiry" class="uv-input" type="date" />
+                <DatePicker v-model="form.license_expiry" placeholder="Select date" aria-label="License expiry" />
               </div>
               <div class="uv-field">
                 <label class="uv-label">GDL Expiry</label>
-                <input v-model="form.gdl_expiry" class="uv-input" type="date" />
+                <DatePicker v-model="form.gdl_expiry" placeholder="Select date" aria-label="GDL expiry" />
               </div>
             </div>
 

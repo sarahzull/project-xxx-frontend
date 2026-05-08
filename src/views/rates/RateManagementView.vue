@@ -771,86 +771,95 @@ const activeTab = ref('trip-rates') // 'trip-rates' | 'special-notes'
                   </div>
                 </div>
 
-                <!-- Scope -->
-                <div class="rm-sn-adv-row">
-                  <label class="rm-sn-adv-label">
-                    <InfoIcon :size="13" /> Apply to
-                  </label>
-                  <div class="rm-sn-adv-ctrl">
-                    <SelectInput
-                      v-model="rate.scope"
-                      :options="SCOPE_OPTIONS"
-                      :clearable="false"
-                      placeholder="Select scope"
-                    />
-                  </div>
-                </div>
+                <!-- Scope + targets: 2-column on desktop (Apply To | Bases/Drivers) -->
+                <div class="rm-sn-scope-group">
 
-                <!-- Bases (shown for bases / mixed) -->
-                <div v-if="rate.scope === 'bases' || rate.scope === 'mixed'" class="rm-sn-adv-row">
-                  <label class="rm-sn-adv-label">Bases</label>
-                  <div class="rm-sn-adv-ctrl rm-chips">
-                    <template v-if="optionBases.length">
-                      <button
-                        v-for="b in optionBases"
-                        :key="b.code"
-                        type="button"
-                        :class="['rm-chip', isBaseSelected(rate, b.code) && 'rm-chip--on']"
-                        :title="b.label"
-                        @click="toggleBase(rate, b.code)"
-                      >{{ b.code }}</button>
-                    </template>
-                    <span v-else class="rm-empty-hint">
-                      No bases set on any driver yet — add a "base" value to drivers first.
-                    </span>
+                  <!-- Col 1: Apply To -->
+                  <div class="rm-sn-adv-row">
+                    <label class="rm-sn-adv-label">
+                      <InfoIcon :size="13" /> Apply to
+                    </label>
+                    <div class="rm-sn-adv-ctrl">
+                      <SelectInput
+                        v-model="rate.scope"
+                        :options="SCOPE_OPTIONS"
+                        :clearable="false"
+                        placeholder="Select scope"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <!-- Drivers (shown for drivers / mixed) -->
-                <div v-if="rate.scope === 'drivers' || rate.scope === 'mixed'" class="rm-sn-adv-row">
-                  <label class="rm-sn-adv-label">
-                    {{ rate.scope === 'mixed' ? 'Driver overrides' : 'Drivers' }}
-                  </label>
-                  <div class="rm-sn-adv-ctrl rm-driver-block">
-                    <input
-                      v-model="driverPickerQuery"
-                      type="text"
-                      class="rm-driver-search"
-                      placeholder="Search drivers by name or ID…"
-                    />
-                    <div class="rm-driver-list">
-                      <div
-                        v-for="d in filteredOptionDrivers"
-                        :key="d.id"
-                        class="rm-driver-row"
-                      >
-                        <div class="rm-driver-info">
-                          <span class="rm-driver-name">{{ d.name }}</span>
-                          <span class="rm-driver-meta">{{ d.driver_id }}<span v-if="d.base"> · {{ d.base }}</span></span>
-                        </div>
-                        <div class="rm-driver-actions">
+                  <!-- Col 2: Bases / Driver overrides (conditional) -->
+                  <div class="rm-sn-scope-targets">
+
+                    <!-- Bases -->
+                    <div v-if="rate.scope === 'bases' || rate.scope === 'mixed'" class="rm-sn-adv-row">
+                      <label class="rm-sn-adv-label">Bases</label>
+                      <div class="rm-sn-adv-ctrl rm-chips">
+                        <template v-if="optionBases.length">
                           <button
+                            v-for="b in optionBases"
+                            :key="b.code"
                             type="button"
-                            :class="['rm-driver-btn', driverEffect(rate, d.id) === 'include' && 'rm-driver-btn--on-incl']"
-                            title="Include this driver"
-                            @click="setDriverTarget(rate, d.id, driverEffect(rate, d.id) === 'include' ? null : 'include')"
-                          >+ Include</button>
-                          <button
-                            type="button"
-                            :class="['rm-driver-btn', driverEffect(rate, d.id) === 'exclude' && 'rm-driver-btn--on-excl']"
-                            title="Exclude this driver from the allowance"
-                            @click="setDriverTarget(rate, d.id, driverEffect(rate, d.id) === 'exclude' ? null : 'exclude')"
-                          >– Exclude</button>
-                        </div>
-                      </div>
-                      <div v-if="!filteredOptionDrivers.length" class="rm-empty-hint">
-                        No matching drivers.
+                            :class="['rm-chip', isBaseSelected(rate, b.code) && 'rm-chip--on']"
+                            :title="b.label"
+                            @click="toggleBase(rate, b.code)"
+                          >{{ b.code }}</button>
+                        </template>
+                        <span v-else class="rm-empty-hint">
+                          No bases set on any driver yet — add a "base" value to drivers first.
+                        </span>
                       </div>
                     </div>
-                    <p v-if="rate.scope === 'mixed'" class="rm-driver-help">
-                      Tip: Driver-level <strong>Exclude</strong> overrides base-level inclusion.
-                      Use <strong>Include</strong> to add a driver outside their base.
-                    </p>
+
+                    <!-- Drivers -->
+                    <div v-if="rate.scope === 'drivers' || rate.scope === 'mixed'" class="rm-sn-adv-row">
+                      <label class="rm-sn-adv-label">
+                        {{ rate.scope === 'mixed' ? 'Driver overrides' : 'Drivers' }}
+                      </label>
+                      <div class="rm-sn-adv-ctrl rm-driver-block">
+                        <input
+                          v-model="driverPickerQuery"
+                          type="text"
+                          class="rm-driver-search"
+                          placeholder="Search drivers by name or ID…"
+                        />
+                        <div class="rm-driver-list">
+                          <div
+                            v-for="d in filteredOptionDrivers"
+                            :key="d.id"
+                            class="rm-driver-row"
+                          >
+                            <div class="rm-driver-info">
+                              <span class="rm-driver-name">{{ d.name }}</span>
+                              <span class="rm-driver-meta">{{ d.driver_id }}<span v-if="d.base"> · {{ d.base }}</span></span>
+                            </div>
+                            <div class="rm-driver-actions">
+                              <button
+                                type="button"
+                                :class="['rm-driver-btn', driverEffect(rate, d.id) === 'include' && 'rm-driver-btn--on-incl']"
+                                title="Include this driver"
+                                @click="setDriverTarget(rate, d.id, driverEffect(rate, d.id) === 'include' ? null : 'include')"
+                              >+ Include</button>
+                              <button
+                                type="button"
+                                :class="['rm-driver-btn', driverEffect(rate, d.id) === 'exclude' && 'rm-driver-btn--on-excl']"
+                                title="Exclude this driver from the allowance"
+                                @click="setDriverTarget(rate, d.id, driverEffect(rate, d.id) === 'exclude' ? null : 'exclude')"
+                              >– Exclude</button>
+                            </div>
+                          </div>
+                          <div v-if="!filteredOptionDrivers.length" class="rm-empty-hint">
+                            No matching drivers.
+                          </div>
+                        </div>
+                        <p v-if="rate.scope === 'mixed'" class="rm-driver-help">
+                          Tip: Driver-level <strong>Exclude</strong> overrides base-level inclusion.
+                          Use <strong>Include</strong> to add a driver outside their base.
+                        </p>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </div>
@@ -1212,6 +1221,17 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 .rm-sn-adv-label svg { width: 12px; height: 12px; }
 .rm-sn-adv-ctrl { min-width: 0; }
+
+/* Apply To + Bases/Drivers side-by-side on desktop */
+.rm-sn-scope-group {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.rm-sn-scope-targets { display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 640px) {
+  .rm-sn-scope-group {
+    display: grid; grid-template-columns: 1fr 2fr; gap: 0 20px; align-items: start;
+  }
+}
 
 .rm-window { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rm-window-sep { color: var(--c-text-3); font-weight: 600; }

@@ -10,12 +10,15 @@
 -->
 <script setup>
 import { ref, computed } from 'vue'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const props = defineProps({
   src: { type: String, required: true },
 })
 const emit = defineEmits(['crop', 'cancel'])
 import { CloseIcon, SearchIcon } from '../icons/index.js'
+
+useBodyScrollLock(ref(true))
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const STAGE    = 300   // px – viewing square

@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .dpp {
   position: absolute;
-  z-index: 50;
+  z-index: 9999;
   /* Slide down from above on bottom-placement; slide up from below on top-placement. */
   --dpp-enter-offset: -4px;
 }

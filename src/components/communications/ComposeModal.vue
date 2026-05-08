@@ -26,6 +26,9 @@ import communicationsApi from '../../api/communications'
 import driversApi        from '../../api/drivers'
 import basesApi          from '../../api/bases'
 import { useToast }      from '../../composables/useToast'
+import DatePicker        from '../common/DatePicker.vue'
+import SelectInput       from '../common/SelectInput.vue'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 import {
   CloseIcon, SearchIcon, SendIcon, CheckCircleIcon, AlertIcon,
   BoldIcon, ItalicIcon, ListIcon, DriversIcon, CalendarIcon,
@@ -34,6 +37,8 @@ import {
 
 const props = defineProps({ modelValue: { type: Boolean, required: true } })
 const emit  = defineEmits(['update:modelValue', 'sent'])
+
+useBodyScrollLock(() => props.modelValue)
 
 const toast = useToast()
 
@@ -171,6 +176,17 @@ function persistCustomTemplates() {
 // Tracks which slot is selected in the template picker.
 // Values: 'blank' | 'reward' | 'warning' | 'announcement' | `custom:<id>`.
 const selectedTemplate = ref('reward')
+
+const templateOptions = computed(() => [
+  { value: 'blank',        label: 'Blank — write from scratch' },
+  { value: 'reward',       label: 'Recognition / reward template' },
+  { value: 'warning',      label: 'Disciplinary warning template' },
+  { value: 'announcement', label: 'General announcement template' },
+  ...customTemplates.value.map(tpl => ({
+    value: `custom:${tpl.id}`,
+    label: tpl.name,
+  })),
+])
 
 function applyTemplate(value) {
   selectedTemplate.value = value
@@ -449,7 +465,7 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
 <template>
   <Teleport to="body">
     <Transition name="cm">
-      <div v-if="modelValue" class="cm-backdrop" @click.self="close" role="dialog" aria-modal="true" aria-label="Compose Communication">
+      <div v-if="modelValue" class="cm-backdrop" role="dialog" aria-modal="true" aria-label="Compose Communication">
 
         <div class="cm-panel">
 
@@ -516,25 +532,13 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
                   </button>
                 </div>
                 <div class="cm-template-select-wrap">
-                  <select
-                    :value="selectedTemplate"
-                    class="cm-template-select"
-                    @change="applyTemplate($event.target.value)"
-                  >
-                    <option value="blank">Blank — write from scratch</option>
-                    <optgroup label="Built-in templates">
-                      <option value="reward">Recognition / reward template</option>
-                      <option value="warning">Disciplinary warning template</option>
-                      <option value="announcement">General announcement template</option>
-                    </optgroup>
-                    <optgroup v-if="customTemplates.length" label="Saved templates">
-                      <option
-                        v-for="tpl in customTemplates"
-                        :key="tpl.id"
-                        :value="`custom:${tpl.id}`"
-                      >{{ tpl.name }}</option>
-                    </optgroup>
-                  </select>
+                  <SelectInput
+                    :model-value="selectedTemplate"
+                    :options="templateOptions"
+                    :clearable="false"
+                    placeholder="Choose a template"
+                    @update:model-value="applyTemplate"
+                  />
                 </div>
 
                 <!-- Save-as-template inline form (shown after clicking + Save as template) -->
@@ -717,7 +721,7 @@ function close() { if (!sending.value) emit('update:modelValue', false) }
               <!-- Date -->
               <div class="cm-field">
                 <label class="cm-label">Date</label>
-                <input v-model="form.date" type="date" class="cm-input cm-input--date" />
+                <DatePicker v-model="form.date" placeholder="Select date" aria-label="Communication date" />
               </div>
 
               <!-- Rich text editor -->

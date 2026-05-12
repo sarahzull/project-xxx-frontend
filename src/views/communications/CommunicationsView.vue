@@ -1262,17 +1262,12 @@ async function resendCommunication(item) {
 .cv-dd-enter-active, .cv-dd-leave-active { transition: opacity 140ms ease, transform 140ms ease; }
 .cv-dd-enter-from, .cv-dd-leave-to { opacity: 0; transform: translateY(-4px); }
 
-/* ══ MOBILE — collapse to card-like rows ════════════════════════════════════ */
-/* Filter pills inherit compact desktop style (matches Compensation standard) */
+/* ══ MOBILE — convert table rows to stacked cards ═══════════════════════════ */
+/* Each row becomes a self-contained card: type chip + status on top, full
+   subject + preview below, then date. No horizontal overflow on phones. */
 @media (max-width: 640px) {
   .cv-card-hd { flex-direction: column; align-items: flex-start; }
   .cv-card-hd-right { width: 100%; }
-  .cv-th--driver,
-  .cv-td--driver { display: none; }
-  .cv-th--date,
-  .cv-td--date { display: none; }
-  .cv-subject { max-width: 180px; }
-  .cv-preview { max-width: 180px; }
 
   /* Filter bar: swap the segmented pill for a custom type dropdown on phones */
   .cv-filter-bar { padding: 10px 14px; }
@@ -1288,13 +1283,71 @@ async function resendCommunication(item) {
     width: 100%;
   }
   .cv-bstat { min-width: 0; padding: 8px 10px; }
-}
 
+  /* ── Card-stack transformation ───────────────────────────────────────────
+     Hide thead (column titles don't make sense in card view) and reflow
+     each <tr> as a vertical card with a flex-wrap layout. */
+  .cv-table-wrap { overflow-x: visible !important; }
+  .cv-table,
+  .cv-table tbody { display: block; width: 100%; }
+  .cv-table thead { display: none; }
 
-@media (max-width: 360px) {
-  .cv-subject,
+  .cv-tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 12px 14px;
+    margin: 8px 12px;
+    border: 1px solid var(--c-border);
+    border-radius: 12px;
+    background: var(--c-surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+  .cv-tr:hover  { background: var(--c-surface); }
+  .cv-tr--read  { background: var(--c-bg); }
+
+  .cv-td {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    text-align: left;
+  }
+  /* Type chip + status badge share the first row.
+     `order` overrides DOM sequence (type, subject, date, status) so the
+     status badge sits next to the type chip instead of below the date. */
+  .cv-td--type       { order: 1; width: auto; }
+  .cv-td--status     { order: 2; width: auto; margin-left: auto; text-align: right; }
+  .cv-td--recipients { order: 3; width: 100%; }
+  .cv-td--subject    { order: 4; width: 100%; }
+  .cv-td--date       { order: 5; width: 100%; }
+
+  /* Subject wraps to 2 lines, preview clamps to 1, both use full width */
+  .cv-subject {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+            line-clamp: 2;
+    white-space: normal;
+    overflow: hidden;
+    max-width: none;
+    line-height: 1.3;
+  }
   .cv-preview {
-    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: none;
+  }
+
+  /* Recipients button — left align inside the card */
+  .cv-recipients-cell--btn { text-align: left; padding: 0; }
+
+  /* Date — muted, sits at bottom of card */
+  .cv-date-cell {
+    font-size: 0.75rem;
+    color: var(--c-text-3);
   }
 }
 

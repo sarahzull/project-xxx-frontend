@@ -1349,6 +1349,27 @@ async function resendCommunication(item) {
     font-size: 0.75rem;
     color: var(--c-text-3);
   }
+
+  /* Slimmer pills inside the mobile cards — meta tags, not call-to-action.
+     Smaller padding, thinner border, no min-width, tighter letter-spacing. */
+  .cv-tr .cv-type-badge {
+    padding: 2px 8px;
+    border-width: 1px;
+    font-size: 0.625rem;
+    letter-spacing: 0.04em;
+    gap: 4px;
+  }
+  .cv-tr .cv-type-badge svg { width: 10px; height: 10px; }
+
+  .cv-tr .badge {
+    min-width: 0;
+    padding: 2px 8px;
+    border-width: 1px;
+    font-size: 0.625rem;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .cv-tr .badge svg { width: 10px; height: 10px; }
 }
 
 /* ══ DETAIL MODAL ════════════════════════════════════════════════════════════ */

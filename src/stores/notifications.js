@@ -122,6 +122,52 @@ export const useNotificationsStore = defineStore('notifications', () => {
     notifications.value.unshift(notification)
   }
 
+  // ── Polling ────────────────────────────────────────────────────────────────
+  // Lightweight near-real-time updates: re-fetch on an interval, but pause
+  // while the browser tab is hidden so we don't burn API calls when the user
+  // isn't looking. Resuming a hidden tab triggers an immediate refresh.
+  let _pollTimer       = null
+  let _pollInterval    = 30000
+  let _visibilityBound = false
+
+  function _onVisibilityChange() {
+    if (document.hidden) {
+      _clearTimer()
+    } else {
+      fetchNotifications()
+      _startTimer()
+    }
+  }
+  function _startTimer() {
+    _clearTimer()
+    _pollTimer = setInterval(() => {
+      if (!document.hidden) fetchNotifications()
+    }, _pollInterval)
+  }
+  function _clearTimer() {
+    if (_pollTimer) {
+      clearInterval(_pollTimer)
+      _pollTimer = null
+    }
+  }
+
+  function startPolling(intervalMs = 30000) {
+    _pollInterval = Math.max(5000, intervalMs)
+    if (!_visibilityBound) {
+      document.addEventListener('visibilitychange', _onVisibilityChange)
+      _visibilityBound = true
+    }
+    _startTimer()
+  }
+
+  function stopPolling() {
+    _clearTimer()
+    if (_visibilityBound) {
+      document.removeEventListener('visibilitychange', _onVisibilityChange)
+      _visibilityBound = false
+    }
+  }
+
   return {
     notifications,
     loading,
@@ -133,5 +179,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     markRead,
     markAllRead,
     addLocal,
+    startPolling,
+    stopPolling,
   }
 })

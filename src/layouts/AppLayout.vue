@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationsStore } from '../stores/notifications'
@@ -20,10 +20,17 @@ const router        = useRouter()
 const route         = useRoute()
 const sidebarOpen   = ref(false)
 
-// Initialise notifications + safety badge as soon as the app shell mounts
+// Initialise notifications + safety badge as soon as the app shell mounts,
+// then keep notifications fresh via visibility-aware polling (30s interval,
+// paused while the tab is hidden — see the store for details).
 onMounted(() => {
   if (!notifications.initialized) notifications.fetchNotifications()
   if (!safety.initialized) safety.fetchBadge()
+  notifications.startPolling(30000)
+})
+
+onUnmounted(() => {
+  notifications.stopPolling()
 })
 
 // Today's alert count for a nav item — null = "no badge for this item",

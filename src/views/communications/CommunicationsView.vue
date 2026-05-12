@@ -18,8 +18,9 @@ import {
   BellRingIcon, ChevronDownIcon, CheckIcon,
 } from '../../components/icons/index.js'
 import communicationsApi from '../../api/communications'
-import { useAuthStore }  from '../../stores/auth'
-import { useToast }      from '../../composables/useToast'
+import { useAuthStore }          from '../../stores/auth'
+import { useNotificationsStore } from '../../stores/notifications'
+import { useToast }              from '../../composables/useToast'
 import ModalSheet        from '../../components/common/ModalSheet.vue'
 import ActionBtn         from '../../components/common/ActionBtn.vue'
 import SearchInput       from '../../components/common/SearchInput.vue'
@@ -27,8 +28,9 @@ import AppPagination     from '../../components/common/AppPagination.vue'
 import DateRangePicker   from '../../components/common/DateRangePicker.vue'
 import Skeleton          from '../../components/common/Skeleton.vue'
 
-const auth  = useAuthStore()
-const toast = useToast()
+const auth          = useAuthStore()
+const notifications = useNotificationsStore()
+const toast         = useToast()
 const route  = useRoute()
 const router = useRouter()
 
@@ -313,6 +315,13 @@ onMounted(async () => {
     if (found) openDetail(found)
   }
   document.addEventListener('click', onTypeDocClick, true)
+})
+
+// Auto-refresh the page list whenever the global notifications store sees
+// a change in count — that's the signal that polling has brought in (or
+// removed) a communication while the user is viewing this page.
+watch(() => notifications.notifications.length, (next, prev) => {
+  if (next !== prev) fetchItems()
 })
 onUnmounted(() => {
   document.removeEventListener('click', onTypeDocClick, true)
@@ -1350,26 +1359,24 @@ async function resendCommunication(item) {
     color: var(--c-text-3);
   }
 
-  /* Slimmer pills inside the mobile cards — meta tags, not call-to-action.
-     Smaller padding, thinner border, no min-width, tighter letter-spacing. */
+  /* ── Pro-style tags inside mobile cards ────────────────────────────────
+     Subtle filled chip (no border, soft tint), title-case, no icon. Reads
+     like a meta tag in Notion/Linear/Gmail rather than a call-to-action. */
   .cv-tr .cv-type-badge {
     padding: 2px 8px;
-    border-width: 1px;
-    font-size: 0.625rem;
-    letter-spacing: 0.04em;
-    gap: 4px;
+    border: none;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: capitalize;
+    gap: 0;
   }
-  .cv-tr .cv-type-badge svg { width: 10px; height: 10px; }
+  .cv-tr .cv-type-badge svg { display: none; }
 
-  .cv-tr .badge {
-    min-width: 0;
-    padding: 2px 8px;
-    border-width: 1px;
-    font-size: 0.625rem;
-    letter-spacing: 0.04em;
-    line-height: 1.4;
-  }
-  .cv-tr .badge svg { width: 10px; height: 10px; }
+  /* Status pill: hide entirely on mobile. The unread dot next to the
+     subject (.cv-unread-dot) already tells the user "this is new" — having
+     BOTH a dot and a "NEW"/"READ" pill is redundant and feels heavy. */
+  .cv-tr .badge { display: none; }
 }
 
 /* ══ DETAIL MODAL ════════════════════════════════════════════════════════════ */

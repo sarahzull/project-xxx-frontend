@@ -38,6 +38,11 @@ onUnmounted(() => {
 function navBadge(item) {
   if (item.path === '/safety')    return safety.pendingReview
   if (item.path === '/my-safety') return safety.unreadCoachings
+  // Comms tab on the driver bottom-nav shows unread communication count,
+  // sourced from the same notifications store that powers the bell.
+  if (item.path === '/communications' && !auth.hasRole('admin')) {
+    return notifications.unreadCount || null
+  }
   return null
 }
 

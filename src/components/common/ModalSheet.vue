@@ -118,9 +118,15 @@ useBodyScrollLock(toRef(props, 'modelValue'))
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--c-text-1);
-  white-space: nowrap;
+  line-height: 1.35;
+  /* Allow up to 2 lines so long subjects don't get truncated on narrow
+     screens. The 2-line clamp keeps the header height bounded. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+          line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .ms-sub {
   font-size: 0.75rem;

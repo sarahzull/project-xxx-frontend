@@ -56,11 +56,91 @@ function toDateStr(d) {
   return d.toISOString().slice(0, 10)
 }
 
-// ── Computed ──────────────────────────────────────────────────────────────────
-const totalTrips = computed(() => kmSummary.value?.total_trips     || 0)
-const totalKm    = computed(() => kmSummary.value?.total_km_driven || 0)
-const avgKm      = computed(() => kmSummary.value?.avg_km_per_trip || 0)
-const monthly    = computed(() => kmSummary.value?.monthly         || [])
+// ── Date filter ───────────────────────────────────────────────────────────────
+const dateRange = computed(() => {
+  const now = new Date()
+  const y   = now.getFullYear()
+  const m   = now.getMonth() // 0-indexed
+
+  switch (activePreset.value) {
+    case 'this-month':
+      return { from: toDateStr(new Date(y, m, 1)), to: toDateStr(now) }
+    case 'last-month': {
+      const first = new Date(y, m - 1, 1)
+      const last  = new Date(y, m, 0)
+      return { from: toDateStr(first), to: toDateStr(last) }
+    }
+    case 'last-3-months':
+      return { from: toDateStr(new Date(y, m - 3, 1)), to: toDateStr(now) }
+    case 'this-year':
+      return { from: `${y}-01-01`, to: toDateStr(now) }
+    case 'all-time':
+      return null
+    case 'custom':
+      return (customFrom.value && customTo.value)
+        ? { from: customFrom.value, to: customTo.value }
+        : null
+    default:
+      return null
+  }
+})
+
+const filteredTrips = computed(() => {
+  const range = dateRange.value
+  if (!range) return allTrips.value
+  return allTrips.value.filter(t => {
+    if (!t.date) return false
+    return t.date >= range.from && t.date <= range.to
+  })
+})
+
+// ── Stats (derived from filteredTrips) ────────────────────────────────────────
+const totalTrips = computed(() => filteredTrips.value.length)
+const totalKm    = computed(() => filteredTrips.value.reduce((s, t) => s + (t.km_driven || 0), 0))
+const avgKm      = computed(() => totalTrips.value > 0
+  ? Math.round((totalKm.value / totalTrips.value) * 10) / 10
+  : 0
+)
+
+const monthly = computed(() => {
+  const groups = {}
+  for (const t of filteredTrips.value) {
+    const key = (t.date || '').slice(0, 7)
+    if (!key) continue
+    if (!groups[key]) groups[key] = { month: key, trips: 0, km: 0 }
+    groups[key].trips++
+    groups[key].km += (t.km_driven || 0)
+  }
+  return Object.entries(groups)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, g]) => ({
+      ...g,
+      label: new Date(g.month + '-01').toLocaleDateString('en-MY', { month: 'short', year: 'numeric' }),
+    }))
+})
+
+const periodLabel = computed(() => {
+  const now = new Date()
+  const y   = now.getFullYear()
+  const m   = now.getMonth()
+  switch (activePreset.value) {
+    case 'this-month':    return `${MONTHS[m]} ${y}`
+    case 'last-month': {
+      const d = new Date(y, m - 1, 1)
+      return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
+    }
+    case 'last-3-months': return 'Last 3 Months'
+    case 'this-year':     return String(y)
+    case 'all-time':      return 'All Time'
+    case 'custom':
+      return (customFrom.value && customTo.value)
+        ? `${formatDate(customFrom.value)} – ${formatDate(customTo.value)}`
+        : 'Custom'
+    default: return ''
+  }
+})
+
+const displayedTrips = computed(() => filteredTrips.value.slice(0, 50))
 
 const licenseExpiry  = computed(() => profile.value?.license_expiry || null)
 const licenseCountdown = computed(() => daysUntil(licenseExpiry.value))

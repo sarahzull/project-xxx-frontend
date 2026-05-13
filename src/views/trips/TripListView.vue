@@ -16,17 +16,18 @@ const isAdmin = computed(() => auth.hasRole('admin'))
 const trips   = ref([])
 const loading = ref(true)
 
-// In production builds, default the date range to today so deployed users land
-// on fresh data. Local dev keeps it open so seeded historical mock data is visible.
-const todayISO = new Date().toISOString().slice(0, 10)
-const defaultDate = import.meta.env.PROD ? todayISO : ''
+// Data is only available up to T-1 (yesterday). Default both ends of the range
+// to yesterday so users land on the most recent complete dataset.
+const _d = new Date()
+_d.setDate(_d.getDate() - 1)
+const yesterdayISO = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
 
 // ── Filter state ──────────────────────────────────────────────────────────────
 const search     = ref('')
 const typeFilter = ref('')
 const oilFilter  = ref('')
-const dateFrom   = ref(defaultDate)
-const dateTo     = ref(defaultDate)
+const dateFrom   = ref(yesterdayISO)
+const dateTo     = ref(yesterdayISO)
 
 // ── Type dropdown state ───────────────────────────────────────────────────────
 const showTypeDrop = ref(false)

@@ -5,7 +5,8 @@ import {
   DriverIcon, TruckIcon, RouteIcon, ReportsIcon, IdCardIcon, CloseIcon,
   AlertIcon, PayIcon, DocumentIcon,
 } from '../../components/icons/index.js'
-import driverMeApi from '../../api/driverMe'
+import driverMeApi     from '../../api/driverMe'
+import DateRangePicker from '../../components/common/DateRangePicker.vue'
 import { useThemeStore } from '../../stores/theme'
 import { useAuthStore } from '../../stores/auth'
 import { useNotificationsStore } from '../../stores/notifications'
@@ -17,19 +18,23 @@ const theme = useThemeStore()
 const auth  = useAuthStore()
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const profile   = ref(null)
-const allTrips     = ref([])
-const activePreset = ref('this-month')
-const customFrom   = ref(null)   // YYYY-MM-DD string or null
-const customTo     = ref(null)   // YYYY-MM-DD string or null
-const loading   = ref(true)
-const error     = ref('')
+const profile  = ref(null)
+const allTrips = ref([])
+const loading  = ref(true)
+const error    = ref('')
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const _now   = new Date()
 const todayFormatted = `${DAYS[_now.getDay()]}, ${_now.getDate()} ${MONTHS[_now.getMonth()]} ${_now.getFullYear()}`
+
+function _toISO(d) {
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
 
 function formatDate(s) {
   if (!s) return '—'
@@ -43,64 +48,18 @@ function daysUntil(s) {
   return Math.ceil((new Date(s) - now) / 86400000)
 }
 
-const PRESETS = [
-  { value: 'this-month',    label: 'This Month' },
-  { value: 'last-month',    label: 'Last Month' },
-  { value: 'last-3-months', label: 'Last 3 Months' },
-  { value: 'this-year',     label: 'This Year' },
-  { value: 'all-time',      label: 'All Time' },
-  { value: 'custom',        label: 'Custom…' },
-]
+// Default range: this month
+const dateFrom = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth(), 1)))
+const dateTo   = ref(_toISO(_now))
 
-function toDateStr(d) {
-  return d.toISOString().slice(0, 10)
-}
-
-// ── Filter actions ────────────────────────────────────────────────────────────
-function setPreset(preset) {
-  activePreset.value = preset
-}
-
-function applyCustomRange() {
-  if (!customFrom.value || !customTo.value) return
-  activePreset.value = 'custom'
-}
-
-// ── Date filter ───────────────────────────────────────────────────────────────
-const dateRange = computed(() => {
-  const now = new Date()
-  const y   = now.getFullYear()
-  const m   = now.getMonth() // 0-indexed
-
-  switch (activePreset.value) {
-    case 'this-month':
-      return { from: toDateStr(new Date(y, m, 1)), to: toDateStr(now) }
-    case 'last-month': {
-      const first = new Date(y, m - 1, 1)
-      const last  = new Date(y, m, 0)
-      return { from: toDateStr(first), to: toDateStr(last) }
-    }
-    case 'last-3-months':
-      return { from: toDateStr(new Date(y, m - 3, 1)), to: toDateStr(now) }
-    case 'this-year':
-      return { from: `${y}-01-01`, to: toDateStr(now) }
-    case 'all-time':
-      return null
-    case 'custom':
-      return (customFrom.value && customTo.value)
-        ? { from: customFrom.value, to: customTo.value }
-        : null
-    default:
-      return null
-  }
-})
-
+// ── Filtered trips ────────────────────────────────────────────────────────────
 const filteredTrips = computed(() => {
-  const range = dateRange.value
-  if (!range) return allTrips.value
-  return allTrips.value.filter(t => {
-    if (!t.date) return false
-    return t.date >= range.from && t.date <= range.to
+  const f = dateFrom.value
+  const t = dateTo.value
+  if (!f && !t) return allTrips.value
+  return allTrips.value.filter(trip => {
+    if (!trip.date) return false
+    return (!f || trip.date >= f) && (!t || trip.date <= t)
   })
 })
 
@@ -130,24 +89,11 @@ const monthly = computed(() => {
 })
 
 const periodLabel = computed(() => {
-  const now = new Date()
-  const y   = now.getFullYear()
-  const m   = now.getMonth()
-  switch (activePreset.value) {
-    case 'this-month':    return `${MONTHS[m]} ${y}`
-    case 'last-month': {
-      const d = new Date(y, m - 1, 1)
-      return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
-    }
-    case 'last-3-months': return 'Last 3 Months'
-    case 'this-year':     return String(y)
-    case 'all-time':      return 'All Time'
-    case 'custom':
-      return (customFrom.value && customTo.value)
-        ? `${formatDate(customFrom.value)} – ${formatDate(customTo.value)}`
-        : 'Custom'
-    default: return ''
-  }
+  const f = dateFrom.value
+  const t = dateTo.value
+  if (!f && !t) return 'All Time'
+  if (f === t)  return formatDate(f)
+  return `${formatDate(f)} – ${formatDate(t)}`
 })
 
 const displayedTrips = computed(() => filteredTrips.value.slice(0, 50))
@@ -264,9 +210,9 @@ onMounted(async () => {
         </h1>
         <p class="ddash-banner-sub">Driver Dashboard</p>
       </div>
-      <div class="ddash-banner-date">
-        <span class="ddash-date-label">Today</span>
+      <div class="ddash-banner-right">
         <span class="ddash-date-value">{{ todayFormatted }}</span>
+        <DateRangePicker v-model:from="dateFrom" v-model:to="dateTo" :presets="['today','week','month','last30']" />
       </div>
     </div>
 
@@ -300,29 +246,6 @@ onMounted(async () => {
           {{ notifications.unreadCount > 9 ? '9+' : notifications.unreadCount }}
         </span>
       </button>
-    </div>
-
-    <!-- ── Date filter strip ─────────────────────────────── -->
-    <div class="ddash-filter-strip">
-      <div class="ddash-filter-chips">
-        <button
-          v-for="p in PRESETS"
-          :key="p.value"
-          :class="['ddash-filter-chip', activePreset === p.value && 'ddash-filter-chip--active']"
-          @click="setPreset(p.value)"
-        >{{ p.label }}</button>
-      </div>
-      <div v-if="activePreset === 'custom'" class="ddash-custom-range">
-        <span class="ddash-cr-label">From</span>
-        <input v-model="customFrom" type="date" class="ddash-cr-input" />
-        <span class="ddash-cr-label">To</span>
-        <input v-model="customTo" type="date" class="ddash-cr-input" />
-        <button
-          class="ddash-cr-apply"
-          :disabled="!customFrom || !customTo"
-          @click="applyCustomRange"
-        >Apply</button>
-      </div>
     </div>
 
     <!-- ── Error ─────────────────────────────────────────────── -->
@@ -547,9 +470,8 @@ onMounted(async () => {
   display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
 }
 .ddash-banner-sub   { font-size: 0.8125rem; color: var(--c-text-3); margin: 0; font-weight: 500; }
-.ddash-banner-date  { display: flex; flex-direction: column; align-items: flex-end; }
-.ddash-date-label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: .08em; color: var(--c-text-3); }
-.ddash-date-value { font-size: 0.875rem; font-weight: 600; margin-top: 2px; color: var(--c-text-2); }
+.ddash-banner-right { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+.ddash-date-value { font-size: 0.8125rem; font-weight: 500; color: var(--c-text-3); white-space: nowrap; }
 
 /* Inline rank + license badges in title */
 .ddash-rank-inline {
@@ -611,43 +533,6 @@ onMounted(async () => {
   font-size: 0.65rem; font-weight: 700; letter-spacing: 0; line-height: 1;
 }
 .ddash-ql-btn:hover .ddash-ql-badge { background: rgba(255,255,255,0.25); }
-
-/* ── Date filter strip ───────────────────────────────────────────────────────── */
-.ddash-filter-strip {
-  display: flex; flex-direction: column; gap: 0.5rem;
-  padding: 0.25rem 0 0.75rem;
-}
-.ddash-filter-chips {
-  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
-}
-.ddash-filter-chip {
-  padding: 5px 13px; border-radius: 20px;
-  font-size: 0.78rem; font-weight: 600; cursor: pointer;
-  border: 1px solid var(--c-border); background: var(--c-surface);
-  color: var(--c-text-2);
-  transition: background var(--dur), color var(--dur), border-color var(--dur);
-  white-space: nowrap;
-}
-.ddash-filter-chip:hover { background: var(--c-hover); color: var(--c-text); }
-.ddash-filter-chip--active {
-  background: var(--c-accent); color: #fff; border-color: var(--c-accent);
-}
-.ddash-custom-range {
-  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-}
-.ddash-cr-label { font-size: 0.78rem; color: var(--c-text-2); }
-.ddash-cr-input {
-  border: 1px solid var(--c-border); border-radius: 8px;
-  padding: 4px 10px; font-size: 0.78rem; color: var(--c-text);
-  background: var(--c-surface); font-family: inherit;
-}
-.ddash-cr-apply {
-  padding: 5px 14px; border-radius: 8px;
-  font-size: 0.78rem; font-weight: 600;
-  background: var(--c-accent); color: #fff; border: none; cursor: pointer;
-  transition: opacity var(--dur);
-}
-.ddash-cr-apply:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Loading / Error ────────────────────────────────────────────────────────── */
 .ddash-loading {

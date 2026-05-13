@@ -56,6 +56,16 @@ function toDateStr(d) {
   return d.toISOString().slice(0, 10)
 }
 
+// ── Filter actions ────────────────────────────────────────────────────────────
+function setPreset(preset) {
+  activePreset.value = preset
+}
+
+function applyCustomRange() {
+  if (!customFrom.value || !customTo.value) return
+  activePreset.value = 'custom'
+}
+
 // ── Date filter ───────────────────────────────────────────────────────────────
 const dateRange = computed(() => {
   const now = new Date()
@@ -292,6 +302,29 @@ onMounted(async () => {
       </button>
     </div>
 
+    <!-- ── Date filter strip ─────────────────────────────── -->
+    <div class="ddash-filter-strip">
+      <div class="ddash-filter-chips">
+        <button
+          v-for="p in PRESETS"
+          :key="p.value"
+          :class="['ddash-filter-chip', activePreset === p.value && 'ddash-filter-chip--active']"
+          @click="setPreset(p.value)"
+        >{{ p.label }}</button>
+      </div>
+      <div v-if="activePreset === 'custom'" class="ddash-custom-range">
+        <span class="ddash-cr-label">From</span>
+        <input v-model="customFrom" type="date" class="ddash-cr-input" />
+        <span class="ddash-cr-label">To</span>
+        <input v-model="customTo" type="date" class="ddash-cr-input" />
+        <button
+          class="ddash-cr-apply"
+          :disabled="!customFrom || !customTo"
+          @click="applyCustomRange"
+        >Apply</button>
+      </div>
+    </div>
+
     <!-- ── Error ─────────────────────────────────────────────── -->
     <div v-if="error" class="ddash-error">
       <CloseIcon :size="18" />
@@ -307,7 +340,7 @@ onMounted(async () => {
     <template v-else>
 
       <!-- ── Stat cards ──────────────────────────────────────── -->
-      <p class="ddash-section-lbl">My Performance</p>
+      <p class="ddash-section-lbl">My Performance · {{ periodLabel }}</p>
       <div class="ddash-stats-grid">
 
         <!-- Total Trips -->
@@ -430,14 +463,14 @@ onMounted(async () => {
       </div>
 
       <!-- ── Recent Trips ───────────────────────────────────── -->
-      <p class="ddash-section-lbl">Recent Trips</p>
+      <p class="ddash-section-lbl">Trips · {{ periodLabel }}</p>
       <div class="ddash-trips-card">
         <div class="ddash-trips-hd">
-          <p class="ddash-trips-title">Last 10 Trips</p>
-          <span class="ddash-trips-count">{{ recentTrips.length }} records</span>
+          <p class="ddash-trips-title">Trips · {{ periodLabel }}</p>
+          <span class="ddash-trips-count">{{ displayedTrips.length }} records</span>
         </div>
 
-        <div v-if="recentTrips.length" class="ddash-trips-wrap">
+        <div v-if="displayedTrips.length" class="ddash-trips-wrap">
           <!-- Desktop table -->
           <table class="ddash-trips-tbl">
             <thead>
@@ -451,7 +484,7 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(t, i) in recentTrips" :key="i">
+              <tr v-for="(t, i) in displayedTrips" :key="i">
                 <td class="mono">{{ formatDate(t.date) }}</td>
                 <td>
                   <span :class="['ddash-type-tag', `ddash-type--${(t.type||'').toLowerCase()}`]">
@@ -471,7 +504,7 @@ onMounted(async () => {
 
           <!-- Mobile cards -->
           <div class="ddash-trips-cards">
-            <div v-for="(t, i) in recentTrips" :key="i" class="ddash-trip-m-card">
+            <div v-for="(t, i) in displayedTrips" :key="i" class="ddash-trip-m-card">
               <div class="ddash-trip-m-top">
                 <span class="mono ddash-trip-m-date">{{ formatDate(t.date) }}</span>
                 <span :class="['ddash-type-tag', `ddash-type--${(t.type||'').toLowerCase()}`]">

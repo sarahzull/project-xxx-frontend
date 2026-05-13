@@ -42,7 +42,7 @@ const MOCK_SAFETY_DATA = {
     {
       id: 'v-001', event_type: 'hard_brake', severity: 2,
       occurred_at: `${_ym}-12T08:42:00`, location: 'Jalan Duta, Kuala Lumpur',
-      video_url: null,
+      video_url: 'https://www.youtube.com/watch?v=Zliwk9FR_LU',
       coaching_notes: [{
         id: 'cn-001', admin_name: 'Ahmad Supervisor',
         note: 'Sudden braking at Jalan Duta observed at 08:42. Maintain a 3-second following gap, especially during peak hour.',
@@ -52,7 +52,7 @@ const MOCK_SAFETY_DATA = {
     {
       id: 'v-002', event_type: 'speeding', severity: 3,
       occurred_at: `${_ym}-08T11:15:00`, location: 'PLUS Highway KM 278, Rawang',
-      video_url: null,
+      video_url: 'https://www.youtube.com/watch?v=GrAqVdW9yHQ',
       coaching_notes: [{
         id: 'cn-002', admin_name: 'Ahmad Supervisor',
         note: 'Speed exceeded 110 km/h in a 90 km/h construction zone. A formal warning has been issued.',
@@ -62,9 +62,24 @@ const MOCK_SAFETY_DATA = {
     {
       id: 'v-003', event_type: 'hard_brake', severity: 1,
       occurred_at: `${_ym}-03T16:05:00`, location: 'Damansara–Puchong Expressway',
-      video_url: null, coaching_notes: [],
+      video_url: 'https://www.youtube.com/watch?v=f-sS7r66H-c',
+      coaching_notes: [],
     },
   ],
+}
+
+// ── Video embed helpers ────────────────────────────────────────────────────
+// Convert a YouTube watch/short URL to its embed form; pass other URLs through.
+function isYouTube(url) {
+  return /(?:youtube\.com|youtu\.be)/.test(url || '')
+}
+function getEmbedUrl(url) {
+  if (!url) return null
+  const watchMatch = url.match(/[?&]v=([^&]+)/)
+  if (watchMatch) return `https://www.youtube.com/embed/${watchMatch[1]}`
+  const shortMatch = url.match(/youtu\.be\/([^?&/]+)/)
+  if (shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}`
+  return url
 }
 
 const loading = ref(true)
@@ -347,7 +362,17 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
               <span class="msv-video-sev">SEV {{ activeEvent.severity }} · {{ severityLabel(activeEvent.severity).toUpperCase() }}</span>
               <span class="msv-video-rec">● REC</span>
             </span>
-            <video v-if="activeEvent.video_url" controls :src="activeEvent.video_url" />
+            <template v-if="activeEvent.video_url">
+              <iframe
+                v-if="isYouTube(activeEvent.video_url)"
+                :src="getEmbedUrl(activeEvent.video_url)"
+                class="msv-video-iframe"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+              />
+              <video v-else controls :src="activeEvent.video_url" />
+            </template>
             <div v-else class="msv-video-empty">
               <ShieldAlertIcon :size="20" />
               <p>Footage not yet attached</p>
@@ -584,6 +609,7 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
 .msv-video--sev2 { border-color: rgba(217,119,6,0.35); }
 .msv-video--sev3 { border-color: rgba(220,38,38,0.45); box-shadow: 0 0 0 1px rgba(220,38,38,0.15); }
 .msv-video video { width: 100%; max-height: 280px; background: oklch(10% 0.012 250); display: block; }
+.msv-video-iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; display: block; background: oklch(10% 0.012 250); }
 
 .msv-video-overlay {
   position: absolute; top: 10px; left: 10px; right: 10px; z-index: 2;

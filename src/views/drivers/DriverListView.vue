@@ -28,6 +28,7 @@ const statsLoading = ref(true)
 // ── Table columns ─────────────────────────────────────────────────────────────
 const columns = [
   { key: 'name',           label: 'Driver',           sortable: true },
+  { key: 'base',           label: 'Base',             sortable: true },
   { key: 'road_tanker_id', label: 'Road Tanker' },
   { key: 'license_type',   label: 'License' },
   { key: 'license_expiry', label: 'License Expiry',   sortable: true },

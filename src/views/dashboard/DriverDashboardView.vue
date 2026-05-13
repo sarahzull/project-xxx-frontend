@@ -18,8 +18,10 @@ const auth  = useAuthStore()
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const profile   = ref(null)
-const kmSummary = ref(null)
-const recentTrips = ref([])
+const allTrips     = ref([])
+const activePreset = ref('this-month')
+const customFrom   = ref(null)   // YYYY-MM-DD string or null
+const customTo     = ref(null)   // YYYY-MM-DD string or null
 const loading   = ref(true)
 const error     = ref('')
 
@@ -39,6 +41,19 @@ function daysUntil(s) {
   if (!s) return 9999
   const now = new Date(); now.setHours(0,0,0,0)
   return Math.ceil((new Date(s) - now) / 86400000)
+}
+
+const PRESETS = [
+  { value: 'this-month',    label: 'This Month' },
+  { value: 'last-month',    label: 'Last Month' },
+  { value: 'last-3-months', label: 'Last 3 Months' },
+  { value: 'this-year',     label: 'This Year' },
+  { value: 'all-time',      label: 'All Time' },
+  { value: 'custom',        label: 'Custom…' },
+]
+
+function toDateStr(d) {
+  return d.toISOString().slice(0, 10)
 }
 
 // ── Computed ──────────────────────────────────────────────────────────────────
@@ -126,14 +141,12 @@ const areaOptions = computed(() => ({
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 onMounted(async () => {
   try {
-    const [pRes, kRes, tRes] = await Promise.all([
+    const [pRes, tRes] = await Promise.all([
       driverMeApi.profile(),
-      driverMeApi.kmSummary(),
       driverMeApi.trips(),
     ])
-    profile.value    = pRes.data.data
-    kmSummary.value  = kRes.data.data
-    recentTrips.value = (tRes.data.data || []).slice(0, 10)
+    profile.value  = pRes.data.data
+    allTrips.value = tRes.data.data || []
   } catch (e) {
     error.value = e.response?.data?.message || 'Failed to load your dashboard.'
   } finally {

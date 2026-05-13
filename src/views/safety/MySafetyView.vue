@@ -16,14 +16,13 @@ import { useSafetyStore } from '../../stores/safety'
 const toast = useToast()
 const safety = useSafetyStore()
 
-// ── Date filter (this-month start → T-1) ─────────────────────────────────────
+// ── Date filter (full current month — safety grading is monthly) ─────────────
 function _toISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
-const _now  = new Date()
-const _yest = new Date(_now); _yest.setDate(_yest.getDate() - 1)
+const _now = new Date()
 const dateFrom = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth(), 1)))
-const dateTo   = ref(_toISO(_yest))
+const dateTo   = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth() + 1, 0)))
 
 // ── Mock fallback — shown when API returns no data ────────────────────────────
 const _ym = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}`

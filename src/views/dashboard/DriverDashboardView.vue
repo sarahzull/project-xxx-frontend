@@ -612,6 +612,43 @@ onMounted(async () => {
 }
 .ddash-ql-btn:hover .ddash-ql-badge { background: rgba(255,255,255,0.25); }
 
+/* ── Date filter strip ───────────────────────────────────────────────────────── */
+.ddash-filter-strip {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 0.25rem 0 0.75rem;
+}
+.ddash-filter-chips {
+  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+}
+.ddash-filter-chip {
+  padding: 5px 13px; border-radius: 20px;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--c-border); background: var(--c-surface);
+  color: var(--c-text-2);
+  transition: background var(--dur), color var(--dur), border-color var(--dur);
+  white-space: nowrap;
+}
+.ddash-filter-chip:hover { background: var(--c-hover); color: var(--c-text); }
+.ddash-filter-chip--active {
+  background: var(--c-accent); color: #fff; border-color: var(--c-accent);
+}
+.ddash-custom-range {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+}
+.ddash-cr-label { font-size: 0.78rem; color: var(--c-text-2); }
+.ddash-cr-input {
+  border: 1px solid var(--c-border); border-radius: 8px;
+  padding: 4px 10px; font-size: 0.78rem; color: var(--c-text);
+  background: var(--c-surface); font-family: inherit;
+}
+.ddash-cr-apply {
+  padding: 5px 14px; border-radius: 8px;
+  font-size: 0.78rem; font-weight: 600;
+  background: var(--c-accent); color: #fff; border: none; cursor: pointer;
+  transition: opacity var(--dur);
+}
+.ddash-cr-apply:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── Loading / Error ────────────────────────────────────────────────────────── */
 .ddash-loading {
   display: flex; align-items: center; justify-content: center; gap: 0.75rem;
@@ -788,5 +825,6 @@ onMounted(async () => {
   .ddash-profile-grid { grid-template-columns: 1fr; }
   .ddash-trips-tbl    { display: none; }
   .ddash-trips-cards  { display: block; }
+  .ddash-custom-range { flex-direction: column; align-items: flex-start; }
 }
 </style>

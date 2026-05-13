@@ -6,7 +6,7 @@
   notes the driver can acknowledge.
 -->
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import safetyApi from '../../api/safety'
 import DateRangePicker from '../../components/common/DateRangePicker.vue'
 import { useToast } from '../../composables/useToast'
@@ -97,29 +97,39 @@ const filteredEvents = computed(() => {
   })
 })
 
-// Default grade A / score 100 when no events in the selected period
+// Grade/score reflect the scorecard the backend returned for the active period.
+// "No violations → A" applies when the scorecard has zero events.
 const displayGrade = computed(() => {
-  if (!filteredEvents.value.length) return 'A'
-  return data.value?.current_scorecard?.grade || 'A'
+  const sc = data.value?.current_scorecard
+  if (!sc) return 'A'
+  if ((sc.total_events ?? 0) === 0) return 'A'
+  return sc.grade || 'A'
 })
 const displayScore = computed(() => {
-  if (!filteredEvents.value.length) return 100
-  return data.value?.current_scorecard?.score ?? 100
+  const sc = data.value?.current_scorecard
+  if (!sc) return 100
+  if ((sc.total_events ?? 0) === 0) return 100
+  return sc.score ?? 100
 })
+
+// Mock data only in dev — production must surface real (or empty) state.
+const _USE_MOCK = import.meta.env.DEV
 
 async function load() {
   loading.value = true
   try {
-    const res = await safetyApi.myOwn()
-    data.value = res?.data?.data || MOCK_SAFETY_DATA
+    const res = await safetyApi.myOwn({ from: dateFrom.value, to: dateTo.value })
+    data.value = res?.data?.data || (_USE_MOCK ? MOCK_SAFETY_DATA : null)
     activeEvent.value = data.value?.events?.[0] || null
   } catch {
-    data.value = MOCK_SAFETY_DATA
+    data.value = _USE_MOCK ? MOCK_SAFETY_DATA : null
     activeEvent.value = data.value?.events?.[0] || null
   } finally {
     loading.value = false
   }
 }
+
+watch([dateFrom, dateTo], load)
 
 onMounted(load)
 

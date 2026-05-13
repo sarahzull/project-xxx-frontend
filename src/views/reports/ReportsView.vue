@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { ReportsIcon, CheckCircleIcon, ExportIcon, ChevronDownIcon } from '../../components/icons/index.js'
+import { ref, computed, onMounted, watch } from 'vue'
+import { ReportsIcon, CheckCircleIcon, ExportIcon } from '../../components/icons/index.js'
 import reportsApi from '../../api/reports'
 import StatCard from '../../components/common/StatCard.vue'
+import DateRangePicker from '../../components/common/DateRangePicker.vue'
 
 const driverSummary   = ref(null)
 const tripSummary     = ref(null)
@@ -10,53 +11,43 @@ const expiringDrivers = ref([])
 const loading         = ref(true)
 const activeSection   = ref('all')   // 'all' | 'drivers' | 'trips' | 'expiry'
 
-const exporting = ref(false)
-const menuOpen  = ref(false)
+// ── Date filter (this-month start → today) ───────────────────────────────────
+function _toISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+const _now = new Date()
+const dateFrom = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth(), 1)))
+const dateTo   = ref(_toISO(_now))
 
-const tabKey = computed(() => activeSection.value === 'all' ? 'overview' : activeSection.value)
+const printing = ref(false)
+const generatedAt = computed(() => new Date().toLocaleString('en-GB', {
+  day: '2-digit', month: 'short', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hour12: false,
+}))
+const rangeLabel = computed(() => {
+  if (dateFrom.value === dateTo.value) return formatDate(dateFrom.value)
+  return `${formatDate(dateFrom.value)} – ${formatDate(dateTo.value)}`
+})
+const sectionLabel = computed(() => ({
+  all: 'Overview', drivers: 'Drivers', trips: 'Trips', expiry: 'License Expiry',
+}[activeSection.value] || 'Overview'))
 
-function filenameFromHeaders(headers, fallback) {
-  const cd = headers?.['content-disposition'] || headers?.['Content-Disposition']
-  if (!cd) return fallback
-  const match = /filename\*?=(?:UTF-8''|")?([^";]+)"?/i.exec(cd)
-  return match ? decodeURIComponent(match[1]) : fallback
+async function loadTrips() {
+  const tRes = await reportsApi.tripSummary({ from: dateFrom.value, to: dateTo.value })
+  tripSummary.value = tRes.data.data
 }
 
-function triggerBlobDownload(blob, filename) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+function exportPdf() {
+  if (printing.value) return
+  printing.value = true
+  // Allow the print container a tick to settle before the dialog opens.
+  setTimeout(() => {
+    window.print()
+    printing.value = false
+  }, 80)
 }
 
-async function runExport(mode) {
-  if (exporting.value) return
-  menuOpen.value = false
-  exporting.value = true
-  try {
-    const tab = tabKey.value
-    const today = new Date().toISOString().slice(0, 10)
-    const fallback = `fleet-report-${tab}-${mode}-${today}.xlsx`
-    const res = await reportsApi.exportReport(tab, mode)
-    const filename = filenameFromHeaders(res.headers, fallback)
-    triggerBlobDownload(res.data, filename)
-  } catch (err) {
-    console.error('Export failed', err)
-    alert('Failed to export report. Please try again.')
-  } finally {
-    exporting.value = false
-  }
-}
-
-function onDocClick(e) {
-  if (!e.target.closest('.rv-export')) menuOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocClick))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
+watch([dateFrom, dateTo], loadTrips)
 
 function formatDate(s) {
   if (!s) return '—'
@@ -102,7 +93,7 @@ onMounted(async () => {
   try {
     const [dRes, tRes, lRes] = await Promise.all([
       reportsApi.driverSummary(),
-      reportsApi.tripSummary(),
+      reportsApi.tripSummary({ from: dateFrom.value, to: dateTo.value }),
       reportsApi.licenseExpiry(),
     ])
     driverSummary.value   = dRes.data.data
@@ -166,26 +157,16 @@ onMounted(async () => {
           >{{ s.label }}</button>
         </div>
 
-        <div class="rv-export">
+        <div class="rv-toolbar">
+          <DateRangePicker v-model:from="dateFrom" v-model:to="dateTo" />
           <button
             class="rv-export-btn"
-            :disabled="exporting"
-            @click.stop="menuOpen = !menuOpen"
+            :disabled="printing"
+            @click="exportPdf"
           >
             <ExportIcon :size="16" />
-            <span>{{ exporting ? 'Exporting…' : 'Export' }}</span>
-            <ChevronDownIcon :size="14" :class="['rv-export-chev', menuOpen && 'rv-export-chev--on']" />
+            <span>{{ printing ? 'Preparing…' : 'Export PDF' }}</span>
           </button>
-          <div v-if="menuOpen" class="rv-export-menu" role="menu">
-            <button class="rv-export-item" @click="runExport('summary')">
-              <span class="rv-export-item-title">Summary</span>
-              <span class="rv-export-item-sub">Key metrics &amp; counts only</span>
-            </button>
-            <button class="rv-export-item" @click="runExport('detailed')">
-              <span class="rv-export-item-title">Detailed</span>
-              <span class="rv-export-item-sub">Full underlying records</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -325,6 +306,106 @@ onMounted(async () => {
       </section>
 
     </template>
+
+    <!-- ── PDF print template (hidden on screen, shown only during print) ── -->
+    <div class="rv-print" aria-hidden="true">
+      <header class="rvp-header">
+        <div class="rvp-brand">
+          <span class="rvp-brand-dot"></span>
+          <span class="rvp-brand-name">BE-X</span>
+          <span class="rvp-brand-tag">Fleet Operations</span>
+        </div>
+        <div class="rvp-meta">
+          <p class="rvp-meta-title">{{ sectionLabel }} Report</p>
+          <p class="rvp-meta-sub">
+            <strong>Period:</strong> {{ rangeLabel }}
+            <span class="rvp-sep">·</span>
+            <strong>Generated:</strong> {{ generatedAt }}
+          </p>
+        </div>
+      </header>
+
+      <hr class="rvp-rule" />
+
+      <!-- Driver Summary -->
+      <section v-if="activeSection === 'all' || activeSection === 'drivers'" class="rvp-section">
+        <h2 class="rvp-h2">Driver Summary</h2>
+        <table class="rvp-kv">
+          <tbody>
+            <tr><th>Total Drivers</th><td>{{ driverSummary?.total_drivers ?? 0 }}</td></tr>
+            <tr><th>Active</th><td>{{ driverSummary?.active_drivers ?? 0 }}</td></tr>
+            <tr><th>Blocked</th><td>{{ driverSummary?.blocked_drivers ?? 0 }}</td></tr>
+            <tr><th>License Expiring (within 3 months)</th><td>{{ driverSummary?.license_expiring_soon ?? 0 }}</td></tr>
+          </tbody>
+        </table>
+
+        <h3 class="rvp-h3">Drivers by Ranking</h3>
+        <table class="rvp-tbl">
+          <thead><tr><th>Rank</th><th>Drivers</th><th>Share</th></tr></thead>
+          <tbody>
+            <tr v-for="[rank, count] in rankEntries" :key="rank">
+              <td>{{ rank }}</td>
+              <td>{{ count }}</td>
+              <td>{{ Math.round((count / (driverSummary?.total_drivers || 1)) * 100) }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Trip Summary -->
+      <section v-if="activeSection === 'all' || activeSection === 'trips'" class="rvp-section">
+        <h2 class="rvp-h2">Trip Summary</h2>
+        <table class="rvp-kv">
+          <tbody>
+            <tr><th>Total Trips</th><td>{{ tripSummary?.total_trips ?? 0 }}</td></tr>
+            <tr><th>Total KM Driven</th><td>{{ (tripSummary?.total_km_driven ?? 0).toLocaleString() }}</td></tr>
+            <tr><th>Active Drivers</th><td>{{ Object.keys(tripSummary?.by_driver || {}).length }}</td></tr>
+          </tbody>
+        </table>
+
+        <h3 v-if="byOilCompany.length" class="rvp-h3">Trips by Oil Company</h3>
+        <table v-if="byOilCompany.length" class="rvp-tbl">
+          <thead><tr><th>Oil Company</th><th>Trips</th></tr></thead>
+          <tbody>
+            <tr v-for="[co, count] in byOilCompany" :key="co">
+              <td style="text-transform: capitalize;">{{ co }}</td>
+              <td>{{ count }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- License Expiry -->
+      <section v-if="activeSection === 'all' || activeSection === 'expiry'" class="rvp-section">
+        <h2 class="rvp-h2">License Expiry <span class="rvp-h2-sub">(within 3 months)</span></h2>
+        <p v-if="!sortedExpiry.length" class="rvp-empty">No licenses expiring within 3 months.</p>
+        <table v-else class="rvp-tbl">
+          <thead>
+            <tr>
+              <th>Driver ID</th><th>Name</th><th>Type</th>
+              <th>License Expiry</th><th>GDL Expiry</th>
+              <th>Rank</th><th>Days Left</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="d in sortedExpiry" :key="d.driver_id">
+              <td>{{ d.driver_id }}</td>
+              <td>{{ d.name }}</td>
+              <td>{{ d.license_type || '—' }}</td>
+              <td>{{ formatDate(d.license_expiry) }}</td>
+              <td>{{ formatDate(d.gdl_expiry) }}</td>
+              <td>{{ d.ranking || '—' }}</td>
+              <td>{{ daysUntil(d.license_expiry) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <footer class="rvp-footer">
+        Fleet Operations Report · BE-X · Confidential
+      </footer>
+    </div>
+
   </div>
 </template>
 
@@ -544,4 +625,87 @@ onMounted(async () => {
 /* Empty */
 .rv-empty-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px; color: var(--c-text-3); text-align: center; }
 .rv-empty-card svg { width: 40px; height: 40px; }
+
+/* ── Toolbar: date range + export PDF button ─────────────────────────────── */
+.rv-toolbar { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; }
+@media (max-width: 480px) {
+  .rv-toolbar { width: 100%; flex-direction: column; align-items: stretch; }
+  .rv-toolbar .rv-export-btn { width: 100%; justify-content: center; }
+}
+
+/* ── Print template (hidden on screen, revealed via @media print) ─────────── */
+.rv-print { display: none; }
+
+@media print {
+  /* Hide everything else and reveal only the print template. */
+  body * { visibility: hidden !important; }
+  .rv-print, .rv-print * { visibility: visible !important; }
+  .rv-print {
+    display: block !important;
+    position: absolute; inset: 0; top: 0; left: 0; right: 0;
+    width: 100%; padding: 0; margin: 0;
+    color: #0F172A; background: #fff;
+    font-family: 'Hanken Grotesk', 'Inter', system-ui, sans-serif;
+    font-size: 11pt; line-height: 1.45;
+  }
+  @page { size: A4 portrait; margin: 18mm 16mm 18mm 16mm; }
+
+  .rvp-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 6mm; }
+  .rvp-brand { display: flex; align-items: center; gap: 8px; }
+  .rvp-brand-dot { width: 10px; height: 10px; border-radius: 50%; background: #1D4ED8; }
+  .rvp-brand-name { font-size: 14pt; font-weight: 800; letter-spacing: -0.02em; color: #0F172A; }
+  .rvp-brand-tag  { font-size: 9pt;  color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .rvp-meta { text-align: right; }
+  .rvp-meta-title { font-size: 16pt; font-weight: 800; letter-spacing: -0.02em; color: #0F172A; margin: 0 0 2mm; }
+  .rvp-meta-sub   { font-size: 9.5pt; color: #475569; margin: 0; }
+  .rvp-meta-sub strong { color: #0F172A; }
+  .rvp-sep { margin: 0 6px; color: #CBD5E1; }
+
+  .rvp-rule { border: 0; border-top: 2px solid #0F172A; margin: 4mm 0 6mm; }
+
+  .rvp-section { margin-bottom: 8mm; page-break-inside: avoid; }
+  .rvp-h2 {
+    font-size: 12pt; font-weight: 800; letter-spacing: -0.01em;
+    color: #0F172A; margin: 0 0 3mm;
+    padding-bottom: 2mm; border-bottom: 1px solid #E2E8F0;
+  }
+  .rvp-h2-sub { font-size: 9.5pt; font-weight: 500; color: #64748B; }
+  .rvp-h3 {
+    font-size: 10pt; font-weight: 700; color: #334155;
+    margin: 4mm 0 2mm; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .rvp-empty { font-size: 10pt; color: #64748B; font-style: italic; }
+
+  .rvp-kv, .rvp-tbl {
+    width: 100%; border-collapse: collapse;
+    font-size: 10pt;
+  }
+  .rvp-kv th {
+    text-align: left; font-weight: 500; color: #475569;
+    padding: 1.4mm 0; border-bottom: 1px dotted #E2E8F0; width: 70%;
+  }
+  .rvp-kv td {
+    text-align: right; font-weight: 700; color: #0F172A;
+    padding: 1.4mm 0; border-bottom: 1px dotted #E2E8F0;
+    font-variant-numeric: tabular-nums;
+  }
+  .rvp-tbl thead th {
+    text-align: left; font-size: 8.5pt; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; color: #475569;
+    padding: 2mm 3mm; background: #F1F5F9; border-bottom: 1px solid #CBD5E1;
+  }
+  .rvp-tbl tbody td {
+    font-size: 10pt; color: #0F172A;
+    padding: 2mm 3mm; border-bottom: 1px solid #E2E8F0;
+    font-variant-numeric: tabular-nums;
+  }
+  .rvp-tbl tbody tr:nth-child(even) td { background: #F8FAFC; }
+  .rvp-tbl tbody tr:last-child td { border-bottom: 1px solid #CBD5E1; }
+
+  .rvp-footer {
+    margin-top: 8mm; padding-top: 3mm; border-top: 1px solid #E2E8F0;
+    font-size: 8.5pt; color: #94A3B8; text-align: center;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+}
 </style>

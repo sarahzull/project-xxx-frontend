@@ -13,25 +13,19 @@ import { useToast } from '../../composables/useToast'
 import {
   SafetyIcon, CheckCircleIcon, ViewIcon, SearchIcon,
 } from '../../components/icons/index.js'
-import SelectInput from '../../components/common/SelectInput.vue'
+import DateRangePicker from '../../components/common/DateRangePicker.vue'
 
 const router = useRouter()
 const toast  = useToast()
 
-// ── Period picker ────────────────────────────────────────────────────────────
-function buildPeriodOptions() {
-  const now  = new Date()
-  const opts = []
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const lbl = d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
-    opts.push({ value: ym, label: lbl })
-  }
-  return opts
+// ── Date filter (this-month start → T-1) ─────────────────────────────────────
+function _toISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
-const periodOptions = ref(buildPeriodOptions())
-const period        = ref(periodOptions.value[0].value)
+const _now  = new Date()
+const _yest = new Date(_now); _yest.setDate(_yest.getDate() - 1)
+const dateFrom = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth(), 1)))
+const dateTo   = ref(_toISO(_yest))
 
 // ── Fleet state ──────────────────────────────────────────────────────────────
 const loading = ref(true)
@@ -40,7 +34,7 @@ const fleet   = ref(null)
 async function loadFleet() {
   loading.value = true
   try {
-    const { data } = await safetyApi.fleet({ period: period.value })
+    const { data } = await safetyApi.fleet({ from: dateFrom.value, to: dateTo.value })
     fleet.value = data?.data || null
   } catch (err) {
     toast.error(err?.response?.data?.message || 'Failed to load fleet safety summary.', { title: 'Load failed' })
@@ -50,14 +44,14 @@ async function loadFleet() {
 }
 
 onMounted(loadFleet)
-watch(period, loadFleet)
+watch([dateFrom, dateTo], loadFleet)
 
 // ── Driver detail navigation ─────────────────────────────────────────────────
 function openDriver(driver) {
   router.push({
     name: 'safety-driver',
     params: { driverId: driver.driver_user_id },
-    query:  { period: period.value },
+    query:  { period: dateFrom.value.slice(0, 7) },
   })
 }
 
@@ -135,13 +129,7 @@ const filteredOffenders = computed(() => {
         </div>
       </div>
       <div class="sv-period">
-        <SelectInput
-          v-model="period"
-          :options="periodOptions"
-          :clearable="false"
-          placeholder="Select period"
-          auto
-        />
+        <DateRangePicker v-model:from="dateFrom" v-model:to="dateTo" />
       </div>
     </div>
 

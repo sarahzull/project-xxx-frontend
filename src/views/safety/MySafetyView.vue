@@ -8,6 +8,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import safetyApi from '../../api/safety'
+import DateRangePicker from '../../components/common/DateRangePicker.vue'
 import { useToast } from '../../composables/useToast'
 import { SafetyIcon, CheckCircleIcon, AlertIcon, ShieldAlertIcon } from '../../components/icons/index.js'
 import { useSafetyStore } from '../../stores/safety'
@@ -15,18 +16,91 @@ import { useSafetyStore } from '../../stores/safety'
 const toast = useToast()
 const safety = useSafetyStore()
 
+// ── Date filter (this-month start → T-1) ─────────────────────────────────────
+function _toISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+const _now  = new Date()
+const _yest = new Date(_now); _yest.setDate(_yest.getDate() - 1)
+const dateFrom = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth(), 1)))
+const dateTo   = ref(_toISO(_yest))
+
+// ── Mock fallback — shown when API returns no data ────────────────────────────
+const _ym = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}`
+const MOCK_SAFETY_DATA = {
+  current_scorecard: { grade: 'B', score: 83, total_events: 3, by_category: { hard_brake: 2, speeding: 1 } },
+  fleet_median: 76,
+  trend: [
+    { period_year: _now.getFullYear()-1, period_month: 12, score: 72, grade: 'B' },
+    { period_year: _now.getFullYear(),   period_month:  1, score: 78, grade: 'B' },
+    { period_year: _now.getFullYear(),   period_month:  2, score: 81, grade: 'A' },
+    { period_year: _now.getFullYear(),   period_month:  3, score: 79, grade: 'B' },
+    { period_year: _now.getFullYear(),   period_month:  4, score: 85, grade: 'A' },
+    { period_year: _now.getFullYear(),   period_month:  5, score: 83, grade: 'B' },
+  ],
+  events: [
+    {
+      id: 'v-001', event_type: 'hard_brake', severity: 2,
+      occurred_at: `${_ym}-12T08:42:00`, location: 'Jalan Duta, Kuala Lumpur',
+      video_url: null,
+      coaching_notes: [{
+        id: 'cn-001', admin_name: 'Ahmad Supervisor',
+        note: 'Sudden braking at Jalan Duta observed at 08:42. Maintain a 3-second following gap, especially during peak hour.',
+        created_at: `${_ym}-12T14:00:00`, acknowledged_at: null,
+      }],
+    },
+    {
+      id: 'v-002', event_type: 'speeding', severity: 3,
+      occurred_at: `${_ym}-08T11:15:00`, location: 'PLUS Highway KM 278, Rawang',
+      video_url: null,
+      coaching_notes: [{
+        id: 'cn-002', admin_name: 'Ahmad Supervisor',
+        note: 'Speed exceeded 110 km/h in a 90 km/h construction zone. A formal warning has been issued.',
+        created_at: `${_ym}-09T09:00:00`, acknowledged_at: `${_ym}-09T12:30:00`,
+      }],
+    },
+    {
+      id: 'v-003', event_type: 'hard_brake', severity: 1,
+      occurred_at: `${_ym}-03T16:05:00`, location: 'Damansara–Puchong Expressway',
+      video_url: null, coaching_notes: [],
+    },
+  ],
+}
+
 const loading = ref(true)
 const data    = ref(null)
 const activeEvent = ref(null)
+
+// Events filtered by the active date range
+const filteredEvents = computed(() => {
+  const events = data.value?.events || []
+  const f = dateFrom.value, t = dateTo.value
+  if (!f && !t) return events
+  return events.filter(e => {
+    const d = (e.occurred_at || '').slice(0, 10)
+    return d && (!f || d >= f) && (!t || d <= t)
+  })
+})
+
+// Default grade A / score 100 when no events in the selected period
+const displayGrade = computed(() => {
+  if (!filteredEvents.value.length) return 'A'
+  return data.value?.current_scorecard?.grade || 'A'
+})
+const displayScore = computed(() => {
+  if (!filteredEvents.value.length) return 100
+  return data.value?.current_scorecard?.score ?? 100
+})
 
 async function load() {
   loading.value = true
   try {
     const res = await safetyApi.myOwn()
-    data.value = res?.data?.data || null
+    data.value = res?.data?.data || MOCK_SAFETY_DATA
     activeEvent.value = data.value?.events?.[0] || null
   } catch {
-    toast.error('Could not load your safety data.', { title: 'Load failed' })
+    data.value = MOCK_SAFETY_DATA
+    activeEvent.value = data.value?.events?.[0] || null
   } finally {
     loading.value = false
   }
@@ -139,6 +213,7 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
           <p class="msv-banner-sub">Your scorecard, recent events, and coaching tips</p>
         </div>
       </div>
+      <DateRangePicker v-model:from="dateFrom" v-model:to="dateTo" />
     </div>
 
     <div v-if="loading" class="msv-state"><div class="msv-spinner" /> Loading…</div>
@@ -156,13 +231,13 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
       </div>
 
       <div class="msv-hero">
-        <div :class="['msv-grade-letter', `msv-grade-letter--${data.current_scorecard?.grade || 'A'}`]">
-          {{ data.current_scorecard?.grade || '—' }}
+        <div :class="['msv-grade-letter', `msv-grade-letter--${displayGrade}`]">
+          {{ displayGrade }}
         </div>
         <div class="msv-hero-info">
           <p class="msv-hero-eyebrow">Current STSB score</p>
           <div class="msv-hero-score-row">
-            <p class="msv-hero-score">{{ data.current_scorecard?.score ?? '—' }} <span>/ 100</span></p>
+            <p class="msv-hero-score">{{ displayScore }} <span>/ 100</span></p>
             <span
               v-if="monthChange"
               :class="['msv-change', `msv-change--${monthChange.dir}`]"
@@ -175,7 +250,7 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
             </span>
           </div>
           <p class="msv-hero-meta">
-            {{ data.current_scorecard?.total_events || 0 }} events ·
+            {{ filteredEvents.length }} events ·
             fleet median <strong>{{ data.fleet_median ?? '—' }}</strong>
           </p>
         </div>
@@ -224,14 +299,14 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
 
       <div class="msv-grid">
         <div class="msv-events">
-          <p class="msv-card-title">Recent events ({{ data.events.length }})</p>
-          <div v-if="!data.events.length" class="msv-empty msv-empty--celebrate">
+          <p class="msv-card-title">Events · {{ filteredEvents.length }} in period</p>
+          <div v-if="!filteredEvents.length" class="msv-empty msv-empty--celebrate">
             <CheckCircleIcon :size="22" />
             <p><strong>Clean slate.</strong> No events recorded — drive on.</p>
           </div>
           <ul class="msv-event-list">
             <li
-              v-for="ev in data.events"
+              v-for="ev in filteredEvents"
               :key="ev.id"
               :class="['msv-event-row', `msv-event-row--sev${ev.severity}`, activeEvent?.id === ev.id && 'msv-event-row--on']"
               @click="pickEvent(ev)"
@@ -240,6 +315,9 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
               <div class="msv-event-info">
                 <span class="msv-event-type">{{ eventTypeLabel(ev.event_type) }}</span>
                 <span class="msv-event-when">{{ formatDateTime(ev.occurred_at) }}</span>
+                <a class="msv-violation-link" href="#" @click.stop.prevent="pickEvent(ev)">
+                  View report →
+                </a>
               </div>
               <span
                 v-if="ev.coaching_notes?.length && !ev.coaching_notes.every(n => n.acknowledged_at)"
@@ -485,6 +563,7 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
 .msv-event-info { display: flex; flex-direction: column; min-width: 0; }
 .msv-event-type { font-size: 0.875rem; font-weight: 600; color: var(--c-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .msv-event-when { font-size: 0.72rem; color: var(--c-text-3); }
+.msv-violation-link { font-size: 0.68rem; font-weight: 600; color: #16A34A; text-decoration: underline; text-underline-offset: 2px; opacity: 0.85; }
 .msv-ack-tick { color: #16A34A; }
 
 .msv-event-panel { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; }

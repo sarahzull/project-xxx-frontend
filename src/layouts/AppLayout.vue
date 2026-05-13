@@ -72,19 +72,18 @@ const navigation = computed(() =>
 )
 
 const allBottomNav = [
-  // Shared
-  { name: 'Home',     path: '/',             icon: DashboardIcon, roles: null },
-  // Admin bottom 4
-  { name: 'Drivers',  path: '/drivers',      icon: DriversIcon,   roles: ['admin'] },
-  { name: 'Trips',    path: '/trips',        icon: TruckIcon,     roles: ['admin'] },
-  { name: 'Pay',      path: '/compensation', icon: PayIcon,       roles: ['admin'] },
-  // Driver bottom 4
-  { name: 'Trips',    path: '/trips',        icon: TruckIcon,     roles: ['driver'] },
-  { name: 'Earnings', path: '/earnings',     icon: EarningsIcon,  roles: ['driver'] },
-  { name: 'Payslips', path: '/payslips',     icon: PayslipIcon,   roles: ['driver'] },
-  { name: 'Comms',    path: '/communications', icon: CommunicationsIcon, roles: ['driver'] },
+  // Admin bottom nav
+  { name: 'Home',      path: '/',             icon: DashboardIcon, roles: ['admin'] },
+  { name: 'Drivers',   path: '/drivers',      icon: DriversIcon,   roles: ['admin'] },
+  { name: 'Trips',     path: '/trips',        icon: TruckIcon,     roles: ['admin'] },
+  { name: 'Pay',       path: '/compensation', icon: PayIcon,       roles: ['admin'] },
+  // Driver bottom nav: Home → top bar brand; Comms → notification bell
+  { name: 'Trips',     path: '/trips',        icon: TruckIcon,     roles: ['driver'] },
+  { name: 'Earnings',  path: '/earnings',     icon: EarningsIcon,  roles: ['driver'] },
+  { name: 'My Safety', path: '/my-safety',    icon: SafetyIcon,    roles: ['driver'] },
+  { name: 'Payslips',  path: '/payslips',     icon: PayslipIcon,   roles: ['driver'] },
   // More only needed for admin (Reports, Rates, Users, Letters overflow)
-  { name: 'More',     path: null,            icon: MoreIcon,      roles: ['admin'] },
+  { name: 'More',      path: null,            icon: MoreIcon,      roles: ['admin'] },
 ]
 
 const bottomNav = computed(() =>

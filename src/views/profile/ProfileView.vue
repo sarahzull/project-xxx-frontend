@@ -335,14 +335,6 @@ function userInitials(name) {
               <DatePicker v-model="infoForm.dob" placeholder="Select date" aria-label="Date of birth" />
             </div>
             <div class="pv-field">
-              <label class="pv-label">License No.</label>
-              <input v-model="infoForm.license_no" class="pv-input pv-input--mono" type="text" placeholder="e.g. D12345678" />
-            </div>
-            <div class="pv-field">
-              <label class="pv-label">License Expiry Date</label>
-              <DatePicker v-model="infoForm.license_date" placeholder="Select date" aria-label="License expiry date" />
-            </div>
-            <div class="pv-field">
               <label class="pv-label">Date Joined Company</label>
               <DatePicker v-model="infoForm.date_joined" placeholder="Select date" aria-label="Date joined company" />
             </div>

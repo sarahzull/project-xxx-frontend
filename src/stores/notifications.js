@@ -14,7 +14,8 @@ import communicationsApi from '../api/communications'
  * Components don't need to know which tier is active.
  */
 
-const STORAGE_KEY = 'drv_notif_read'
+const STORAGE_KEY  = 'drv_notif_read'
+const DISMISS_KEY  = 'drv_notif_dismissed'
 
 function getReadMap() {
   try { return new Map(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')) }
@@ -22,6 +23,17 @@ function getReadMap() {
 }
 function saveReadMap(map) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...map])) } catch {}
+}
+
+// "Dismissed" = clicked Clear in the bell. Hides the row from the bell
+// dropdown only; the underlying communication is untouched, so it still
+// shows on the Communications page.
+function getDismissedSet() {
+  try { return new Set(JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]')) }
+  catch { return new Set() }
+}
+function saveDismissedSet(set) {
+  try { localStorage.setItem(DISMISS_KEY, JSON.stringify([...set])) } catch {}
 }
 
 export const useNotificationsStore = defineStore('notifications', () => {
@@ -41,7 +53,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
     try {
       // Tier 1: real notifications endpoint
       const res = await notificationsApi.list()
-      notifications.value = res.data.data || res.data || []
+      const all = res.data.data || res.data || []
+      const dismissed = getDismissedSet()
+      notifications.value = all.filter(n => !dismissed.has(String(n.id)))
       usingFallback.value = false
     } catch {
       // Tier 2: derive from driver's communications list
@@ -55,10 +69,13 @@ export const useNotificationsStore = defineStore('notifications', () => {
   async function _fetchFromCommunications() {
     usingFallback.value = true
     try {
-      const res     = await communicationsApi.myList()
-      const letters = res.data.data || []
-      const readMap = getReadMap()
-      notifications.value = letters.map(l => ({
+      const res       = await communicationsApi.myList()
+      const letters   = res.data.data || []
+      const readMap   = getReadMap()
+      const dismissed = getDismissedSet()
+      notifications.value = letters
+        .filter(l => !dismissed.has(String(l.id)))
+        .map(l => ({
         id:                 l.id,
         type:               'communication',
         communication_type: l.type,   // 'reward' | 'warning' | 'announcement'
@@ -123,22 +140,18 @@ export const useNotificationsStore = defineStore('notifications', () => {
   }
 
   /**
-   * Wipe the user's inbox. Optimistically clears the local list; on failure
-   * we restore the previous state. In tier-2 (localStorage) mode we just
-   * blank the read map and the in-memory list — there's no server-side row.
+   * Dismiss every notification currently shown in the bell. This is a
+   * LOCAL hide — the underlying driver_communications + driver_notifications
+   * rows are untouched, so the Communications page still lists them. The
+   * dismissed ids are persisted to localStorage so they stay hidden across
+   * polls and reloads on this device.
    */
-  async function clearAll() {
-    const previous = notifications.value
-    notifications.value = []  // optimistic
-    if (usingFallback.value) {
-      saveReadMap(new Map())
-      return
-    }
-    try {
-      await notificationsApi.clearAll()
-    } catch {
-      notifications.value = previous
-    }
+  function clearAll() {
+    if (!notifications.value.length) return
+    const dismissed = getDismissedSet()
+    notifications.value.forEach(n => dismissed.add(String(n.id)))
+    saveDismissedSet(dismissed)
+    notifications.value = []
   }
 
   // ── Polling ────────────────────────────────────────────────────────────────

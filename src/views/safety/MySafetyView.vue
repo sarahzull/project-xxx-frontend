@@ -16,13 +16,14 @@ import { useSafetyStore } from '../../stores/safety'
 const toast = useToast()
 const safety = useSafetyStore()
 
-// ── Date filter (full current month — safety grading is monthly) ─────────────
+// ── Date filter — defaults to YESTERDAY since we focus on -1 day data ────────
 function _toISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 const _now = new Date()
-const dateFrom = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth(), 1)))
-const dateTo   = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth() + 1, 0)))
+const _yesterday = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - 1)
+const dateFrom = ref(_toISO(_yesterday))
+const dateTo   = ref(_toISO(_yesterday))
 
 // ── Mock fallback — shown when API returns no data ────────────────────────────
 const _ym = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}`

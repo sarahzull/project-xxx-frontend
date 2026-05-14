@@ -33,25 +33,23 @@ onUnmounted(() => {
   notifications.stopPolling()
 })
 
-// Today's alert count for a nav item:
-//   null   = "no badge for this item"
-//   number = single pill (used by /communications)
-//   object { 1, 2, 3 } = severity-broken-down pills (safety items)
+// Unread count for a nav item. null = "no badge". All badges render as a
+// single red number pill.
+//   admin /safety       → yesterday's high-severity pending events
+//   driver /my-safety   → un-acknowledged coaching notes
+//   driver /communications → unread comms (from notifications store)
 function navBadge(item) {
   if (item.path === '/safety') {
-    return safety.pendingReview > 0 ? safety.pendingReviewBySeverity : null
+    return safety.pendingReview > 0 ? safety.pendingReview : null
   }
   if (item.path === '/my-safety') {
-    return safety.unreadCoachings > 0 ? safety.unreadCoachingsBySeverity : null
+    return safety.unreadCoachings > 0 ? safety.unreadCoachings : null
   }
-  // Comms tab on the driver sidebar shows unread communication count,
-  // sourced from the same notifications store that powers the bell.
   if (item.path === '/communications' && !auth.hasRole('admin')) {
     return notifications.unreadCount || null
   }
   return null
 }
-function isSeverityBadge(b) { return b !== null && typeof b === 'object' }
 
 const isAdmin = computed(() => auth.hasRole('admin'))
 
@@ -144,17 +142,10 @@ function userInitials(name) {
           >
             <component :is="item.icon" class="nav-icon" />
             <span class="nav-item-text">{{ item.name }}</span>
-            <template v-if="navBadge(item) !== null">
-              <span v-if="isSeverityBadge(navBadge(item))" class="nav-sev-set">
-                <span v-if="navBadge(item)[1] > 0" class="nav-sev nav-sev--1" title="Low severity">{{ navBadge(item)[1] }}</span>
-                <span v-if="navBadge(item)[2] > 0" class="nav-sev nav-sev--2" title="Medium severity">{{ navBadge(item)[2] }}</span>
-                <span v-if="navBadge(item)[3] > 0" class="nav-sev nav-sev--3" title="High severity">{{ navBadge(item)[3] }}</span>
-              </span>
-              <span
-                v-else
-                :class="['nav-badge', navBadge(item) === 0 && 'nav-badge--zero']"
-              >{{ navBadge(item) > 99 ? '99+' : navBadge(item) }}</span>
-            </template>
+            <span
+              v-if="navBadge(item) !== null"
+              class="nav-badge"
+            >{{ navBadge(item) > 99 ? '99+' : navBadge(item) }}</span>
           </router-link>
           <button
             v-else
@@ -275,11 +266,10 @@ function userInitials(name) {
         >
           <span class="bn-icon-wrap">
             <component :is="item.icon" :size="22" />
-            <span v-if="isSeverityBadge(navBadge(item))" class="bn-sev-set">
-              <span v-if="navBadge(item)[1] > 0" class="bn-sev-dot bn-sev-dot--1" />
-              <span v-if="navBadge(item)[2] > 0" class="bn-sev-dot bn-sev-dot--2" />
-              <span v-if="navBadge(item)[3] > 0" class="bn-sev-dot bn-sev-dot--3" />
-            </span>
+            <span
+              v-if="navBadge(item) !== null"
+              class="bn-badge"
+            >{{ navBadge(item) > 99 ? '99+' : navBadge(item) }}</span>
           </span>
           <span>{{ item.name }}</span>
         </router-link>
@@ -344,8 +334,7 @@ function userInitials(name) {
 .nav-item-label { flex: 1; min-width: 0; }
 .nav-item-text  { flex: 1; min-width: 0; }
 
-/* Sidebar nav badge — always visible for items that opt in; muted when 0,
-   alarming red when there are alerts today. */
+/* Sidebar nav badge — single red number pill, only rendered when count > 0. */
 .nav-badge {
   margin-left: auto;
   display: inline-grid; place-items: center;
@@ -359,47 +348,24 @@ function userInitials(name) {
   font-variant-numeric: tabular-nums;
   line-height: 1;
   transition: background var(--dur), color var(--dur);
-  align-items: center;
 }
-.nav-badge--zero {
-  background: rgba(148, 163, 184, 0.22);
-  color: rgba(255, 255, 255, 0.65);
-  font-weight: 600;
-  align-items: center;
-}
-.nav-item.active .nav-badge       { background: #fff; color: #DC2626; }
-.nav-item.active .nav-badge--zero { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); }
+.nav-item.active .nav-badge { background: #fff; color: #DC2626; }
 
-/* Severity-broken-down badge set for safety nav items.
-   Three small pills, one per severity. Zero counts are hidden. */
-.nav-sev-set { margin-left: auto; display: inline-flex; gap: 3px; align-items: center; }
-.nav-sev {
-  display: inline-grid; place-items: center;
-  min-width: 18px; height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  font-size: 0.6875rem; font-weight: 700;
-  font-variant-numeric: tabular-nums; line-height: 1;
-  color: #fff;
-}
-.nav-sev--1 { background: #16A34A; }
-.nav-sev--2 { background: #D97706; }
-.nav-sev--3 { background: #DC2626; }
-.nav-item.active .nav-sev { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.45); }
-
-/* Bottom-nav severity dots — small indicators stacked on the icon corner. */
+/* Bottom-nav (mobile) icon + corner number pill.
+   Sized so a one- or two-digit number reads cleanly on a phone. */
 .bn-icon-wrap { position: relative; display: inline-grid; place-items: center; }
-.bn-sev-set {
-  position: absolute; top: -2px; right: -6px;
-  display: inline-flex; gap: 1px;
-}
-.bn-sev-dot {
-  width: 7px; height: 7px; border-radius: 50%;
+.bn-badge {
+  position: absolute; top: -6px; right: -10px;
+  display: inline-grid; place-items: center;
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #DC2626;
+  color: #fff;
+  font-size: 0.625rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; line-height: 1;
   border: 1.5px solid var(--c-bg, #fff);
 }
-.bn-sev-dot--1 { background: #16A34A; }
-.bn-sev-dot--2 { background: #D97706; }
-.bn-sev-dot--3 { background: #DC2626; }
 .nav-soon-pill {
   margin-left: auto;
   padding: 2px 8px;

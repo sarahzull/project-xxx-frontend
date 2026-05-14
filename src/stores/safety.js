@@ -13,41 +13,27 @@ import safetyApi from '../api/safety'
  *   - drivers → unread_coachings (notes you haven't acknowledged yet)
  */
 export const useSafetyStore = defineStore('safety', () => {
-  const pendingReview             = ref(0)
-  const pendingReviewBySeverity   = ref({ 1: 0, 2: 0, 3: 0 })
-  const unreadCoachings           = ref(0)
-  const unreadCoachingsBySeverity = ref({ 1: 0, 2: 0, 3: 0 })
-  const total                     = ref(0)
-  const initialized               = ref(false)
-  const loading                   = ref(false)
+  const pendingReview   = ref(0)
+  const unreadCoachings = ref(0)
+  const total           = ref(0)
+  const initialized     = ref(false)
+  const loading         = ref(false)
 
   const hasBadge = computed(() => total.value > 0)
-
-  function _normaliseBySev(obj) {
-    return {
-      1: Number(obj?.['1'] ?? obj?.[1]) || 0,
-      2: Number(obj?.['2'] ?? obj?.[2]) || 0,
-      3: Number(obj?.['3'] ?? obj?.[3]) || 0,
-    }
-  }
 
   async function fetchBadge() {
     loading.value = true
     try {
       const { data } = await safetyApi.badge()
       const d = data?.data || {}
-      pendingReview.value             = Number(d.pending_review)   || 0
-      pendingReviewBySeverity.value   = _normaliseBySev(d.pending_review_by_severity)
-      unreadCoachings.value           = Number(d.unread_coachings) || 0
-      unreadCoachingsBySeverity.value = _normaliseBySev(d.unread_coachings_by_severity)
-      total.value                     = Number(d.total)            || 0
+      pendingReview.value   = Number(d.pending_review)   || 0
+      unreadCoachings.value = Number(d.unread_coachings) || 0
+      total.value           = Number(d.total)            || 0
     } catch {
       // Stay quiet — sidebar should never fail loudly because of a badge fetch
-      pendingReview.value = 0
-      pendingReviewBySeverity.value = { 1: 0, 2: 0, 3: 0 }
+      pendingReview.value   = 0
       unreadCoachings.value = 0
-      unreadCoachingsBySeverity.value = { 1: 0, 2: 0, 3: 0 }
-      total.value = 0
+      total.value           = 0
     } finally {
       loading.value     = false
       initialized.value = true
@@ -65,8 +51,8 @@ export const useSafetyStore = defineStore('safety', () => {
   }
 
   return {
-    pendingReview, pendingReviewBySeverity,
-    unreadCoachings, unreadCoachingsBySeverity,
+    pendingReview,
+    unreadCoachings,
     total, initialized, loading,
     hasBadge,
     fetchBadge, decrementCoaching, decrementReview,

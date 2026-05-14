@@ -18,13 +18,14 @@ import DateRangePicker from '../../components/common/DateRangePicker.vue'
 const router = useRouter()
 const toast  = useToast()
 
-// ── Date filter (full current month — safety grading is monthly) ─────────────
+// ── Date filter — defaults to YESTERDAY since we focus on -1 day data ────────
 function _toISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 const _now = new Date()
-const dateFrom = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth(), 1)))
-const dateTo   = ref(_toISO(new Date(_now.getFullYear(), _now.getMonth() + 1, 0)))
+const _yesterday = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - 1)
+const dateFrom = ref(_toISO(_yesterday))
+const dateTo   = ref(_toISO(_yesterday))
 
 // ── Fleet state ──────────────────────────────────────────────────────────────
 const loading = ref(true)
@@ -87,11 +88,6 @@ const maxEventCount = computed(() =>
   eventsByTypeArr.value.reduce((m, r) => Math.max(m, r.count), 0)
 )
 
-// ── Hero: worst driver + last incident relative time ────────────────────────
-const worstDriver = computed(() => fleet.value?.top_offenders?.[0] || null)
-
-const unreviewedHigh = computed(() => fleet.value?.high_severity || 0)
-
 // ── Severity-stacked events-by-type — replaces the flat blue bar ───────────
 const HIGH_SEVERITY_TYPES = ['drowsy', 'fatigue', 'phone_use']
 const MED_SEVERITY_TYPES  = ['speeding', 'distracted']
@@ -135,39 +131,6 @@ const filteredOffenders = computed(() => {
     <div v-if="loading" class="sv-state"><div class="sv-spinner" /> Loading…</div>
 
     <template v-else-if="fleet">
-      <!-- ── Hero: worst driver this period — single-row subject card ────── -->
-      <div class="sv-hero">
-        <p class="sv-hero-eyebrow">Needs attention</p>
-
-        <div v-if="worstDriver" class="sv-hero-body" @click="openDriver(worstDriver)">
-          <div :class="['sv-hero-grade', `sv-grade-pill--${worstDriver.grade}`]">
-            <span class="sv-hero-grade-letter">{{ worstDriver.grade }}</span>
-            <span class="sv-hero-grade-score">{{ Number(worstDriver.score).toFixed(1) }}</span>
-          </div>
-          <div class="sv-hero-info">
-            <p class="sv-hero-name">{{ worstDriver.name }}</p>
-            <p class="sv-hero-meta">
-              <span class="sv-hero-meta-id">{{ worstDriver.driver_id }}</span>
-              <span v-if="worstDriver.base" class="sv-hero-meta-sep">·</span>
-              <span v-if="worstDriver.base">{{ worstDriver.base }}</span>
-              <span class="sv-hero-meta-sep">·</span>
-              <span>{{ worstDriver.total_events }} events</span>
-            </p>
-          </div>
-          <button class="sv-hero-cta" @click.stop="openDriver(worstDriver)">
-            Open driver report <ViewIcon :size="13" />
-          </button>
-        </div>
-
-        <div v-else class="sv-hero-body sv-hero-body--clear">
-          <div class="sv-hero-clear-icon"><CheckCircleIcon :size="22" /></div>
-          <div class="sv-hero-info">
-            <p class="sv-hero-name">All clear this period</p>
-            <p class="sv-hero-meta">No drivers below grade A — keep the streak going.</p>
-          </div>
-        </div>
-      </div>
-
       <div class="sv-card">
         <p class="sv-card-title">STSB grade distribution</p>
         <div class="sv-grades">
@@ -286,69 +249,6 @@ const filteredOffenders = computed(() => {
 .sv-spinner { width: 18px; height: 18px; border: 2px solid var(--c-border); border-top-color: #16A34A; border-radius: 50%; animation: sv-spin 0.7s linear infinite; }
 @keyframes sv-spin { to { transform: rotate(360deg); } }
 .sv-empty { color: var(--c-text-3); font-size: 0.875rem; padding: 12px 4px; }
-
-/* ── Hero: single-row "needs attention" subject card ────────────────────── */
-.sv-hero {
-  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 14px;
-  padding: 18px 22px;
-}
-.sv-hero-eyebrow {
-  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--c-text-3); margin-bottom: 12px;
-}
-
-.sv-hero-body {
-  display: grid; grid-template-columns: auto 1fr auto;
-  gap: 18px; align-items: center;
-  cursor: pointer; transition: background var(--dur);
-  margin: -6px; padding: 6px; border-radius: 10px;
-}
-.sv-hero-body:hover { background: var(--c-hover); }
-.sv-hero-body--clear { cursor: default; }
-.sv-hero-body--clear:hover { background: transparent; }
-
-.sv-hero-grade {
-  width: 64px; height: 64px; border-radius: 12px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.sv-hero-grade-letter { font-size: 1.85rem; font-weight: 800; line-height: 0.9; }
-.sv-hero-grade-score  { font-size: 0.7rem; font-weight: 600; opacity: 0.75; margin-top: 4px; font-variant-numeric: tabular-nums; }
-
-.sv-hero-clear-icon {
-  width: 64px; height: 64px; border-radius: 12px;
-  background: rgba(22,163,74,0.12); color: #16A34A;
-  display: grid; place-items: center; flex-shrink: 0;
-}
-
-.sv-hero-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.sv-hero-name {
-  font-size: 1.05rem; font-weight: 700; color: var(--c-text-1);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.sv-hero-meta {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-  font-size: 0.82rem; color: var(--c-text-3);
-}
-.sv-hero-meta-id { font-family: monospace; font-weight: 600; }
-.sv-hero-meta-sep { opacity: 0.5; }
-
-.sv-hero-cta {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 14px;
-  background: var(--c-text-1); color: var(--c-surface);
-  border: none; border-radius: 8px;
-  font-size: 0.82rem; font-weight: 600; cursor: pointer;
-  transition: opacity var(--dur);
-  flex-shrink: 0;
-}
-.sv-hero-cta:hover { opacity: 0.85; }
-.sv-hero-cta svg { opacity: 0.8; }
-
-@media (max-width: 640px) {
-  .sv-hero-body { grid-template-columns: auto 1fr; }
-  .sv-hero-cta  { grid-column: 1 / -1; justify-content: center; }
-}
 
 .sv-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px; padding: 16px 20px; }
 .sv-card-title { font-size: 0.95rem; font-weight: 700; color: var(--c-text-1); margin-bottom: 12px; }

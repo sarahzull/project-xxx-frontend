@@ -3,7 +3,6 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import safetyApi from '../../api/safety'
 import { useToast } from '../../composables/useToast'
-import { useSafetyStore } from '../../stores/safety'
 import {
   ChevronLeftIcon, AlertIcon, CheckCircleIcon, ShieldAlertIcon,
 } from '../../components/icons/index.js'
@@ -15,7 +14,6 @@ const props = defineProps({
 const route  = useRoute()
 const router = useRouter()
 const toast  = useToast()
-const safety = useSafetyStore()
 
 function defaultPeriod() {
   const d = new Date()
@@ -53,11 +51,9 @@ function pickEvent(ev) {
 }
 
 async function markReviewed(ev) {
-  const wasPending = ev.status === 'pending'
   try {
     const { data } = await safetyApi.review(ev.id)
     Object.assign(ev, data?.data || {})
-    if (wasPending) safety.decrementReview(1)
     toast.success('Event marked reviewed.', { title: 'Reviewed' })
   } catch {
     toast.error('Failed to update event.', { title: 'Action failed' })
@@ -70,11 +66,9 @@ async function submitCoach(ev) {
     return
   }
   coachSaving.value = true
-  const wasPending = ev.status === 'pending'
   try {
     const { data } = await safetyApi.coach(ev.id, coachNote.value.trim())
     Object.assign(ev, data?.data?.event || {})
-    if (wasPending) safety.decrementReview(1)
     coachNote.value = ''
     toast.success('Coaching note saved.', { title: 'Coached' })
   } catch {

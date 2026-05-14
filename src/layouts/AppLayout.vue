@@ -33,20 +33,24 @@ onUnmounted(() => {
   notifications.stopPolling()
 })
 
-// Unread count for a nav item. null = "no badge". All badges render as a
-// single red number pill.
-//   admin /safety       → yesterday's high-severity pending events
-//   driver /my-safety   → un-acknowledged coaching notes
-//   driver /communications → unread comms (from notifications store)
+// Returns { count, tooltip } | null. The safety badges are always rendered
+// (even at 0) so the count is permanently visible; comms still hides at 0.
+//   admin /safety       → events yesterday + N drivers in tooltip
+//   driver /my-safety   → own events yesterday
+//   driver /communications → unread comms (hidden when 0)
 function navBadge(item) {
   if (item.path === '/safety') {
-    return safety.pendingReview > 0 ? safety.pendingReview : null
+    const n = safety.eventsYesterday
+    const d = safety.driversYesterday
+    return { count: n, tooltip: `${n} event${n === 1 ? '' : 's'} from ${d} driver${d === 1 ? '' : 's'} yesterday` }
   }
   if (item.path === '/my-safety') {
-    return safety.unreadCoachings > 0 ? safety.unreadCoachings : null
+    const n = safety.eventsYesterday
+    return { count: n, tooltip: `${n} event${n === 1 ? '' : 's'} yesterday` }
   }
   if (item.path === '/communications' && !auth.hasRole('admin')) {
-    return notifications.unreadCount || null
+    const n = notifications.unreadCount
+    return n > 0 ? { count: n, tooltip: `${n} unread` } : null
   }
   return null
 }
@@ -144,8 +148,9 @@ function userInitials(name) {
             <span class="nav-item-text">{{ item.name }}</span>
             <span
               v-if="navBadge(item) !== null"
-              class="nav-badge"
-            >{{ navBadge(item) > 99 ? '99+' : navBadge(item) }}</span>
+              :class="['nav-badge', navBadge(item).count === 0 && 'nav-badge--zero']"
+              :title="navBadge(item).tooltip"
+            >{{ navBadge(item).count > 99 ? '99+' : navBadge(item).count }}</span>
           </router-link>
           <button
             v-else
@@ -268,8 +273,9 @@ function userInitials(name) {
             <component :is="item.icon" :size="22" />
             <span
               v-if="navBadge(item) !== null"
-              class="bn-badge"
-            >{{ navBadge(item) > 99 ? '99+' : navBadge(item) }}</span>
+              :class="['bn-badge', navBadge(item).count === 0 && 'bn-badge--zero']"
+              :title="navBadge(item).tooltip"
+            >{{ navBadge(item).count > 99 ? '99+' : navBadge(item).count }}</span>
           </span>
           <span>{{ item.name }}</span>
         </router-link>
@@ -334,7 +340,8 @@ function userInitials(name) {
 .nav-item-label { flex: 1; min-width: 0; }
 .nav-item-text  { flex: 1; min-width: 0; }
 
-/* Sidebar nav badge — single red number pill, only rendered when count > 0. */
+/* Sidebar nav badge — red number pill. Muted grey when count is 0 so the
+   admin sees a stable placeholder rather than the badge disappearing. */
 .nav-badge {
   margin-left: auto;
   display: inline-grid; place-items: center;
@@ -349,10 +356,18 @@ function userInitials(name) {
   line-height: 1;
   transition: background var(--dur), color var(--dur);
 }
-.nav-item.active .nav-badge { background: #fff; color: #DC2626; }
+.nav-badge--zero {
+  background: rgba(148, 163, 184, 0.22);
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 600;
+}
+.nav-item.active .nav-badge       { background: #fff; color: #DC2626; }
+.nav-item.active .nav-badge--zero { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.85); }
 
 /* Bottom-nav (mobile) icon + corner number pill.
-   Sized so a one- or two-digit number reads cleanly on a phone. */
+   Sized so a one- or two-digit number reads cleanly on a phone.
+   Hidden at zero — a "0" floating on every icon would be visual noise on a
+   small screen; the sidebar already shows the persistent zero indicator. */
 .bn-icon-wrap { position: relative; display: inline-grid; place-items: center; }
 .bn-badge {
   position: absolute; top: -6px; right: -10px;
@@ -366,6 +381,7 @@ function userInitials(name) {
   font-variant-numeric: tabular-nums; line-height: 1;
   border: 1.5px solid var(--c-bg, #fff);
 }
+.bn-badge--zero { display: none; }
 .nav-soon-pill {
   margin-left: auto;
   padding: 2px 8px;

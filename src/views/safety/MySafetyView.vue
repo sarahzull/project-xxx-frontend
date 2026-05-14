@@ -11,10 +11,8 @@ import safetyApi from '../../api/safety'
 import DateRangePicker from '../../components/common/DateRangePicker.vue'
 import { useToast } from '../../composables/useToast'
 import { SafetyIcon, CheckCircleIcon, AlertIcon, ShieldAlertIcon } from '../../components/icons/index.js'
-import { useSafetyStore } from '../../stores/safety'
 
 const toast = useToast()
-const safety = useSafetyStore()
 
 // ── Date filter — defaults to YESTERDAY since we focus on -1 day data ────────
 function _toISO(d) {
@@ -137,7 +135,6 @@ async function ackNote(note) {
   try {
     await safetyApi.acknowledgeNote(note.id)
     note.acknowledged_at = new Date().toISOString()
-    safety.decrementCoaching(1)  // optimistic — keeps the sidebar badge in sync
     toast.success('Coaching note acknowledged.', { title: 'Acknowledged' })
   } catch {
     toast.error('Failed to acknowledge note.', { title: 'Action failed' })

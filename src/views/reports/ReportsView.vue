@@ -541,7 +541,9 @@ onMounted(async () => {
 .rv-empty-card svg { width: 40px; height: 40px; }
 
 /* ── Toolbar: date range + export PDF button ─────────────────────────────── */
-.rv-toolbar { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.rv-toolbar { display: inline-flex; align-items: stretch; gap: 10px; flex-shrink: 0; }
+/* Align the picker chip's height with the export button. */
+.rv-toolbar :deep(.drp-chip) { padding: 8px 14px; }
 @media (max-width: 480px) {
   .rv-toolbar { width: 100%; flex-direction: column; align-items: stretch; }
   .rv-toolbar .rv-export-btn { width: 100%; justify-content: center; }

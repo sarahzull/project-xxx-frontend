@@ -22,4 +22,10 @@ export default {
       responseType: 'blob',
     })
   },
+  exportPdf(params = {}) {
+    return http.get('/reports/export-pdf', {
+      params,
+      responseType: 'blob',
+    })
+  },
 }

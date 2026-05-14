@@ -21,12 +21,12 @@ const route         = useRoute()
 const sidebarOpen   = ref(false)
 
 // Initialise notifications + safety badge as soon as the app shell mounts,
-// then keep notifications fresh via visibility-aware polling (30s interval,
-// paused while the tab is hidden — see the store for details).
+// then keep notifications fresh via visibility-aware polling (5s interval —
+// the store's floor — paused while the tab is hidden).
 onMounted(() => {
   if (!notifications.initialized) notifications.fetchNotifications()
   if (!safety.initialized) safety.fetchBadge()
-  notifications.startPolling(30000)
+  notifications.startPolling(5000)
 })
 
 onUnmounted(() => {

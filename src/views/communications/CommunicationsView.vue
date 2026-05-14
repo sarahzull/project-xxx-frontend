@@ -44,8 +44,16 @@ const error   = ref('')
 // Filters
 const typeFilter   = ref('')    // '' | 'reward' | 'warning' | 'announcement'
 const searchQuery  = ref('')
-const dateFrom     = ref('')    // ISO YYYY-MM-DD
-const dateTo       = ref('')    // ISO YYYY-MM-DD
+// Default to "this week" (Monday → today, local TZ) so the most recent
+// comms are visible without the admin having to pick a range first.
+function _toISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+const _now    = new Date()
+const _monday = new Date(_now)
+_monday.setDate(_now.getDate() - (_now.getDay() === 0 ? 6 : _now.getDay() - 1))
+const dateFrom     = ref(_toISO(_monday))   // ISO YYYY-MM-DD
+const dateTo       = ref(_toISO(_now))      // ISO YYYY-MM-DD
 
 // Custom type-filter dropdown (mobile)
 const TYPE_OPTIONS = [
@@ -331,7 +339,21 @@ onUnmounted(() => {
 function openDetail(item) {
   activeItem.value = item
   showDetail.value = true
-  if (!isAdmin.value) markViewed(item.id)
+  if (!isAdmin.value) {
+    markViewed(item.id)
+    // localStorage alone keeps the driver's UI in sync, but the admin's
+    // read-count comes from the server. Fire-and-forget this PATCH so the
+    // admin sees the receipt on their next poll. Optimistically stamp
+    // read_at locally too in case the admin's own myList payload reuses
+    // the same item shape.
+    if (!item.read_at) {
+      item.read_at = new Date().toISOString()
+      communicationsApi.markRead(item.id).catch(() => {
+        // Network blip — revert the optimistic stamp; next fetch reconciles.
+        item.read_at = null
+      })
+    }
+  }
 }
 
 async function resendCommunication(item) {

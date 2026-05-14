@@ -370,7 +370,7 @@ onMounted(async () => {
 
 /* Section nav */
 .rv-sec-row {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: stretch; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
 }
 .rv-sec-nav {

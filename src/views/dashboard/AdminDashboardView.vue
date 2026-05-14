@@ -66,8 +66,12 @@ function _toISO(d) {
   return `${y}-${m}-${dd}`
 }
 const _todayISO = _toISO(new Date())
-const dateFrom = ref(_todayISO)
-const dateTo   = ref(_todayISO)
+// Latest data point in this system is T-1, so default the Operations range
+// to yesterday — picking today would always show zeroes.
+const _yesterdayDate = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d })()
+const _yesterdayISO = _toISO(_yesterdayDate)
+const dateFrom = ref(_yesterdayISO)
+const dateTo   = ref(_yesterdayISO)
 
 // Dynamic label for the Operations zone — mirrors the active range
 const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -81,28 +85,34 @@ const opsRangeLabel = computed(() => {
   const t = dateTo.value
   if (!f || !t) return "Today's Operations"
 
+  if (f === t && f === _yesterdayISO) return "Yesterday's Operations"
   if (f === t && f === _todayISO) return "Today's Operations"
   if (f === t) return `Operations · ${_fmtShort(f)}`
 
-  // Compare against this-week / this-month / last-30 presets
+  // Compare against this-week / this-month / last-30 presets (anchored to
+  // yesterday, since the system has no live data for today)
   const now = new Date()
   const startOfWeek = new Date(now)
   const day = startOfWeek.getDay()
   startOfWeek.setDate(startOfWeek.getDate() - (day === 0 ? 6 : day - 1))
-  if (f === _toISO(startOfWeek) && t === _todayISO) return "This Week's Operations"
+  if (f === _toISO(startOfWeek) && t === _yesterdayISO) return "This Week's Operations"
 
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  if (f === _toISO(startOfMonth) && t === _todayISO) return "This Month's Operations"
+  if (f === _toISO(startOfMonth) && t === _yesterdayISO) return "This Month's Operations"
 
   const last30 = new Date(now); last30.setDate(last30.getDate() - 29)
-  if (f === _toISO(last30) && t === _todayISO) return 'Last 30 Days · Operations'
+  if (f === _toISO(last30) && t === _yesterdayISO) return 'Last 30 Days · Operations'
 
   return `Operations · ${_fmtShort(f)} – ${_fmtShort(t)}`
 })
 
-const totalTripsLabel = computed(() =>
-  (dateFrom.value === _todayISO && dateTo.value === _todayISO) ? 'Total Trips Today' : 'Total Trips'
-)
+const totalTripsLabel = computed(() => {
+  const f = dateFrom.value
+  const t = dateTo.value
+  if (f === _yesterdayISO && t === _yesterdayISO) return 'Total Trips Yesterday'
+  if (f === _todayISO     && t === _todayISO)     return 'Total Trips Today'
+  return 'Total Trips'
+})
 
 // ── Date display ──────────────────────────────────────────────────────────────
 const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']

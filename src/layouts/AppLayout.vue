@@ -197,7 +197,7 @@ function userInitials(name) {
         <button class="header-menu-btn" @click="sidebarOpen = true">
           <MenuIcon :size="20" />
         </button>
-        <span class="header-brand">BE-X</span>
+        <router-link to="/" class="header-brand" aria-label="Go to dashboard">BE-X</router-link>
         <div class="header-spacer" />
         <div class="header-right">
           <!-- Notification bell -->
@@ -216,7 +216,8 @@ function userInitials(name) {
             <!-- <span class="header-tooltip">Logout</span> -->
           </div>
         </div>
-        <!-- Mobile: theme toggle always visible -->
+        <!-- Mobile: notification bell + theme toggle always visible -->
+        <NotificationBell class="header-bell-mobile" />
         <ThemeToggle class="header-theme-mobile" />
       </header>
 
@@ -296,9 +297,24 @@ function userInitials(name) {
 </template>
 
 <style scoped>
-/* Mobile theme toggle — always visible next to hamburger */
+/* Mobile theme toggle + notification bell — both always visible next to
+   the hamburger so drivers can reach notifications without opening the
+   sidebar. Hidden on desktop where the same controls live in .header-right. */
 .header-theme-mobile { display: flex; }
-@media (min-width: 1024px) { .header-theme-mobile { display: none; } }
+.header-bell-mobile  { display: flex; }
+@media (min-width: 1024px) {
+  .header-theme-mobile { display: none; }
+  .header-bell-mobile  { display: none; }
+}
+
+/* BE-X brand becomes a router-link to dashboard — keep the original
+   styling but show it as clickable. */
+.header-brand {
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity var(--dur);
+}
+.header-brand:hover { opacity: 0.7; }
 
 /* Sidebar user info layout */
 .sidebar-user-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }

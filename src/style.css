@@ -257,7 +257,7 @@ img     { display: block; max-width: 100%; }
 /* ── Header ────────────────────────────────────────────────── */
 .app-header {
   position: sticky; top: 0;
-  z-index: 30;
+  z-index: 50;
   height: var(--header-h);
   background: var(--c-surface);
   border-bottom: 1px solid var(--c-border);

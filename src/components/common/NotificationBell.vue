@@ -17,17 +17,16 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationsStore } from '../../stores/notifications'
-import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 import { BellIcon, BellRingIcon, CheckCircleIcon, AlertIcon, CloseIcon, CheckIcon, TrashIcon } from '../icons/index.js'
 
 const router = useRouter()
 const store  = useNotificationsStore()
 
 const open = ref(false)
-
-// Lock the page behind the drawer so the body doesn't scroll while the
-// user is scrolling the notifications list (mobile bottom-sheet UX).
-useBodyScrollLock(() => open.value)
+// "Background doesn't move while scrolling the drawer" is handled by
+// `overscroll-behavior: contain` on .nb-list below — that's the modern,
+// touch-friendly approach. A full body scroll-lock here would also block
+// the inner panel from scrolling on some mobile browsers.
 
 // Fetch on mount
 onMounted(() => {
@@ -252,7 +251,14 @@ const badgeLabel = computed(() => {
 .nb-close-panel:hover { background: var(--c-bg); color: var(--c-text-1); }
 
 /* ── Notification list ────────────────────────────────────────────────────── */
-.nb-list { overflow-y: auto; max-height: 360px; }
+.nb-list {
+  overflow-y: auto;
+  max-height: 360px;
+  /* Keep touch-scroll inside this list: don't propagate to the page behind
+     the drawer, and use iOS-friendly momentum scrolling. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 @media (max-width: 480px) { .nb-list { max-height: calc(80vh - 55px); } }
 
 .nb-state-msg {

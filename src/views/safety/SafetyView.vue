@@ -14,9 +14,11 @@ import {
   SafetyIcon, CheckCircleIcon, ViewIcon, SearchIcon,
 } from '../../components/icons/index.js'
 import DateRangePicker from '../../components/common/DateRangePicker.vue'
+import { useBasesStore } from '../../stores/bases'
 
 const router = useRouter()
 const toast  = useToast()
+const basesStore = useBasesStore()
 
 // ── Date filter — defaults to YESTERDAY since we focus on -1 day data ────────
 function _toISO(d) {
@@ -43,7 +45,7 @@ async function loadFleet() {
   }
 }
 
-onMounted(loadFleet)
+onMounted(() => { loadFleet(); basesStore.ensureLoaded() })
 watch([dateFrom, dateTo], loadFleet)
 
 // ── Driver detail navigation ─────────────────────────────────────────────────
@@ -120,7 +122,7 @@ const filteredOffenders = computed(() => {
         <div class="sv-banner-icon"><SafetyIcon :size="20" /></div>
         <div>
           <h1 class="sv-banner-title">Safety Driving</h1>
-          <p class="sv-banner-sub">Lytx telematics — violations, scorecards, coaching</p>
+          <p class="sv-banner-sub">Lytx telematics: violations, scorecards, coaching</p>
         </div>
       </div>
       <div class="sv-period">
@@ -182,7 +184,7 @@ const filteredOffenders = computed(() => {
           <thead>
             <tr>
               <th>Driver</th>
-              <th>Base</th>
+              <th :title="'BASE: operating base / depot code (hover a code to see the full name)'">Base</th>
               <th class="sv-th-grade">Grade</th>
               <th class="sv-th-num">Score</th>
               <th class="sv-th-num">Events</th>
@@ -205,7 +207,15 @@ const filteredOffenders = computed(() => {
                   </div>
                 </div>
               </td>
-              <td><span class="sv-base">{{ d.base || '—' }}</span></td>
+              <td>
+                <span
+                  v-if="d.base"
+                  class="sv-base"
+                  :title="basesStore.tooltipOf(d.base)"
+                  style="cursor: help;"
+                >{{ d.base }}</span>
+                <span v-else class="sv-base">—</span>
+              </td>
               <td><span :class="['sv-grade-pill', `sv-grade-pill--${d.grade}`]">{{ d.grade }}</span></td>
               <td class="sv-num">{{ Number(d.score).toFixed(1) }}</td>
               <td class="sv-num">{{ d.total_events }}</td>

@@ -10,8 +10,10 @@ import StatCard       from '../../components/common/StatCard.vue'
 import ActionBtn      from '../../components/common/ActionBtn.vue'
 import AppPagination  from '../../components/common/AppPagination.vue'
 import { DriverIcon, FilterIcon, CloseIcon, ViewIcon } from '../../components/icons/index.js'
+import { useBasesStore } from '../../stores/bases'
 
 const router = useRouter()
+const basesStore = useBasesStore()
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 const drivers      = ref([])
@@ -28,7 +30,7 @@ const statsLoading = ref(true)
 // ── Table columns ─────────────────────────────────────────────────────────────
 const columns = [
   { key: 'name',           label: 'Driver',           sortable: true },
-  { key: 'base',           label: 'Base',             sortable: true },
+  { key: 'base',           label: 'Base',             sortable: true, tooltip: 'BASE: operating base / depot code (hover a code to see the full name)' },
   { key: 'road_tanker_id', label: 'Road Tanker' },
   { key: 'license_type',   label: 'License' },
   { key: 'license_expiry', label: 'License Expiry',   sortable: true },
@@ -118,7 +120,7 @@ async function fetchStats() {
     statsLoading.value = false
   }
 }
-onMounted(() => { fetchStats(); fetchDrivers() })
+onMounted(() => { fetchStats(); fetchDrivers(); basesStore.ensureLoaded() })
 watch(search, fetchDrivers)
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -235,7 +237,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
             v-for="r in ['A', 'B', 'C']"
             :key="r"
             :class="['dv-rank-btn', `dv-rank-btn--${r.toLowerCase()}`, rankFilter === r && 'dv-rank-btn--active']"
-            :title="r === 'A' ? 'Rank A — Top performer. Best compliance and safety record.' : r === 'B' ? 'Rank B — Good standing. Some areas for improvement.' : 'Rank C — Needs attention. Performance or compliance issues flagged.'"
+            :title="r === 'A' ? 'Rank A · Top performer. Best compliance and safety record.' : r === 'B' ? 'Rank B · Good standing. Some areas for improvement.' : 'Rank C · Needs attention. Performance or compliance issues flagged.'"
             @click="toggleRank(r)"
           >
             <span class="dv-rank-letter">{{ r }}</span>
@@ -260,11 +262,11 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 
       <!-- Rank legend -->
       <div class="dv-rank-legend">
-        <span class="dv-rl-item dv-rl--a"><span class="dv-rl-dot"></span>Rank A — Top performer</span>
+        <span class="dv-rl-item dv-rl--a"><span class="dv-rl-dot"></span>Rank A · Top performer</span>
         <span class="dv-rl-sep">·</span>
-        <span class="dv-rl-item dv-rl--b"><span class="dv-rl-dot"></span>Rank B — Good standing</span>
+        <span class="dv-rl-item dv-rl--b"><span class="dv-rl-dot"></span>Rank B · Good standing</span>
         <span class="dv-rl-sep">·</span>
-        <span class="dv-rl-item dv-rl--c"><span class="dv-rl-dot"></span>Rank C — Needs attention</span>
+        <span class="dv-rl-item dv-rl--c"><span class="dv-rl-dot"></span>Rank C · Needs attention</span>
       </div>
 
       <!-- Flat table (card chrome comes from dv-table-card) -->
@@ -285,13 +287,19 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
             <span class="dv-driver-id">{{ row.driver_id }}</span>
           </button>
         </template>
+        <template #cell-base="{ value }">
+          <span v-if="value" class="dv-base-chip" :title="basesStore.tooltipOf(value)">
+            {{ value }}
+          </span>
+          <span v-else class="tc-3">—</span>
+        </template>
         <template #cell-status="{ value }">
           <StatusBadge :status="value" />
         </template>
         <template #cell-ranking="{ value }">
           <span
             :class="['dv-rank-chip', value === 'A' ? 'dv-chip-a' : value === 'B' ? 'dv-chip-b' : 'dv-chip-c']"
-            :title="value === 'A' ? 'Rank A — Top performer' : value === 'B' ? 'Rank B — Good standing' : value === 'C' ? 'Rank C — Needs attention' : ''"
+            :title="value === 'A' ? 'Rank A · Top performer' : value === 'B' ? 'Rank B · Good standing' : value === 'C' ? 'Rank C · Needs attention' : ''"
           >{{ value }}</span>
         </template>
         <template #cell-license_expiry="{ value }">
@@ -685,4 +693,12 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
 .dv-chip-c { background: #D97706; color: #fff; }  /* amber  */
 
 .dv-expiry-warn { color: var(--c-amber); font-weight: 600; }
+
+.dv-base-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 2px 8px; border-radius: var(--r-sm);
+  background: var(--c-bg); border: 1px solid var(--c-border-light);
+  color: var(--c-text-2); font-size: 0.75rem; font-weight: 600;
+  letter-spacing: 0.04em; cursor: help;
+}
 </style>

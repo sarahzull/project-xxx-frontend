@@ -754,7 +754,7 @@ function loadBirthdays() {
                 <td class="adash-expiry-td">
                   <span
                     :class="['adash-rank-badge', `adash-rank-${(d.ranking||'').toLowerCase()}`]"
-                    :title="d.ranking === 'A' ? 'Rank A — Top performer' : d.ranking === 'B' ? 'Rank B — Good standing' : d.ranking === 'C' ? 'Rank C — Needs attention' : ''"
+                    :title="d.ranking === 'A' ? 'Rank A · Top performer' : d.ranking === 'B' ? 'Rank B · Good standing' : d.ranking === 'C' ? 'Rank C · Needs attention' : ''"
                   >{{ d.ranking || '—' }}</span>
                 </td>
                 <td class="adash-expiry-td">
@@ -791,7 +791,7 @@ function loadBirthdays() {
                 <span class="adash-m-key">Rank</span>
                 <span
                   :class="['adash-rank-badge', `adash-rank-${(d.ranking||'').toLowerCase()}`]"
-                  :title="d.ranking === 'A' ? 'Rank A — Top performer' : d.ranking === 'B' ? 'Rank B — Good standing' : d.ranking === 'C' ? 'Rank C — Needs attention' : ''"
+                  :title="d.ranking === 'A' ? 'Rank A · Top performer' : d.ranking === 'B' ? 'Rank B · Good standing' : d.ranking === 'C' ? 'Rank C · Needs attention' : ''"
                 >{{ d.ranking || '—' }}</span>
               </span>
             </div>

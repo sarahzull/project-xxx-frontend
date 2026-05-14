@@ -56,7 +56,7 @@ const columns = [
   { key: 'name',       label: 'Name' },
   { key: 'email',      label: 'Email' },
   { key: 'roles',      label: 'Role' },
-  { key: 'base',       label: 'Base' },
+  { key: 'base',       label: 'Base', tooltip: 'BASE: operating base / depot code (hover a code to see the full name)' },
   { key: 'is_active',  label: 'Status' },
   { key: 'created_at', label: 'Created' },
   { key: 'actions',    label: '' },

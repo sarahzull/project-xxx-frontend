@@ -160,7 +160,7 @@ function userInitials(name) {
             class="nav-item nav-item--soon"
             disabled
             :aria-disabled="true"
-            :title="`${item.name} — coming soon`"
+            :title="`${item.name} (coming soon)`"
           >
             <component :is="item.icon" class="nav-icon" />
             <span class="nav-item-label">{{ item.name }}</span>
@@ -199,25 +199,22 @@ function userInitials(name) {
         </button>
         <router-link to="/" class="header-brand" aria-label="Go to dashboard">BE-X</router-link>
         <div class="header-spacer" />
+        <!-- Single notification bell — visible at all widths.
+             CSS inside NotificationBell handles desktop dropdown vs. mobile bottom-sheet. -->
+        <NotificationBell />
         <div class="header-right">
-          <!-- Notification bell -->
-          <NotificationBell />
-          <!-- Profile avatar -->
           <router-link to="/profile" class="header-avatar" :title="auth.userName">
             <img v-if="auth.user?.photo" :src="auth.user.photo" class="header-avatar-img" alt="Profile" />
             <span v-else class="header-avatar-init">{{ userInitials(auth.userName) }}</span>
           </router-link>
           <ThemeToggle />
-          <!-- Logout icon button -->
           <div class="header-tooltip-wrap">
             <button class="header-logout-icon" aria-label="Logout" @click="handleLogout">
               <LogoutIcon :size="17" />
             </button>
-            <!-- <span class="header-tooltip">Logout</span> -->
           </div>
         </div>
-        <!-- Mobile: notification bell + theme toggle always visible -->
-        <NotificationBell class="header-bell-mobile" />
+        <!-- Mobile-only theme toggle, next to the bell -->
         <ThemeToggle class="header-theme-mobile" />
       </header>
 
@@ -251,7 +248,7 @@ function userInitials(name) {
             class="bn-more-link bn-more-link--soon"
             disabled
             :aria-disabled="true"
-            :title="`${item.name} — coming soon`"
+            :title="`${item.name} (coming soon)`"
           >
             <component :is="item.icon" :size="18" class="bn-more-link-icon" />
             <span>{{ item.name }}</span>
@@ -297,14 +294,11 @@ function userInitials(name) {
 </template>
 
 <style scoped>
-/* Mobile theme toggle + notification bell — both always visible next to
-   the hamburger so drivers can reach notifications without opening the
-   sidebar. Hidden on desktop where the same controls live in .header-right. */
+/* Mobile theme toggle — visible next to the (single) notification bell
+   on mobile. Hidden on desktop where the same control lives in .header-right. */
 .header-theme-mobile { display: flex; }
-.header-bell-mobile  { display: flex; }
 @media (min-width: 1024px) {
   .header-theme-mobile { display: none; }
-  .header-bell-mobile  { display: none; }
 }
 
 /* BE-X brand becomes a router-link to dashboard — keep the original

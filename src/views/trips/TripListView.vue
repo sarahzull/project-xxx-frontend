@@ -8,6 +8,7 @@ import DateRangePicker  from '../../components/common/DateRangePicker.vue'
 import { useAuthStore } from '../../stores/auth'
 import {
   TruckIcon, FilterIcon, FuelIcon, ChevronDownIcon, SearchIcon, CheckIcon, CloseIcon,
+  RouteIcon, CalendarIcon, DocumentIcon,
 } from '../../components/icons/index.js'
 
 const auth = useAuthStore()
@@ -406,6 +407,95 @@ function clearFilters() {
         </div>
       </div>
 
+      <!-- Mobile card list (driver-friendly, shown <768px) -->
+      <div class="tv-mobile-list">
+        <div v-if="loading" class="tv-m-loading">
+          <div class="tv-m-spinner" />
+          <span>Loading trips</span>
+        </div>
+        <div v-else-if="!filteredTrips.length" class="tv-m-empty">
+          <TruckIcon :size="32" :stroke-width="1.2" />
+          <p>No trips found</p>
+        </div>
+        <template v-else>
+          <div v-for="t in pagedTrips" :key="t.id" class="tv-m-card">
+            <div class="tv-m-card-hd">
+              <div class="tv-m-date">
+                <CalendarIcon :size="13" />
+                <span class="mono">{{ formatDate(t.date) }}</span>
+              </div>
+              <span v-if="t.type" :class="['type-tag', t.type === 'RE' ? 'type-tag--re' : 'type-tag--cb']">
+                {{ t.type }}
+              </span>
+            </div>
+
+            <div v-if="isAdmin && (t.driver_name || t.driver_id)" class="tv-m-driver">
+              <span v-if="t.driver_name" class="tv-m-driver-name">{{ t.driver_name }}</span>
+              <span class="tv-m-driver-id mono">{{ t.driver_id }}</span>
+            </div>
+
+            <div class="tv-m-rows">
+              <div v-if="t.ship_to_party_name" class="tv-m-row">
+                <span class="tv-m-lbl">Ship To</span>
+                <span class="tv-m-val">{{ t.ship_to_party_name }}</span>
+              </div>
+              <div v-if="t.location" class="tv-m-row">
+                <span class="tv-m-lbl">Location</span>
+                <span class="tv-m-val">{{ t.location }}</span>
+              </div>
+              <div v-if="t.delivery_note" class="tv-m-row">
+                <span class="tv-m-lbl">D/Note</span>
+                <span class="tv-m-val mono">{{ t.delivery_note }}</span>
+              </div>
+              <div v-if="t.road_tanker_id" class="tv-m-row">
+                <span class="tv-m-lbl">Tanker</span>
+                <span class="tv-m-val mono">{{ t.road_tanker_id }}</span>
+              </div>
+              <div v-if="t.material || t.oil_company" class="tv-m-row">
+                <span class="tv-m-lbl">Material</span>
+                <span class="tv-m-val">
+                  {{ t.material || '' }}
+                  <span v-if="t.oil_company" class="tv-m-sub">{{ capitalize(t.oil_company) }}</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="tv-m-stats">
+              <div class="tv-m-stat">
+                <RouteIcon :size="13" />
+                <span class="mono">{{ (Number(t.km_driven) || 0).toLocaleString() }}</span>
+                <span class="tv-m-stat-lbl">km</span>
+              </div>
+              <div class="tv-m-stat">
+                <FuelIcon :size="13" />
+                <span class="mono">{{ Number(t.load_size || 0).toLocaleString() }}</span>
+                <span class="tv-m-stat-lbl">L</span>
+              </div>
+            </div>
+
+            <div v-if="t.special_notes && t.special_notes.length" class="tv-m-notes">
+              <DocumentIcon :size="11" />
+              <span
+                v-for="(note, i) in t.special_notes"
+                :key="i"
+                :class="['note-tag', `note-tag--${note}`]"
+              >{{ note }}</span>
+            </div>
+          </div>
+        </template>
+
+        <AppPagination
+          v-if="!loading && filteredTrips.length"
+          :current-page="page"
+          :last-page="lastPage"
+          :total="filteredTrips.length"
+          :from="pageFrom"
+          :to="pageTo"
+          always
+          @change="p => { page = p }"
+        />
+      </div>
+
       <!-- Table + Pagination in a separate overflow:hidden wrapper so the filter
            dropdown above can escape the card boundary without being clipped -->
       <div class="tv-table-body">
@@ -664,4 +754,96 @@ function clearFilters() {
 .note-tag--diversion { background: var(--c-amber-tint);  color: var(--c-amber);  }
 .note-tag--ron97     { background: var(--c-green-tint);  color: var(--c-green);  }
 .note-tag--others    { background: var(--c-orange-tint); color: var(--c-orange); }
+
+/* ── Mobile card list (drivers + admins on phones) ──────────── */
+.tv-mobile-list { display: none; }
+@media (max-width: 767px) {
+  .tv-mobile-list { display: block; padding: 10px 12px 14px; }
+  .tv-table-body  { display: none; }
+}
+
+.tv-m-loading {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 32px 12px; color: var(--c-text-3); font-size: 0.8125rem;
+}
+.tv-m-spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--c-border); border-top-color: var(--c-accent);
+  animation: tv-m-spin 0.7s linear infinite;
+}
+@keyframes tv-m-spin { to { transform: rotate(360deg); } }
+
+.tv-m-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 36px 12px; color: var(--c-text-3); font-size: 0.8125rem;
+  background: var(--c-bg); border: 1px dashed var(--c-border); border-radius: 12px;
+}
+.tv-m-empty svg { opacity: 0.4; }
+.tv-m-empty p { margin: 0; }
+
+.tv-m-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.tv-m-card:last-child { margin-bottom: 14px; }
+
+.tv-m-card-hd {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.tv-m-date {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.8125rem; font-weight: 600; color: var(--c-text-1);
+}
+.tv-m-date svg { color: var(--c-accent); flex-shrink: 0; }
+
+.tv-m-driver {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 6px 10px; border-radius: 8px;
+  background: var(--c-accent-tint);
+}
+.tv-m-driver-name { font-size: 0.8125rem; font-weight: 600; color: var(--c-accent); }
+.tv-m-driver-id   { font-size: 0.6875rem; color: var(--c-text-3); }
+
+.tv-m-rows { display: flex; flex-direction: column; gap: 4px; }
+.tv-m-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  font-size: 0.8125rem;
+}
+.tv-m-lbl {
+  font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--c-text-3);
+  flex-shrink: 0;
+}
+.tv-m-val {
+  text-align: right; color: var(--c-text-1); font-weight: 500;
+  word-break: break-word; min-width: 0;
+}
+.tv-m-val .tv-m-sub {
+  display: block; font-size: 0.6875rem; color: var(--c-text-3); font-weight: 400;
+}
+
+.tv-m-stats {
+  display: flex; gap: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--c-border-light);
+}
+.tv-m-stat {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: var(--r-full);
+  background: var(--c-bg); border: 1px solid var(--c-border-light);
+  font-size: 0.8125rem; font-weight: 600; color: var(--c-text-1);
+}
+.tv-m-stat svg { color: var(--c-text-3); }
+.tv-m-stat-lbl { font-size: 0.6875rem; color: var(--c-text-3); font-weight: 500; }
+
+.tv-m-notes {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+  padding-top: 6px;
+}
+.tv-m-notes > svg { color: var(--c-text-3); margin-right: 2px; }
 </style>

@@ -223,8 +223,8 @@ onMounted(async () => {
         <strong class="ddash-la-title">License {{ licenseStatus.label }}</strong>
         <span class="ddash-la-detail">
           Expires <strong>{{ formatDate(licenseExpiry) }}</strong>
-          <template v-if="licenseCountdown > 0"> — {{ licenseCountdown }} day{{ licenseCountdown !== 1 ? 's' : '' }} remaining</template>
-          <template v-else> — <strong>Expired</strong></template>
+          <template v-if="licenseCountdown > 0">, {{ licenseCountdown }} day{{ licenseCountdown !== 1 ? 's' : '' }} remaining</template>
+          <template v-else>, <strong>Expired</strong></template>
         </span>
       </div>
     </div>
@@ -351,7 +351,7 @@ onMounted(async () => {
                 <span
                   v-if="profile.ranking"
                   :class="['ddash-rank', `ddash-rank-${(profile.ranking||'').toLowerCase()}`]"
-                  :title="profile.ranking === 'A' ? 'Rank A — Top performer. Best compliance and safety record.' : profile.ranking === 'B' ? 'Rank B — Good standing. Some areas for improvement.' : profile.ranking === 'C' ? 'Rank C — Needs attention. Performance or compliance issues flagged.' : ''"
+                  :title="profile.ranking === 'A' ? 'Rank A · Top performer. Best compliance and safety record.' : profile.ranking === 'B' ? 'Rank B · Good standing. Some areas for improvement.' : profile.ranking === 'C' ? 'Rank C · Needs attention. Performance or compliance issues flagged.' : ''"
                 >{{ profile.ranking }}</span>
                 <span v-else>—</span>
               </span>

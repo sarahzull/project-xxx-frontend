@@ -41,6 +41,7 @@ const emit = defineEmits(['sort'])
                 v-for="col in columns"
                 :key="col.key"
                 :class="col.sortable ? 'tbl-th-sort' : ''"
+                :title="col.tooltip || undefined"
                 @click="col.sortable ? emit('sort', col.key) : undefined"
               >
                 <span class="tbl-th-inner">

@@ -248,7 +248,7 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
           <p class="msv-pending-title">
             You have {{ pendingCoachings.length }} unacknowledged coaching {{ pendingCoachings.length === 1 ? 'note' : 'notes' }}
           </p>
-          <p class="msv-pending-sub">Tap an event below to read &amp; acknowledge — your supervisor is waiting.</p>
+          <p class="msv-pending-sub">Tap an event below to read &amp; acknowledge. Your supervisor is waiting.</p>
         </div>
       </div>
 
@@ -324,7 +324,7 @@ const topTipType = computed(() => byCategoryArr.value[0]?.key || null)
           <p class="msv-card-title">Events · {{ filteredEvents.length }} in period</p>
           <div v-if="!filteredEvents.length" class="msv-empty msv-empty--celebrate">
             <CheckCircleIcon :size="22" />
-            <p><strong>Clean slate.</strong> No events recorded — drive on.</p>
+            <p><strong>Clean slate.</strong> No events recorded. Drive on.</p>
           </div>
           <ul class="msv-event-list">
             <li

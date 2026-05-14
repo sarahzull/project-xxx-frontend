@@ -11,6 +11,7 @@ const props = defineProps({
   disabled:    { type: Boolean, default: false },
   clearable:   { type: Boolean, default: true },
   auto:        { type: Boolean, default: false },
+  searchable:  { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['update:modelValue', 'create'])
@@ -203,8 +204,12 @@ onBeforeUnmount(() => {
         :placeholder="placeholder"
         :value="displayValue"
         :disabled="disabled"
-        :readonly="!isFocus"
-        @input="(e) => { query = e.target.value }"
+        :readonly="!isFocus || !searchable"
+        :inputmode="searchable ? 'text' : 'none'"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        @input="(e) => { if (searchable) query = e.target.value }"
         @focus="isFocus = true"
         @keydown="onKeydown"
       />

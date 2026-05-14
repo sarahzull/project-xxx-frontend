@@ -176,6 +176,7 @@ async function openDetail(p) {
           <SelectInput
             v-model="filterYear"
             :options="yearOptions"
+            :searchable="false"
             placeholder="All years"
           />
         </div>
@@ -183,6 +184,7 @@ async function openDetail(p) {
           <SelectInput
             v-model="filterMonth"
             :options="monthOptions"
+            :searchable="false"
             placeholder="All months"
           />
         </div>

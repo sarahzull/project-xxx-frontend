@@ -52,13 +52,23 @@ const activeTab = ref('form')
 // ── Form state ───────────────────────────────────────────────────────────────
 const sending    = ref(false)
 const composeErr = ref('')
+
+function todayLocalISO() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const form = ref({
   driver_id: '',
   type:      'reward',
   subject:   '',
   content:   '',
-  date:      new Date().toISOString().split('T')[0],
+  date:      todayLocalISO(),
 })
+const isScheduled = computed(() => form.value.date > todayLocalISO())
 
 // ── Audience picker ───────────────────────────────────────────────────────────
 // Mirrors the rates "Apply to" pattern: pick a single driver, all drivers,
@@ -379,7 +389,7 @@ function copyMergeTag(tag) {
 // ── Reset on open/close ───────────────────────────────────────────────────────
 watch(() => props.modelValue, (open) => {
   if (open) {
-    form.value    = { driver_id: '', type: 'reward', subject: '', content: '', date: new Date().toISOString().split('T')[0] }
+    form.value    = { driver_id: '', type: 'reward', subject: '', content: '', date: todayLocalISO() }
     composeErr.value = ''
     activeTab.value  = 'form'
     audienceType.value    = 'single'
@@ -441,6 +451,7 @@ async function sendCommunication() {
       type:    form.value.type,
       subject: form.value.subject,
       body:    form.value.content,
+      date:    form.value.date || todayLocalISO(),
       audience,
     }
     const res = await communicationsApi.send(payload)
@@ -453,7 +464,11 @@ async function sendCommunication() {
         : audience.type === 'bases'
           ? `drivers in ${audience.bases.join(', ')}`
           : `${audience.driver_user_ids.length} driver${audience.driver_user_ids.length === 1 ? '' : 's'}`
-    toast.success(`Communication sent to ${sentTo}.`, { title: 'Sent' })
+    if (isScheduled.value) {
+      toast.success(`Communication scheduled for ${previewDate.value}.`, { title: 'Scheduled' })
+    } else {
+      toast.success(`Communication sent to ${sentTo}.`, { title: 'Sent' })
+    }
   } catch (e) {
     composeErr.value = e.response?.data?.message || 'Failed to send communication.'
     toast.error(composeErr.value, { title: 'Send Failed' })
@@ -735,6 +750,9 @@ function close() {
               <div class="cm-field">
                 <label class="cm-label">Date</label>
                 <DatePicker v-model="form.date" placeholder="Select date" aria-label="Communication date" />
+                <p :class="['cm-schedule-note', isScheduled && 'cm-schedule-note--scheduled']">
+                  {{ isScheduled ? 'Drivers will receive this communication on the selected date.' : 'Drivers will receive this communication immediately.' }}
+                </p>
               </div>
 
               <!-- Rich text editor -->
@@ -812,6 +830,11 @@ function close() {
                     <span class="cm-letter-meta-key">Date:</span>
                     <span class="cm-letter-meta-val">{{ previewDate }}</span>
                   </div>
+                  <div class="cm-letter-meta-row">
+                    <SendIcon :size="12" class="cm-letter-meta-icon" />
+                    <span class="cm-letter-meta-key">Status:</span>
+                    <span class="cm-letter-meta-val">{{ isScheduled ? 'Scheduled' : 'Ready to send' }}</span>
+                  </div>
                 </div>
 
                 <!-- Subject -->
@@ -838,7 +861,7 @@ function close() {
             <button class="cm-btn-cancel" @click="close" :disabled="sending">Cancel</button>
             <button class="cm-btn-send"   @click="sendCommunication" :disabled="sending">
               <SendIcon :size="14" />
-              {{ sending ? 'Sending…' : 'Send Communication' }}
+              {{ sending ? (isScheduled ? 'Scheduling…' : 'Sending…') : (isScheduled ? 'Schedule Communication' : 'Send Communication') }}
             </button>
           </div>
 
@@ -1066,6 +1089,15 @@ function close() {
 }
 .cm-input:focus    { border-color: #7C3AED; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
 .cm-input--date    { cursor: pointer; }
+.cm-schedule-note {
+  font-size: 0.76rem;
+  color: var(--c-text-3);
+  margin-top: 2px;
+}
+.cm-schedule-note--scheduled {
+  color: #7C3AED;
+  font-weight: 600;
+}
 
 /* ── Template selector ────────────────────────────────────────────────────── */
 .cm-template-select-wrap {

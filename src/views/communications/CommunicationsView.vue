@@ -52,8 +52,10 @@ function _toISO(d) {
 const _now    = new Date()
 const _monday = new Date(_now)
 _monday.setDate(_now.getDate() - (_now.getDay() === 0 ? 6 : _now.getDay() - 1))
+const _upcoming = new Date(_now)
+_upcoming.setDate(_now.getDate() + 30)
 const dateFrom     = ref(_toISO(_monday))   // ISO YYYY-MM-DD
-const dateTo       = ref(_toISO(_now))      // ISO YYYY-MM-DD
+const dateTo       = ref(_toISO(_upcoming)) // Include upcoming scheduled comms
 
 // Custom type-filter dropdown (mobile)
 const TYPE_OPTIONS = [
@@ -170,6 +172,7 @@ function audienceSummary(item) {
 
 // Sub-line under audienceSummary — recipient/read tally.
 function recipientSummary(item) {
+  if (item.status === 'scheduled') return `Scheduled for ${formatDate(item.date)}`
   const total = item.recipients_count
   const read  = item.read_count
   if (total == null) return ''
@@ -581,8 +584,9 @@ async function resendCommunication(item) {
                   <button
                     type="button"
                     class="cv-recipients-cell cv-recipients-cell--btn"
-                    title="View recipients"
-                    @click.stop="openRecipients(item)"
+                    :title="item.status === 'scheduled' ? 'Recipients are created when the communication is sent' : 'View recipients'"
+                    :disabled="item.status === 'scheduled'"
+                    @click.stop="item.status === 'scheduled' ? null : openRecipients(item)"
                   >
                     <div class="cv-recipients-row">
                       <span :class="['cv-aud-tag', `cv-aud-tag--${item.audience?.type || 'single'}`]">
@@ -1036,6 +1040,9 @@ async function resendCommunication(item) {
 }
 .cv-recipients-cell--btn:hover { background: var(--c-hover); }
 .cv-recipients-cell--btn:hover .cv-recipients-main { color: var(--c-accent); }
+.cv-recipients-cell--btn:disabled { cursor: default; }
+.cv-recipients-cell--btn:disabled:hover { background: transparent; }
+.cv-recipients-cell--btn:disabled:hover .cv-recipients-main { color: var(--c-text-1); }
 
 /* ══ Recipients drill-down modal ════════════════════════════════════════════ */
 .cv-recip { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 18px; }

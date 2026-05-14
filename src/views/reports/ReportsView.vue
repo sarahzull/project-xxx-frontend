@@ -542,8 +542,10 @@ onMounted(async () => {
 
 /* ── Toolbar: date range + export PDF button ─────────────────────────────── */
 .rv-toolbar { display: inline-flex; align-items: stretch; gap: 10px; flex-shrink: 0; }
-/* Align the picker chip's height with the export button. */
-.rv-toolbar :deep(.drp-chip) { padding: 8px 14px; }
+/* .drp wrapper is inline-block by default — make it a flex item so it stretches.
+   Then let the chip fill that height; line-height: inherit closes the font-height gap. */
+.rv-toolbar :deep(.drp) { display: flex; align-self: stretch; }
+.rv-toolbar :deep(.drp-chip) { flex: 1; align-self: stretch; padding: 0 14px; line-height: inherit; }
 @media (max-width: 480px) {
   .rv-toolbar { width: 100%; flex-direction: column; align-items: stretch; }
   .rv-toolbar .rv-export-btn { width: 100%; justify-content: center; }

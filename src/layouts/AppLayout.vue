@@ -35,14 +35,16 @@ onUnmounted(() => {
 
 // Returns { count, tooltip } | null. The safety badges are always rendered
 // (even at 0) so the count is permanently visible; comms still hides at 0.
-//   admin /safety       → events yesterday + N drivers in tooltip
+//   admin /safety       → drivers with events yesterday (events count would
+//                          spike into 99+ on a busy fleet — drivers reads
+//                          better as "how many people need attention")
 //   driver /my-safety   → own events yesterday
 //   driver /communications → unread comms (hidden when 0)
 function navBadge(item) {
   if (item.path === '/safety') {
-    const n = safety.eventsYesterday
     const d = safety.driversYesterday
-    return { count: n, tooltip: `${n} event${n === 1 ? '' : 's'} from ${d} driver${d === 1 ? '' : 's'} yesterday` }
+    const n = safety.eventsYesterday
+    return { count: d, tooltip: `${d} driver${d === 1 ? '' : 's'} with ${n} event${n === 1 ? '' : 's'} yesterday` }
   }
   if (item.path === '/my-safety') {
     const n = safety.eventsYesterday

@@ -9,4 +9,6 @@ export default {
   markRead(id)        { return http.patch(`/notifications/${id}/read`) },
   // Mark all notifications as read
   markAllRead()       { return http.patch('/notifications/read-all') },
+  // Delete every notification row for the authenticated user
+  clearAll()          { return http.delete('/notifications') },
 }

@@ -122,6 +122,25 @@ export const useNotificationsStore = defineStore('notifications', () => {
     notifications.value.unshift(notification)
   }
 
+  /**
+   * Wipe the user's inbox. Optimistically clears the local list; on failure
+   * we restore the previous state. In tier-2 (localStorage) mode we just
+   * blank the read map and the in-memory list — there's no server-side row.
+   */
+  async function clearAll() {
+    const previous = notifications.value
+    notifications.value = []  // optimistic
+    if (usingFallback.value) {
+      saveReadMap(new Map())
+      return
+    }
+    try {
+      await notificationsApi.clearAll()
+    } catch {
+      notifications.value = previous
+    }
+  }
+
   // ── Polling ────────────────────────────────────────────────────────────────
   // Lightweight near-real-time updates: re-fetch on an interval, but pause
   // while the browser tab is hidden so we don't burn API calls when the user
@@ -178,6 +197,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     fetchNotifications,
     markRead,
     markAllRead,
+    clearAll,
     addLocal,
     startPolling,
     stopPolling,

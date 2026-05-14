@@ -17,12 +17,17 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationsStore } from '../../stores/notifications'
-import { BellIcon, BellRingIcon, CheckCircleIcon, AlertIcon, CloseIcon, CheckIcon } from '../icons/index.js'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
+import { BellIcon, BellRingIcon, CheckCircleIcon, AlertIcon, CloseIcon, CheckIcon, TrashIcon } from '../icons/index.js'
 
 const router = useRouter()
 const store  = useNotificationsStore()
 
 const open = ref(false)
+
+// Lock the page behind the drawer so the body doesn't scroll while the
+// user is scrolling the notifications list (mobile bottom-sheet UX).
+useBodyScrollLock(() => open.value)
 
 // Fetch on mount
 onMounted(() => {
@@ -59,6 +64,12 @@ async function openNotification(n) {
   open.value = false
   // Navigate to communications and pass the communication id
   router.push({ name: 'communications', query: { open: n.communication_id } })
+}
+
+async function clearAll() {
+  if (!store.notifications.length) return
+  if (!confirm('Clear all notifications? This cannot be undone.')) return
+  await store.clearAll()
 }
 
 const badgeLabel = computed(() => {
@@ -98,6 +109,15 @@ const badgeLabel = computed(() => {
             >
               <CheckIcon :size="12" :stroke-width="2.5" />
               Mark all read
+            </button>
+            <button
+              v-if="store.notifications.length"
+              class="nb-clear-all"
+              @click="clearAll"
+              title="Clear all notifications"
+            >
+              <TrashIcon :size="12" :stroke-width="2.2" />
+              Clear
             </button>
             <button class="nb-close-panel" @click="open = false" aria-label="Close notifications">
               <CloseIcon :size="14" :stroke-width="2.2" />
@@ -216,6 +236,13 @@ const badgeLabel = computed(() => {
   transition: background var(--dur);
 }
 .nb-mark-all:hover { background: rgba(29,78,216,0.08); }
+
+.nb-clear-all {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 0.72rem; font-weight: 600; color: #DC2626; padding: 3px 6px; border-radius: 6px;
+  transition: background var(--dur);
+}
+.nb-clear-all:hover { background: rgba(220,38,38,0.08); }
 
 .nb-close-panel {
   width: 26px; height: 26px; border-radius: 6px;

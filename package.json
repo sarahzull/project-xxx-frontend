@@ -15,6 +15,7 @@
     "apexcharts": "^5.10.6",
     "axios": "^1.15.0",
     "chart.js": "^4.5.1",
+    "floating-vue": "^5.2.2",
     "leaflet": "^1.9.4",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",

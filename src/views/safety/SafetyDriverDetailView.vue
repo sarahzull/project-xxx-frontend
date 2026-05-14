@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import safetyApi from '../../api/safety'
+import { useBasesStore } from '../../stores/bases'
 import { useToast } from '../../composables/useToast'
 import {
   ChevronLeftIcon, AlertIcon, CheckCircleIcon, ShieldAlertIcon,
@@ -11,9 +12,10 @@ const props = defineProps({
   driverId: { type: [String, Number], required: true },
 })
 
-const route  = useRoute()
-const router = useRouter()
-const toast  = useToast()
+const route       = useRoute()
+const router      = useRouter()
+const toast       = useToast()
+const basesStore  = useBasesStore()
 
 function defaultPeriod() {
   const d = new Date()
@@ -42,7 +44,7 @@ async function loadDriver() {
   }
 }
 
-onMounted(loadDriver)
+onMounted(() => { loadDriver(); basesStore.ensureLoaded() })
 watch(() => props.driverId, loadDriver)
 
 function pickEvent(ev) {
@@ -140,7 +142,7 @@ function diagnosis(events) {
       </button>
       <div v-if="detail?.driver" class="sdd-title-block">
         <h1 class="sdd-title">{{ detail.driver.name || 'Driver detail' }}</h1>
-        <p class="sdd-sub">{{ detail.driver.driver_id }}<span v-if="detail.driver.base"> · {{ detail.driver.base }}</span></p>
+        <p class="sdd-sub">{{ detail.driver.driver_id }}<span v-if="detail.driver.base"> · <span v-tooltip="basesStore.tooltipOf(detail.driver.base)">{{ detail.driver.base }}</span></span></p>
       </div>
     </div>
 

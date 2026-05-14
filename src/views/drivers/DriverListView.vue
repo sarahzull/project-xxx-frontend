@@ -288,7 +288,7 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
           </button>
         </template>
         <template #cell-base="{ value }">
-          <span v-if="value" class="dv-base-chip" :title="basesStore.tooltipOf(value)">
+          <span v-if="value" v-tooltip="basesStore.tooltipOf(value)" class="dv-base-chip">
             {{ value }}
           </span>
           <span v-else class="tc-3">—</span>
@@ -699,6 +699,6 @@ function viewDriver(d)   { router.push({ name: 'driver-detail', params: { id: d.
   padding: 2px 8px; border-radius: var(--r-sm);
   background: var(--c-bg); border: 1px solid var(--c-border-light);
   color: var(--c-text-2); font-size: 0.75rem; font-weight: 600;
-  letter-spacing: 0.04em; cursor: help;
+  letter-spacing: 0.04em;
 }
 </style>

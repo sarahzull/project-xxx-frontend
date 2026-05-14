@@ -210,9 +210,8 @@ const filteredOffenders = computed(() => {
               <td>
                 <span
                   v-if="d.base"
+                  v-tooltip="basesStore.tooltipOf(d.base)"
                   class="sv-base"
-                  :title="basesStore.tooltipOf(d.base)"
-                  style="cursor: help;"
                 >{{ d.base }}</span>
                 <span v-else class="sv-base">—</span>
               </td>

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import ratesApi from '../../api/rates'
+import { useBasesStore } from '../../stores/bases'
 import { useToast } from '../../composables/useToast'
 import DatePicker from '../../components/common/DatePicker.vue'
 import SelectInput from '../../components/common/SelectInput.vue'
@@ -16,6 +17,7 @@ import {
 } from '../../components/icons/index.js'
 
 const toast = useToast()
+const basesStore = useBasesStore()
 const specialRates = ref([])
 const loading      = ref(true)
 const saving       = ref(false)
@@ -54,6 +56,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  basesStore.ensureLoaded()
 })
 
 function normalizeSpecialRate(r) {
@@ -832,7 +835,7 @@ const activeTab = ref('trip-rates') // 'trip-rates' | 'special-notes'
                           >
                             <div class="rm-driver-info">
                               <span class="rm-driver-name">{{ d.name }}</span>
-                              <span class="rm-driver-meta">{{ d.driver_id }}<span v-if="d.base"> · {{ d.base }}</span></span>
+                              <span class="rm-driver-meta">{{ d.driver_id }}<span v-if="d.base"> · <span v-tooltip="basesStore.tooltipOf(d.base)">{{ d.base }}</span></span></span>
                             </div>
                             <div class="rm-driver-actions">
                               <button

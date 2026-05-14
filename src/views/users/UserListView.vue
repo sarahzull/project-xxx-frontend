@@ -208,7 +208,7 @@ function openShow(user) { router.push({ name: 'user-show', params: { id: user.id
           <span v-else class="tc-3">—</span>
         </template>
         <template #cell-base="{ row }">
-          <span v-if="row.base" class="uv-base-pill" :title="baseLabelByCode[row.base] || row.base">
+          <span v-if="row.base" v-tooltip="baseLabelByCode[row.base] || row.base" class="uv-base-pill">
             {{ row.base }}
           </span>
           <span v-else class="tc-3">—</span>

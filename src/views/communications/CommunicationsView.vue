@@ -19,6 +19,7 @@ import {
 } from '../../components/icons/index.js'
 import communicationsApi from '../../api/communications'
 import { useAuthStore }          from '../../stores/auth'
+import { useBasesStore }         from '../../stores/bases'
 import { useNotificationsStore } from '../../stores/notifications'
 import { useToast }              from '../../composables/useToast'
 import ModalSheet        from '../../components/common/ModalSheet.vue'
@@ -29,6 +30,7 @@ import DateRangePicker   from '../../components/common/DateRangePicker.vue'
 import Skeleton          from '../../components/common/Skeleton.vue'
 
 const auth          = useAuthStore()
+const basesStore    = useBasesStore()
 const notifications = useNotificationsStore()
 const toast         = useToast()
 const route  = useRoute()
@@ -319,6 +321,7 @@ watch(searchQuery, () => {
 })
 
 onMounted(async () => {
+  basesStore.ensureLoaded()
   await fetchItems()
   const openId = route.query.open
   if (openId) {
@@ -783,7 +786,7 @@ async function resendCommunication(item) {
               <span class="cv-recip-name">{{ r.name || '—' }}</span>
               <span class="cv-recip-meta">
                 <span class="cv-recip-id">{{ r.driver_id || '—' }}</span>
-                <span v-if="r.base" class="cv-recip-base">{{ r.base }}</span>
+                <span v-if="r.base" v-tooltip="basesStore.tooltipOf(r.base)" class="cv-recip-base">{{ r.base }}</span>
               </span>
             </div>
             <div class="cv-recip-status">

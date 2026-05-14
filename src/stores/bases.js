@@ -39,9 +39,7 @@ export const useBasesStore = defineStore('bases', {
     tooltipOf(code) {
       if (!code) return 'No base assigned'
       const full = this.labelByCode[code]
-      return full && full !== code
-        ? `BASE ${code} · ${full}`
-        : `BASE ${code}`
+      return full && full !== code ? full : `BASE ${code}`
     },
   },
 })

@@ -29,6 +29,12 @@ const baseLabel = computed(() => {
   return b ? `${b.code} — ${b.label}` : user.value.base
 })
 
+const baseFullName = computed(() => {
+  if (!user.value?.base) return ''
+  const b = bases.value.find(x => x.code === user.value.base)
+  return b?.label || user.value.base
+})
+
 const roleLabel = computed(() =>
   user.value?.roles?.map(r => r.name).join(', ') || '—',
 )
@@ -149,7 +155,7 @@ async function confirmToggleActive() {
           <p class="us-email">{{ user.email }}</p>
           <div class="us-tags">
             <span class="us-pill us-pill--role">{{ roleLabel }}</span>
-            <span v-if="user.base" class="us-pill us-pill--base">{{ user.base }}</span>
+            <span v-if="user.base" v-tooltip="baseFullName || user.base" class="us-pill us-pill--base">{{ user.base }}</span>
             <StatusBadge :status="user.is_active ? 'active' : 'blocked'" />
           </div>
         </div>

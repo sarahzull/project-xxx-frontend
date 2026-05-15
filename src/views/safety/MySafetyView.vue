@@ -20,7 +20,10 @@ function _toISO(d) {
 }
 const _now = new Date()
 const _yesterday = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate() - 1)
-const dateFrom = ref(_toISO(_yesterday))
+// Default to last 30 days ending yesterday — drivers want a populated history,
+// not a single-day snapshot like the admin fleet view.
+const _thirtyDaysAgo = new Date(_yesterday.getFullYear(), _yesterday.getMonth(), _yesterday.getDate() - 29)
+const dateFrom = ref(_toISO(_thirtyDaysAgo))
 const dateTo   = ref(_toISO(_yesterday))
 
 // ── Mock fallback — shown when API returns no data ────────────────────────────

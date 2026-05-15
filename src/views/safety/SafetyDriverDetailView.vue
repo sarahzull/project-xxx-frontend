@@ -102,6 +102,21 @@ const TYPE_LABELS = {
 function eventTypeLabel(t) { return TYPE_LABELS[t] || t }
 const SEVERITY_LABELS = { 1: 'Low', 2: 'Medium', 3: 'High' }
 function severityLabel(n) { return SEVERITY_LABELS[n] || n }
+
+// Demo sample clips (Google's public sample-videos bucket). Used when the
+// backend has no real dashcam footage yet so the player isn't black/silent.
+const SAMPLE_VIDEOS = [
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/VolkswagenGTIReview.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+]
+function sampleVideoFor(ev) {
+  if (!ev) return SAMPLE_VIDEOS[0]
+  const key = Number(ev.id) || 0
+  return SAMPLE_VIDEOS[key % SAMPLE_VIDEOS.length]
+}
 const STATUS_LABELS = { pending: 'New', reviewed: 'Reviewed', coached: 'Coached' }
 
 function diagnosis(events) {
@@ -215,12 +230,7 @@ function diagnosis(events) {
               </span>
               <span class="sv-video-rec">● REC</span>
             </span>
-            <video v-if="activeEvent.video_url" controls :src="activeEvent.video_url" />
-            <div v-else class="sv-video-empty">
-              <ShieldAlertIcon :size="20" />
-              <p>Lytx footage not yet attached</p>
-              <p class="sv-video-empty-sub">{{ activeEvent.video_url || 'When the integration is live, the recorded clip plays here.' }}</p>
-            </div>
+            <video controls :src="sampleVideoFor(activeEvent)" :key="activeEvent.id" />
           </div>
 
           <div v-if="activeEvent.behaviors?.length" class="sv-behaviors">

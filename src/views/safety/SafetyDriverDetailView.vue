@@ -117,6 +117,23 @@ function sampleVideoFor(ev) {
   const key = Number(ev.id) || 0
   return SAMPLE_VIDEOS[key % SAMPLE_VIDEOS.length]
 }
+
+// Resolve the playable URL for an event: prefer the real video_url from the
+// backend, fall back to a rotating sample clip so the player isn't blank.
+function videoFor(ev) {
+  return ev?.video_url || sampleVideoFor(ev)
+}
+function isYouTube(url) {
+  return /(?:youtube\.com|youtu\.be)/.test(url || '')
+}
+function getEmbedUrl(url) {
+  if (!url) return null
+  const watchMatch = url.match(/[?&]v=([^&]+)/)
+  if (watchMatch) return `https://www.youtube.com/embed/${watchMatch[1]}`
+  const shortMatch = url.match(/youtu\.be\/([^?&/]+)/)
+  if (shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}`
+  return url
+}
 const STATUS_LABELS = { pending: 'New', reviewed: 'Reviewed', coached: 'Coached' }
 
 function diagnosis(events) {
@@ -230,7 +247,18 @@ function diagnosis(events) {
               </span>
               <span class="sv-video-rec">● REC</span>
             </span>
-            <video controls :src="sampleVideoFor(activeEvent)" :key="activeEvent.id" />
+            <template v-if="videoFor(activeEvent)">
+              <iframe
+                v-if="isYouTube(videoFor(activeEvent))"
+                :src="getEmbedUrl(videoFor(activeEvent))"
+                :key="activeEvent.id"
+                class="sv-video-iframe"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+              />
+              <video v-else controls :src="videoFor(activeEvent)" :key="activeEvent.id" />
+            </template>
           </div>
 
           <div v-if="activeEvent.behaviors?.length" class="sv-behaviors">
@@ -413,6 +441,7 @@ function diagnosis(events) {
 .sv-video--sev3 { border-color: rgba(220,38,38,0.45); box-shadow: 0 0 0 1px rgba(220,38,38,0.15); }
 .sv-video--sev2 { border-color: rgba(217,119,6,0.35); }
 .sv-video video { width: 100%; max-height: 280px; background: oklch(10% 0.012 250); display: block; }
+.sv-video-iframe { width: 100%; height: 280px; border: 0; background: oklch(10% 0.012 250); display: block; }
 
 .sv-video-overlay {
   position: absolute; top: 10px; left: 10px; right: 10px; z-index: 2;
